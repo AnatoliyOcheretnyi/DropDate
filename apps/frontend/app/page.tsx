@@ -82,20 +82,36 @@ export default function HomePage() {
           <article className="card">
             <p className="card-label">Наступний реліз</p>
             <h2>{release.title}</h2>
-            <dl>
-              <div>
-                <dt>Тип</dt>
-                <dd>{release.type}</dd>
-              </div>
-              <div>
-                <dt>Дата</dt>
-                <dd>{new Date(release.nextRelease).toLocaleString("uk-UA", { dateStyle: "full", timeStyle: "short" })}</dd>
-              </div>
-              <div>
-                <dt>Джерело</dt>
-                <dd>{release.source}</dd>
-              </div>
-            </dl>
+            {(() => {
+              const releaseDate = new Date(release.nextRelease);
+              const formattedDate = releaseDate.toLocaleDateString("uk-UA", {
+                day: "numeric",
+                month: "long",
+                year: "numeric"
+              });
+              const formattedWeekday = releaseDate.toLocaleDateString("uk-UA", {
+                weekday: "long"
+              });
+              return (
+                <dl>
+                  <div>
+                    <dt>Тип</dt>
+                    <dd>{release.type}</dd>
+                  </div>
+                  <div>
+                    <dt>Дата</dt>
+                    <dd className="date">
+                      <span>{formattedDate}</span>
+                      <span>{formattedWeekday}</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Джерело</dt>
+                    <dd>{release.source}</dd>
+                  </div>
+                </dl>
+              );
+            })()}
           </article>
         </section>
       )}

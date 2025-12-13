@@ -12,10 +12,17 @@ out/
 bin/
 apps/backend/bin/
 
+# Expo artifacts
+.expo/
+apps/mobile/.expo/
+apps/mobile/.expo-shared/
+
 # Env files
 .env
 .env.*
 apps/frontend/.env.local
+apps/mobile/.env
+apps/mobile/.env.local
 
 # Logs/temp
 npm-debug.log*

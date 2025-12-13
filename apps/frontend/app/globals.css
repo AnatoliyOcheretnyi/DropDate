@@ -154,6 +154,23 @@ dl dt {
 dl dd {
   margin: 0;
   font-size: 1.1rem;
+  word-break: break-word;
+}
+
+dd.date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+dd.date span:first-child {
+  font-weight: 600;
+}
+
+dd.date span:last-child {
+  text-transform: capitalize;
+  color: rgba(245, 245, 245, 0.8);
+  font-size: 0.95rem;
 }
 
 @media (min-width: 600px) {

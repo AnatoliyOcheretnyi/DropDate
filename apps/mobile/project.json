@@ -1,0 +1,37 @@
+{
+  "name": "mobile",
+  "root": "apps/mobile",
+  "sourceRoot": "apps/mobile/src",
+  "projectType": "application",
+  "targets": {
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx expo start",
+        "cwd": "apps/mobile"
+      }
+    },
+    "android": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx expo run:android",
+        "cwd": "apps/mobile"
+      }
+    },
+    "ios": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx expo run:ios",
+        "cwd": "apps/mobile"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx expo lint",
+        "cwd": "apps/mobile"
+      }
+    }
+  },
+  "tags": []
+}

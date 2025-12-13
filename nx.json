@@ -30,6 +30,7 @@
   },
   "projects": {
     "backend": "apps/backend",
-    "frontend": "apps/frontend"
+    "frontend": "apps/frontend",
+    "mobile": "apps/mobile"
   }
 }

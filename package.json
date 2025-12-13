@@ -7,7 +7,8 @@
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
     "dev:frontend": "nx run frontend:dev",
-    "dev:backend": "nx run backend:serve"
+    "dev:backend": "nx run backend:serve",
+    "dev:mobile": "nx run mobile:start"
   },
   "devDependencies": {
     "nx": "22.2.3"
