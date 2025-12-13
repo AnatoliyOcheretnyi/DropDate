@@ -1,2 +1,5 @@
 # Build cache created when we override GOCACHE
 .gocache/
+
+# Air temp dir with compiled binaries
+.air/

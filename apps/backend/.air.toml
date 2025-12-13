@@ -1,0 +1,12 @@
+root = "."
+tmp_dir = ".air"
+
+[build]
+# Air викликає збірку на кожну зміну й запускає бінарник з tmp_dir.
+cmd = "go build -o .air/dropdate ./cmd/api"
+bin = ".air/dropdate"
+include_ext = ["go"]
+exclude_dir = [".git", ".air", ".gocache"]
+
+[log]
+timestamp = true

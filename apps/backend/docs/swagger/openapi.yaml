@@ -1,0 +1,64 @@
+openapi: 3.0.3
+info:
+  title: DropDate API
+  version: "0.1.0"
+  description: |-
+    Проста API, щоб перевірити статус сервера та дізнатись дату наступного релізу фільму/серіалу.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Повертає простий статус, що сервер живий.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /next-release:
+    get:
+      summary: Наступна дата релізу
+      description: Повертає інформацію про найближчий реліз фільму або серіалу.
+      parameters:
+        - in: query
+          name: title
+          schema:
+            type: string
+          required: true
+          description: Назва фільму або серіалу (нечутлива до регістру).
+      responses:
+        '200':
+          description: Вдало знайшли реліз
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseInfo'
+        '400':
+          description: Не передали title
+        '404':
+          description: Не знайшли реліз
+components:
+  schemas:
+    ReleaseInfo:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Dune: Part Two"
+        type:
+          type: string
+          enum: [movie, series]
+        nextRelease:
+          type: string
+          format: date-time
+          example: 2024-03-01T00:00:00Z
+        source:
+          type: string
+          example: tmdb-mock

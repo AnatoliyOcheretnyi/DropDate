@@ -2,20 +2,33 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 )
 
-// application will hold references to future dependencies.
-type application struct{}
+// application зберігає всі залежності HTTP-шару.
+type application struct {
+	releases *release.Service
+}
 
 func main() {
-	app := &application{}
+	app := &application{
+		releases: release.NewService(),
+	}
 
+	// http.NewServeMux() створює внутрішній роутер "шлях -> хендлер".
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", app.healthHandler)
+	mux.HandleFunc("/next-release", app.nextReleaseHandler)
+	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
+	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
 
+	// http.Server дає контроль над портом, таймаутами та middleware-ланцюжком.
 	server := &http.Server{
 		Addr:              ":8080",
 		Handler:           mux,
@@ -42,6 +55,35 @@ func (app *application) healthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("failed to encode response: %v", err)
+	}
+}
+
+func (app *application) nextReleaseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	title := strings.TrimSpace(r.URL.Query().Get("title"))
+	if title == "" {
+		http.Error(w, "title query parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	info, err := app.releases.NextRelease(title)
+	if err != nil {
+		if errors.Is(err, release.ErrNotFound) {
+			http.Error(w, "release not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("release lookup failed: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(info); err != nil {
 		log.Printf("failed to encode response: %v", err)
 	}
 }
