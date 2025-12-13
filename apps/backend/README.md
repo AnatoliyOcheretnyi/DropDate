@@ -1,43 +1,51 @@
 # DropDate Backend
 
-Просто мінімальний Go HTTP сервер, щоб перевірити, що ми можемо відповідати на GET-запити і віддавати `200`.
+Minimal Go HTTP API that powers the `/next-release` endpoint and feeds the DropDate frontend/mobile clients.
 
-## Як запустити
+## Prerequisites
+
+- Go 1.21+
+- [Air](https://github.com/air-verse/air) (optional, but used for dev workflow)
+
+Install Air once:
 
 ```bash
-cd apps/backend
-GO111MODULE=on go run ./cmd/api
+GO111MODULE=on go install github.com/air-verse/air@latest
 ```
 
-Очікуємо побачити в логах `DropDate API listening on :8080`. Потім можна:
+Make sure `$GOPATH/bin` is in your `PATH`, e.g. `export PATH="$HOME/go/bin:$PATH"`.
 
-- `curl http://localhost:8080/health` — швидкий пінг, повертає `{"status":"ok"}`.
-- `curl "http://localhost:8080/next-release?title=Dune:%20Part%20Two"` — демо-запит про майбутній реліз фільму/серіалу.
+## Local development
 
-## Автоперезапуск через Air
+From repo root (recommended):
 
-1. Один раз встанови тул: `go install github.com/air-verse/air@latest` (проєкт переїхав з `cosmtrek`).
-2. Додай його в PATH (наприклад, у `.zshrc`):
-   ```bash
-   export PATH="$HOME/go/bin:$PATH"
-   ```
-3. Запускай із `apps/backend`: просто `air`. Він читатиме `.air.toml`, збиратиме бінарник у `.air/` і перезапускатиме сервер при зміні `.go`.
+```bash
+yarn dev:backend    # uses Nx target backend:serve -> air
+```
 
-## Swagger UI
+Manual alternative from inside `apps/backend`:
 
-- `http://localhost:8080/swagger/` — вбудована сторінка Swagger UI (тягне CSS/JS з CDN).
-- Спека розташована у `docs/swagger/openapi.yaml`. Редагуй її, коли додаєш або змінюєш ендпоінти.
+```bash
+air                # hot reload
+# or
+go run ./cmd/api   # no reload, simplest entry
+```
 
-## Дані з TVMaze
+The server listens on `http://localhost:8080`. Useful requests:
 
-- `/next-release` тепер ходить у публічний API [TVMaze](https://www.tvmaze.com/api), тож додаткові ключі не потрібні.
-- API віддає найближчий епізод для серіалів. Для фільмів поки повернеться `404` (немає даних у TVMaze).
+- `curl http://localhost:8080/health` – quick ping that returns `{"status":"ok"}`.
+- `curl "http://localhost:8080/next-release?title=Dune"` – fetches the next known release date from TVMaze.
 
-## Що всередині
+## Swagger / OpenAPI
 
-- `cmd/api/main.go` — точка входу. Там створюється `http.Server`, піднімається `ServeMux` і реєструється хендлер `/health`.
-- `healthHandler` перевіряє, що це `GET`, і віддає маленький JSON `{"status": "ok"}`. Це гарантує статус `200` за замовчуванням.
-- `nextReleaseHandler` читає query-параметр `title`, дергає моковий сервіс релізів і повертає інформацію у вигляді JSON.
-- `release.Service` використовує `internal/tvmaze.Client`, щоб тягнути наступні епізоди з публічного API.
+- Documentation UI is served at `http://localhost:8080/swagger/`.
+- Spec lives in `apps/backend/docs/swagger/openapi.yaml`. Update it whenever you add/modify endpoints.
 
-Це база для наступних ітерацій: додамо кеш, звернення до TMDB/TVMaze, а поки маємо стабільне «живе» API.
+## Architecture at a glance
+
+- `cmd/api/main.go` wires the HTTP server, mux, and endpoints.
+- `internal/release.Service` encapsulates business logic around fetching/sanitizing release data.
+- `internal/tvmaze.Client` performs outbound HTTP calls to the public [TVMaze API](https://www.tvmaze.com/api).
+- All responses are JSON-encoded; errors use idiomatic HTTP status codes (400, 404, etc.).
+
+This service is intentionally small but production-friendly: future steps include caching, additional sources (TMDB), and richer error reporting.

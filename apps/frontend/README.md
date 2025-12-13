@@ -1,14 +1,31 @@
 # DropDate Frontend
 
-Next.js фронт, що працює поверх DropDate backend API.
+Next.js 14 single-page UI that searches DropDate backend for the next release of a show/movie. Responsive layout, Ukrainian copy.
 
-## Швидкий старт
+## Quick start
 
 ```bash
 cd apps/frontend
-cp .env.example .env.local # за потреби вкажи іншу адресу бекенду
-npm install
-npm run dev
+cp .env.example .env.local   # tweak BACKEND_URL if backend runs elsewhere
+yarn install                 # or npm/pnpm if you prefer
+yarn dev                     # dev server on http://localhost:3000
 ```
 
-Після цього UI доступний на http://localhost:3000, запити прокситься на бекенд через `/api/next-release`.
+From repo root you can also run `yarn dev:frontend` (Nx target).
+
+## API proxy
+
+Requests go through the Next.js route `/api/next-release`, which forwards to the Go API and keeps the browser free from CORS headaches. Adjust the backend URL via `.env.local`.
+
+## Scripts
+
+- `yarn dev` – Next.js dev server with hot reload.
+- `yarn build` – production build (outputs `.next`).
+- `yarn start` – serve the production build.
+- `yarn lint` – ESLint with `next/core-web-vitals`.
+
+## Roadmap
+
+- Add loading skeletons & optimistic UI.
+- Hook up testing (Playwright or React Testing Library).
+- Sync with upcoming mobile client once it’s ready.

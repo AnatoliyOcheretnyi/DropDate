@@ -1,0 +1,15 @@
+{
+  "name": "dropdate",
+  "private": true,
+  "scripts": {
+    "nx": "nx",
+    "build": "nx run-many -t build",
+    "lint": "nx run-many -t lint",
+    "test": "nx run-many -t test",
+    "dev:frontend": "nx run frontend:dev",
+    "dev:backend": "nx run backend:serve"
+  },
+  "devDependencies": {
+    "nx": "22.2.3"
+  }
+}

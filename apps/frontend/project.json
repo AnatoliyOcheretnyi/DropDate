@@ -1,0 +1,39 @@
+{
+  "name": "frontend",
+  "root": "apps/frontend",
+  "sourceRoot": "apps/frontend/app",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn dev",
+        "cwd": "apps/frontend"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/.next", "{projectRoot}/out"],
+      "options": {
+        "command": "yarn build",
+        "cwd": "apps/frontend"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn lint",
+        "cwd": "apps/frontend"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn start",
+        "cwd": "apps/frontend"
+      },
+      "dependsOn": ["build"]
+    }
+  },
+  "tags": []
+}

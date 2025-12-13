@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Node/Nx artifacts
+node_modules/
+.nx/
+.next/
+out/
+.dist/
+
+# Go build outputs
+bin/
+apps/backend/bin/
+
+# Env files
+.env
+.env.*
+apps/frontend/.env.local
+
+# Logs/temp
+npm-debug.log*
+yarn-error.log*
