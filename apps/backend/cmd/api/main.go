@@ -1,14 +1,15 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
-	"log"
-	"net/http"
-	"strings"
-	"time"
+	"encoding/json" // стандартна бібліотека для кодування/декодування JSON.
+	"errors"        // помічник для роботи з помилками та errors.Is().
+	"log"           // вбудований логгер, щоб писати в stdout.
+	"net/http"      // базовий HTTP-стек Go.
+	"strings"       // утиліти рядків для обрізання пробілів.
+	"time"          // робота з часом та таймаутами.
 
-	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/release" // бізнес-логіка релізів.
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/tvmaze"  // HTTP-клієнт до зовнішнього API.
 )
 
 // application зберігає всі залежності HTTP-шару.
@@ -17,8 +18,10 @@ type application struct {
 }
 
 func main() {
+	// окремо створюємо клієнт до TVMaze, щоб інжектити як залежність.
+	tvmazeClient := tvmaze.NewClient(&http.Client{Timeout: 5 * time.Second})
 	app := &application{
-		releases: release.NewService(),
+		releases: release.NewService(tvmazeClient),
 	}
 
 	// http.NewServeMux() створює внутрішній роутер "шлях -> хендлер".
@@ -71,7 +74,7 @@ func (app *application) nextReleaseHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	info, err := app.releases.NextRelease(title)
+	info, err := app.releases.NextRelease(r.Context(), title)
 	if err != nil {
 		if errors.Is(err, release.ErrNotFound) {
 			http.Error(w, "release not found", http.StatusNotFound)

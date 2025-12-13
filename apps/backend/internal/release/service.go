@@ -1,15 +1,17 @@
 package release
 
 import (
+	"context"
 	"errors"
-	"strings"
 	"time"
+
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/tvmaze"
 )
 
 // Info описує наступний реліз фільму або серіалу.
 type Info struct {
 	Title       string    `json:"title"`
-	Type        string    `json:"type"` // movie або series
+	Type        string    `json:"type"`
 	NextRelease time.Time `json:"nextRelease"`
 	Source      string    `json:"source"`
 }
@@ -19,41 +21,33 @@ var (
 	ErrNotFound = errors.New("release not found")
 )
 
-// Service поки тримає мокові дані в памʼяті.
+// Service працює поверх TVMaze API.
 type Service struct {
-	data map[string]Info
+	tvmaze *tvmaze.Client
 }
 
-// NewService ініціалізує сервіс набором статичних релізів.
-func NewService() *Service {
-	seed := []Info{
-		{
-			Title:       "Dune: Part Two",
-			Type:        "movie",
-			NextRelease: time.Date(2024, time.March, 1, 0, 0, 0, 0, time.UTC),
-			Source:      "tmdb-mock",
-		},
-		{
-			Title:       "Stranger Things",
-			Type:        "series",
-			NextRelease: time.Date(2025, time.August, 15, 0, 0, 0, 0, time.UTC),
-			Source:      "tvmaze-mock",
-		},
+// NewService приймає залежність у вигляді клієнта.
+func NewService(client *tvmaze.Client) *Service {
+	if client == nil {
+		client = tvmaze.NewClient(nil)
 	}
-
-	data := make(map[string]Info, len(seed))
-	for _, info := range seed {
-		data[strings.ToLower(info.Title)] = info
-	}
-
-	return &Service{data: data}
+	return &Service{tvmaze: client}
 }
 
-// NextRelease повертає реліз за назвою.
-func (s *Service) NextRelease(title string) (Info, error) {
-	info, ok := s.data[strings.ToLower(title)]
-	if !ok {
-		return Info{}, ErrNotFound
+// NextRelease витягує дані з TVMaze і мапить у нашу структуру.
+func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
+	info, err := s.tvmaze.NextRelease(ctx, title)
+	if err != nil {
+		if errors.Is(err, tvmaze.ErrNotFound) {
+			return Info{}, ErrNotFound
+		}
+		return Info{}, err
 	}
-	return info, nil
+
+	return Info{
+		Title:       info.Title,
+		Type:        info.Type,
+		NextRelease: info.NextRelease,
+		Source:      info.Source,
+	}, nil
 }

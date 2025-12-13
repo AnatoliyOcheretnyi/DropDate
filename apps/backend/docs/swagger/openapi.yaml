@@ -25,7 +25,9 @@ paths:
   /next-release:
     get:
       summary: Наступна дата релізу
-      description: Повертає інформацію про найближчий реліз фільму або серіалу.
+      description: >
+        Повертає інформацію про найближчий реліз. Дані беремо з TVMaze, тож поки
+        підтримуються лише серіали.
       parameters:
         - in: query
           name: title
