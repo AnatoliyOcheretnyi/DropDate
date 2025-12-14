@@ -109,6 +109,10 @@ components:
         source:
           type: string
           example: tmdb-mock
+        posterUrl:
+          type: string
+          format: uri
+          example: "https://image.tmdb.org/t/p/w342/abc123.jpg"
     Suggestion:
       type: object
       properties:

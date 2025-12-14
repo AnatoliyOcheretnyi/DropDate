@@ -7,6 +7,7 @@ type ReleaseInfo = {
   type: string;
   nextRelease: string;
   source: string;
+  posterUrl?: string;
 };
 
 type Suggestion = {
@@ -177,37 +178,48 @@ export default function HomePage() {
         <section className="result">
           <article className="card">
             <p className="card-label">Наступний реліз</p>
-            <h2>{release.title}</h2>
-            {(() => {
-              const releaseDate = new Date(release.nextRelease);
-              const formattedDate = releaseDate.toLocaleDateString("uk-UA", {
-                day: "numeric",
-                month: "long",
-                year: "numeric"
-              });
-              const formattedWeekday = releaseDate.toLocaleDateString("uk-UA", {
-                weekday: "long"
-              });
-              return (
-                <dl>
-                  <div>
-                    <dt>Тип</dt>
-                    <dd>{release.type}</dd>
-                  </div>
-                  <div>
-                    <dt>Дата</dt>
-                    <dd className="date">
-                      <span>{formattedDate}</span>
-                      <span>{formattedWeekday}</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Джерело</dt>
-                    <dd>{release.source}</dd>
-                  </div>
-                </dl>
-              );
-            })()}
+            <div className="card-body">
+              <div className={`poster${release.posterUrl ? "" : " placeholder"}`}>
+                {release.posterUrl ? (
+                  <img src={release.posterUrl} alt={release.title} loading="lazy" />
+                ) : (
+                  <span>{release.title.slice(0, 1)}</span>
+                )}
+              </div>
+              <div className="card-details">
+                <h2>{release.title}</h2>
+                {(() => {
+                  const releaseDate = new Date(release.nextRelease);
+                  const formattedDate = releaseDate.toLocaleDateString("uk-UA", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric"
+                  });
+                  const formattedWeekday = releaseDate.toLocaleDateString("uk-UA", {
+                    weekday: "long"
+                  });
+                  return (
+                    <dl>
+                      <div>
+                        <dt>Тип</dt>
+                        <dd>{release.type}</dd>
+                      </div>
+                      <div>
+                        <dt>Дата</dt>
+                        <dd className="date">
+                          <span>{formattedDate}</span>
+                          <span>{formattedWeekday}</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Джерело</dt>
+                        <dd>{release.source}</dd>
+                      </div>
+                    </dl>
+                  );
+                })()}
+              </div>
+            </div>
           </article>
         </section>
       )}

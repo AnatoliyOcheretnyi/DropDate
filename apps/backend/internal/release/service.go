@@ -16,6 +16,7 @@ type Info struct {
 	Type        string    `json:"type"`
 	NextRelease time.Time `json:"nextRelease"`
 	Source      string    `json:"source"`
+	PosterURL   string    `json:"posterUrl,omitempty"`
 }
 
 // Suggestion describes minimal search result.
@@ -66,6 +67,7 @@ func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
 				Type:        info.Type,
 				NextRelease: info.NextRelease,
 				Source:      info.Source,
+				PosterURL:   info.PosterURL,
 			}, nil
 		}
 		if errors.Is(err, tvmaze.ErrNotFound) {
@@ -87,6 +89,7 @@ func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
 				Type:        info.Type,
 				NextRelease: info.NextRelease,
 				Source:      info.Source,
+				PosterURL:   info.PosterURL,
 			}, nil
 		}
 		if errors.Is(err, tmdb.ErrNotFound) {

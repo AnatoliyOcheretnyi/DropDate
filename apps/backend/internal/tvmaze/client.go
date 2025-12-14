@@ -33,6 +33,7 @@ type ReleaseInfo struct {
 	Type        string
 	NextRelease time.Time
 	Source      string
+	PosterURL   string
 }
 
 // ErrNotFound повертаємо, коли API не знайшло серіал.
@@ -79,11 +80,17 @@ func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, er
 		return ReleaseInfo{}, err
 	}
 
+	poster := ""
+	if payload.Image != nil {
+		poster = payload.Image.Medium
+	}
+
 	return ReleaseInfo{
 		Title:       payload.Name,
 		Type:        "series",
 		NextRelease: parsedTime,
 		Source:      "tvmaze",
+		PosterURL:   poster,
 	}, nil
 }
 
@@ -92,6 +99,12 @@ type singleSearchResponse struct {
 	Name     string               `json:"name"`
 	Type     string               `json:"type"`
 	Embedded *embeddedInformation `json:"_embedded"`
+	Image    *showImage           `json:"image"`
+}
+
+type showImage struct {
+	Medium   string `json:"medium"`
+	Original string `json:"original"`
 }
 
 type embeddedInformation struct {

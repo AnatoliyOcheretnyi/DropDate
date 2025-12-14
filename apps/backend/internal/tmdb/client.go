@@ -11,6 +11,7 @@ import (
 )
 
 const defaultBaseURL = "https://api.themoviedb.org/3"
+const posterBaseURL = "https://image.tmdb.org/t/p/w342"
 
 // Client represents a TMDB HTTP client.
 type Client struct {
@@ -25,6 +26,7 @@ type ReleaseInfo struct {
 	Type        string
 	NextRelease time.Time
 	Source      string
+	PosterURL   string
 }
 
 // Suggestion is a lightweight search result.
@@ -173,11 +175,17 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 		return ReleaseInfo{}, err
 	}
 
+	poster := ""
+	if payload.PosterPath != "" {
+		poster = buildPosterURL(payload.PosterPath)
+	}
+
 	return ReleaseInfo{
 		Title:       payload.Name,
 		Type:        "series",
 		NextRelease: releaseDate,
 		Source:      "tmdb",
+		PosterURL:   poster,
 	}, nil
 }
 
@@ -205,11 +213,17 @@ func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
 		return ReleaseInfo{}, err
 	}
 
+	poster := ""
+	if payload.PosterPath != "" {
+		poster = buildPosterURL(payload.PosterPath)
+	}
+
 	return ReleaseInfo{
 		Title:       payload.Title,
 		Type:        "movie",
 		NextRelease: releaseDate,
 		Source:      "tmdb",
+		PosterURL:   poster,
 	}, nil
 }
 
@@ -254,6 +268,7 @@ type multiSearchResponse struct {
 type tvDetailsResponse struct {
 	Name        string              `json:"name"`
 	NextEpisode *tvNextEpisodeEntry `json:"next_episode_to_air"`
+	PosterPath  string              `json:"poster_path"`
 }
 
 type tvNextEpisodeEntry struct {
@@ -263,6 +278,7 @@ type tvNextEpisodeEntry struct {
 type movieDetailsResponse struct {
 	Title       string `json:"title"`
 	ReleaseDate string `json:"release_date"`
+	PosterPath  string `json:"poster_path"`
 }
 
 func yearFromDate(date string) string {
@@ -270,4 +286,11 @@ func yearFromDate(date string) string {
 		return date[:4]
 	}
 	return ""
+}
+
+func buildPosterURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", posterBaseURL, path)
 }

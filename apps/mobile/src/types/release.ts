@@ -3,6 +3,7 @@ export type ReleaseInfo = {
   type: string;
   nextRelease: string;
   source: string;
+  posterUrl?: string;
 };
 
 export type Suggestion = {

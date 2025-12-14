@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import type { ReleaseInfo } from '../types/release';
 
@@ -12,15 +12,27 @@ type Props = {
 
 export function ReleaseCard({ release }: Props) {
   const date = formatter.format(new Date(release.nextRelease));
+  const placeholder = !release.posterUrl;
 
   return (
     <View style={styles.card}>
       <Text style={styles.label}>Наступний реліз</Text>
-      <Text style={styles.title}>{release.title}</Text>
-      <View style={styles.details}>
-        <Detail label="Тип" value={release.type} />
-        <Detail label="Дата" value={date} />
-        <Detail label="Джерело" value={release.source} />
+      <View style={styles.content}>
+        <View style={[styles.poster, placeholder && styles.posterPlaceholder]}>
+          {release.posterUrl ? (
+            <Image source={{ uri: release.posterUrl }} style={styles.posterImage} />
+          ) : (
+            <Text style={styles.posterLetter}>{release.title.slice(0, 1)}</Text>
+          )}
+        </View>
+        <View style={styles.infoColumn}>
+          <Text style={styles.title}>{release.title}</Text>
+          <View style={styles.details}>
+            <Detail label="Тип" value={release.type} />
+            <Detail label="Дата" value={date} />
+            <Detail label="Джерело" value={release.source} />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -50,10 +62,43 @@ const styles = StyleSheet.create({
     color: colors.eyebrow,
     fontSize: 12,
   },
+  content: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'center',
+  },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
+  },
+  poster: {
+    width: 120,
+    height: 180,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posterPlaceholder: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  infoColumn: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 12,
+  },
+  posterImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+  },
+  posterLetter: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: '700',
   },
   details: {
     gap: 12,
