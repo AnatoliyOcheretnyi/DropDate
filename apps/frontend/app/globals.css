@@ -30,6 +30,32 @@ main.page {
   gap: 2rem;
 }
 
+.tabs {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.3rem;
+  gap: 0.35rem;
+  width: fit-content;
+}
+
+.tabs button {
+  border: none;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.7);
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.tabs button.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
 .hero h1 {
   font-size: clamp(2.8rem, 8vw, 4rem);
   margin: 0.2rem 0;
@@ -151,6 +177,13 @@ main.page {
   font-weight: 600;
 }
 
+.suggestion-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .suggestion-meta {
   margin: 0;
   font-size: 0.8rem;
@@ -159,12 +192,27 @@ main.page {
   letter-spacing: 0.2rem;
 }
 
+.saved-pill {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  color: var(--accent);
+}
+
 .card {
   border-radius: 1.5rem;
   padding: 1.75rem;
   background: var(--card-bg);
   border: 1px solid var(--border);
   backdrop-filter: blur(20px);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
 }
 
 .card-label {
@@ -265,6 +313,45 @@ dd.date span:last-child {
   text-transform: capitalize;
   color: rgba(245, 245, 245, 0.8);
   font-size: 0.95rem;
+}
+
+.secondary {
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.secondary.danger {
+  border-color: rgba(255, 122, 133, 0.5);
+  color: var(--error);
+}
+
+.saved-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card.compact .poster {
+  width: 100px;
 }
 
 @media (min-width: 600px) {

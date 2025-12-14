@@ -3,6 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getReleaseStatusLabel, type ReleaseInfo, type Suggestion } from "../lib/release";
 
+const STORAGE_KEY = "dropdate:saved-releases";
+
+type SavedRelease = ReleaseInfo & { id: string };
+
+const normalizeTitle = (value: string) => value.trim().toLowerCase();
+const releaseIdentifier = (title: string, type: ReleaseInfo["type"]) =>
+  `${normalizeTitle(title)}::${type}`;
+const getReleaseId = (release: ReleaseInfo) => releaseIdentifier(release.title, release.type);
+const getSuggestionId = (suggestion: Suggestion) =>
+  releaseIdentifier(suggestion.title, suggestion.mediaType === "movie" ? "movie" : "series");
+
 export default function HomePage() {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -11,7 +22,38 @@ export default function HomePage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
+  const [savedReleases, setSavedReleases] = useState<SavedRelease[]>([]);
   const controllerRef = useRef<AbortController | null>(null);
+  const hasHydratedStorage = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SavedRelease[];
+        setSavedReleases(parsed);
+      }
+    } catch {
+      // ignore broken storage
+    } finally {
+      hasHydratedStorage.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasHydratedStorage.current) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedReleases));
+    } catch {
+      // ignore write errors
+    }
+  }, [savedReleases]);
 
   useEffect(() => {
     const trimmed = title.trim();
@@ -113,6 +155,29 @@ export default function HomePage() {
     fetchRelease(title, selectedSuggestion);
   };
 
+  const isCurrentSaved =
+    release && savedReleases.some((item) => item.id === getReleaseId(release));
+
+  const handleSaveCurrent = () => {
+    if (!release || isCurrentSaved) {
+      return;
+    }
+    const entry: SavedRelease = {
+      ...release,
+      id: getReleaseId(release)
+    };
+    setSavedReleases((prev) => [...prev, entry]);
+  };
+
+  const handleRemoveSaved = (id: string) => {
+    setSavedReleases((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const suggestionIsSaved = (suggestion: Suggestion) => {
+    const id = getSuggestionId(suggestion);
+    return savedReleases.some((item) => item.id === id);
+  };
+
   return (
     <main className="page">
       <section className="hero">
@@ -123,7 +188,25 @@ export default function HomePage() {
         </p>
       </section>
 
-      <section className="search">
+      <nav className="tabs">
+        <button
+          type="button"
+          className={activeTab === "search" ? "active" : ""}
+          onClick={() => setActiveTab("search")}
+        >
+          Пошук
+        </button>
+        <button
+          type="button"
+          className={activeTab === "saved" ? "active" : ""}
+          onClick={() => setActiveTab("saved")}
+        >
+          Мій список ({savedReleases.length})
+        </button>
+      </nav>
+
+      {activeTab === "search" && (
+        <section className="search">
         <form className="search-form" onSubmit={handleSubmit}>
           <label htmlFor="title">Назва</label>
           <div className="search-input-group">
@@ -148,10 +231,13 @@ export default function HomePage() {
               <li key={`${suggestion.mediaType}-${suggestion.id}`}>
                 <button type="button" onClick={() => handleSuggestionSelect(suggestion)}>
                   <p className="suggestion-title">{suggestion.title}</p>
-                  <p className="suggestion-meta">
-                    {suggestion.mediaType === "movie" ? "Фільм" : "Серіал"}
-                    {suggestion.year ? ` · ${suggestion.year}` : ""}
-                  </p>
+                  <div className="suggestion-meta-row">
+                    <p className="suggestion-meta">
+                      {suggestion.mediaType === "movie" ? "Фільм" : "Серіал"}
+                      {suggestion.year ? ` · ${suggestion.year}` : ""}
+                    </p>
+                    {suggestionIsSaved(suggestion) && <span className="saved-pill">У списку</span>}
+                  </div>
                 </button>
               </li>
             ))}
@@ -159,11 +245,22 @@ export default function HomePage() {
         )}
         {error && <p className="error">{error}</p>}
       </section>
+      )}
 
-      {release && (
+      {activeTab === "search" && release && (
         <section className="result">
           <article className="card">
-            <p className="card-label">{getReleaseStatusLabel(release.status, release.type)}</p>
+            <div className="card-head">
+              <p className="card-label">{getReleaseStatusLabel(release.status, release.type)}</p>
+              <button
+                type="button"
+                className="secondary"
+                onClick={handleSaveCurrent}
+                disabled={Boolean(isCurrentSaved)}
+              >
+                {isCurrentSaved ? "У списку" : "Додати у список"}
+              </button>
+            </div>
             <div className="card-body">
               <div className={`poster${release.posterUrl ? "" : " placeholder"}`}>
                 {release.posterUrl ? (
@@ -174,41 +271,84 @@ export default function HomePage() {
               </div>
               <div className="card-details">
                 <h2>{release.title}</h2>
-                {(() => {
-                  const releaseDate = new Date(release.nextRelease);
-                  const formattedDate = releaseDate.toLocaleDateString("uk-UA", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric"
-                  });
-                  const formattedWeekday = releaseDate.toLocaleDateString("uk-UA", {
-                    weekday: "long"
-                  });
-                  return (
-                    <dl>
-                      <div>
-                        <dt>Тип</dt>
-                        <dd>{release.type}</dd>
-                      </div>
-                      <div>
-                        <dt>Дата</dt>
-                        <dd className="date">
-                          <span>{formattedDate}</span>
-                          <span>{formattedWeekday}</span>
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Джерело</dt>
-                        <dd>{release.source}</dd>
-                      </div>
-                    </dl>
-                  );
-                })()}
+                <ReleaseDetails release={release} />
               </div>
             </div>
           </article>
         </section>
       )}
+
+      {activeTab === "saved" && (
+        <section className="saved">
+          {savedReleases.length === 0 ? (
+            <p className="hint">Поки що порожньо. Додай перший тайтл через вкладку “Пошук”.</p>
+          ) : (
+            <ul className="saved-list">
+              {savedReleases.map((item) => (
+                <li key={item.id}>
+                  <article className="card compact">
+                    <div className="card-head">
+                      <p className="card-label">{getReleaseStatusLabel(item.status, item.type)}</p>
+                      <button
+                        type="button"
+                        className="secondary danger"
+                        onClick={() => handleRemoveSaved(item.id)}
+                      >
+                        Прибрати
+                      </button>
+                    </div>
+                    <div className="card-body">
+                      <div className={`poster${item.posterUrl ? "" : " placeholder"}`}>
+                        {item.posterUrl ? (
+                          <img src={item.posterUrl} alt={item.title} loading="lazy" />
+                        ) : (
+                          <span>{item.title.slice(0, 1)}</span>
+                        )}
+                      </div>
+                      <div className="card-details">
+                        <h2>{item.title}</h2>
+                        <ReleaseDetails release={item} />
+                      </div>
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </main>
+  );
+}
+
+function ReleaseDetails({ release }: { release: ReleaseInfo }) {
+  const releaseDate = new Date(release.nextRelease);
+  const formattedDate = releaseDate.toLocaleDateString("uk-UA", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  const formattedWeekday = releaseDate.toLocaleDateString("uk-UA", {
+    weekday: "long"
+  });
+
+  return (
+    <dl>
+      <div>
+        <dt>Тип</dt>
+        <dd>{release.type}</dd>
+      </div>
+      <div>
+        <dt>Дата</dt>
+        <dd className="date">
+          <span>{formattedDate}</span>
+          <span>{formattedWeekday}</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Джерело</dt>
+        <dd>{release.source}</dd>
+      </div>
+    </dl>
   );
 }
