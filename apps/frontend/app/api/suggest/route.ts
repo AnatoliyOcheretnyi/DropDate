@@ -4,25 +4,17 @@ const DEFAULT_BACKEND_URL = "http://localhost:8080";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const title = searchParams.get("title");
-  const tmdbId = searchParams.get("tmdbId");
-  const mediaType = searchParams.get("mediaType");
+  const query = searchParams.get("query");
+  const limit = searchParams.get("limit") || "5";
 
-  if (!title && !tmdbId) {
-    return NextResponse.json({ message: "Потрібно передати title або tmdbId" }, { status: 400 });
+  if (!query || query.trim().length < 2) {
+    return NextResponse.json({ message: "query is required" }, { status: 400 });
   }
 
   const backendBase = process.env.BACKEND_URL || DEFAULT_BACKEND_URL;
-  const backendURL = new URL("/next-release", backendBase);
-  if (title) {
-    backendURL.searchParams.set("title", title);
-  }
-  if (tmdbId) {
-    backendURL.searchParams.set("tmdbId", tmdbId);
-  }
-  if (mediaType) {
-    backendURL.searchParams.set("mediaType", mediaType);
-  }
+  const backendURL = new URL("/suggest", backendBase);
+  backendURL.searchParams.set("query", query);
+  backendURL.searchParams.set("limit", limit);
 
   try {
     const backendResponse = await fetch(backendURL, {

@@ -18,6 +18,14 @@ type Info struct {
 	Source      string    `json:"source"`
 }
 
+// Suggestion describes minimal search result.
+type Suggestion struct {
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	MediaType string `json:"mediaType"`
+	Year      string `json:"year,omitempty"`
+}
+
 var (
 	// ErrNotFound повертаємо, коли користувач питає про невідомий тайтл.
 	ErrNotFound = errors.New("release not found")
@@ -97,4 +105,28 @@ func (s *Service) logf(format string, args ...any) {
 	if s.logger != nil {
 		s.logger.Printf(format, args...)
 	}
+}
+
+// Suggestions returns lightweight TMDB matches.
+func (s *Service) Suggestions(ctx context.Context, query string, limit int) ([]Suggestion, error) {
+	if s.tmdb == nil {
+		return []Suggestion{}, nil
+	}
+
+	results, err := s.tmdb.Suggestions(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(results))
+	for _, res := range results {
+		out = append(out, Suggestion{
+			ID:        res.ID,
+			Title:     res.Title,
+			MediaType: res.MediaType,
+			Year:      res.Year,
+		})
+	}
+
+	return out, nil
 }

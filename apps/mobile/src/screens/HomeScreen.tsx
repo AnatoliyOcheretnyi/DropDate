@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,14 +14,94 @@ import {
 import { ReleaseCard } from '../components/ReleaseCard';
 import { useNextRelease } from '../hooks/useNextRelease';
 import { colors } from '../theme/colors';
+import type { Suggestion } from '../types/release';
+import { getBackendURL } from '../utils/config';
 
 export default function HomeScreen() {
   const [title, setTitle] = useState('');
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+
   const { release, error, isLoading, search } = useNextRelease();
+  const backendURL = useMemo(() => getBackendURL(), []);
+
+  useEffect(() => {
+    const trimmed = title.trim();
+    let isCancelled = false;
+
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      setSelectedSuggestion(null);
+      setIsFetchingSuggestions(false);
+      return;
+    }
+
+    if (
+      selectedSuggestion &&
+      selectedSuggestion.title.toLowerCase() === trimmed.toLowerCase()
+    ) {
+      setSuggestions([]);
+      setIsFetchingSuggestions(false);
+      return;
+    }
+
+    if (
+      selectedSuggestion &&
+      selectedSuggestion.title.toLowerCase() !== trimmed.toLowerCase()
+    ) {
+      setSelectedSuggestion(null);
+    }
+
+    setIsFetchingSuggestions(true);
+    const timer = setTimeout(async () => {
+      try {
+        const url = `${backendURL}/suggest?query=${encodeURIComponent(trimmed)}&limit=5`;
+        const response = await fetch(url, { headers: { accept: 'application/json' } });
+        const payload = await response.json();
+        if (!isCancelled) {
+          if (response.ok) {
+            setSuggestions((payload?.results as Suggestion[]) ?? []);
+          } else {
+            setSuggestions([]);
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setSuggestions([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsFetchingSuggestions(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [backendURL, selectedSuggestion, title]);
 
   const handleSearch = useCallback(() => {
-    search(title);
-  }, [search, title]);
+    search({
+      title,
+      tmdbId: selectedSuggestion?.id,
+      mediaType: selectedSuggestion?.mediaType,
+    });
+    setSuggestions([]);
+  }, [search, selectedSuggestion, title]);
+
+  const handleSuggestionPress = (suggestion: Suggestion) => {
+    setSelectedSuggestion(suggestion);
+    setTitle(suggestion.title);
+    setSuggestions([]);
+    search({
+      title: suggestion.title,
+      tmdbId: suggestion.id,
+      mediaType: suggestion.mediaType,
+    });
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -49,6 +129,20 @@ export default function HomeScreen() {
             <TouchableOpacity style={styles.button} onPress={handleSearch} disabled={isLoading}>
               {isLoading ? <ActivityIndicator color="#001b12" /> : <Text style={styles.buttonText}>Знайти</Text>}
             </TouchableOpacity>
+            {isFetchingSuggestions ? <Text style={styles.hint}>Підбираємо варіанти…</Text> : null}
+            {suggestions.map((suggestion) => (
+              <TouchableOpacity
+                key={`${suggestion.mediaType}-${suggestion.id}`}
+                style={styles.suggestionItem}
+                onPress={() => handleSuggestionPress(suggestion)}
+              >
+                <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
+                <Text style={styles.suggestionMeta}>
+                  {suggestion.mediaType === 'movie' ? 'Фільм' : 'Серіал'}
+                  {suggestion.year ? ` · ${suggestion.year}` : ''}
+                </Text>
+              </TouchableOpacity>
+            ))}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
 
@@ -121,5 +215,26 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.error,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  suggestionTitle: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  suggestionMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginTop: 2,
   },
 });

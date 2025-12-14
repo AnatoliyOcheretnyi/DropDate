@@ -26,15 +26,28 @@ paths:
     get:
       summary: Наступна дата релізу
       description: >
-        Повертає інформацію про найближчий реліз. Дані беремо з TVMaze, тож поки
-        підтримуються лише серіали.
+        Повертає інформацію про найближчий реліз. Спочатку звертаємось до TVMaze
+        (серіали), далі — до TMDB (серіали + фільми).
       parameters:
         - in: query
           name: title
           schema:
             type: string
-          required: true
+          required: false
           description: Назва фільму або серіалу (нечутлива до регістру).
+        - in: query
+          name: tmdbId
+          schema:
+            type: integer
+          required: false
+          description: Опціонально — конкретний TMDB ID для точного пошуку.
+        - in: query
+          name: mediaType
+          schema:
+            type: string
+            enum: [movie, tv]
+          required: false
+          description: Тип тайтлу в TMDB (movie або tv).
       responses:
         '200':
           description: Вдало знайшли реліз
@@ -46,6 +59,38 @@ paths:
           description: Не передали title
         '404':
           description: Не знайшли реліз
+  /suggest:
+    get:
+      summary: Підказки для пошуку
+      description: Повертає короткий список варіантів із TMDB для автодоповнення.
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+          required: true
+          description: Рядок пошуку (мінімум 2 символи).
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 5
+          required: false
+          description: Скільки результатів повернути (1-10).
+      responses:
+        '200':
+          description: Короткі підказки з TMDB
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
+        '400':
+          description: Некоректний рядок пошуку
 components:
   schemas:
     ReleaseInfo:
@@ -64,3 +109,18 @@ components:
         source:
           type: string
           example: tmdb-mock
+    Suggestion:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 31917
+        title:
+          type: string
+          example: "Dune: Part Two"
+        mediaType:
+          type: string
+          enum: [movie, tv]
+        year:
+          type: string
+          example: "2024"

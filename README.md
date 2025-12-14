@@ -4,7 +4,7 @@ DropDate is a small playground for tracking the next release date of a show or m
 
 ## Stack
 
-- **Backend (`apps/backend`)** — Go HTTP API that proxies TVMaze (series) and TMDB (series + movies) via `/health` + `/next-release`.
+- **Backend (`apps/backend`)** — Go HTTP API that proxies TVMaze (series) and TMDB (series + movies) via `/health`, `/next-release`, and `/suggest`.
 - **Frontend (`apps/frontend`)** — Next.js 14 single page that queries the API via `/api/next-release` (responsive layout, UA copy).
 - **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`.
 

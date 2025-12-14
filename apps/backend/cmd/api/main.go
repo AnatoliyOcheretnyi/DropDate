@@ -7,8 +7,9 @@ import (
 	"log"           // вбудований логгер, щоб писати в stdout.
 	"net/http"      // базовий HTTP-стек Go.
 	"os"            // читаємо конфіг з env.
-	"strings"       // утиліти рядків для обрізання пробілів.
-	"time"          // робота з часом та таймаутами.
+	"strconv"
+	"strings" // утиліти рядків для обрізання пробілів.
+	"time"    // робота з часом та таймаутами.
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release" // бізнес-логіка релізів.
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"    // клієнт до TMDB.
@@ -49,6 +50,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/next-release", app.nextReleaseHandler)
+	mux.HandleFunc("/suggest", app.suggestHandler)
 	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
 
@@ -150,5 +152,37 @@ func (app *application) nextReleaseHandler(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(info); err != nil {
 		log.Printf("failed to encode response: %v", err)
+	}
+}
+
+func (app *application) suggestHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	query := strings.TrimSpace(r.URL.Query().Get("query"))
+	if len(query) < 2 {
+		http.Error(w, "query should be at least 2 characters", http.StatusBadRequest)
+		return
+	}
+
+	limit := 5
+	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	results, err := app.releases.Suggestions(r.Context(), query, limit)
+	if err != nil {
+		log.Printf("suggestions failed: %v", err)
+		http.Error(w, "failed to fetch suggestions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
+		log.Printf("failed to encode suggestions: %v", err)
 	}
 }

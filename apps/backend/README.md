@@ -45,6 +45,7 @@ The server listens on `http://localhost:8080`. Useful requests:
 
 - `curl http://localhost:8080/health` – quick ping that returns `{"status":"ok"}`.
 - `curl "http://localhost:8080/next-release?title=Dune"` – fetches the next known release date (TVMaze for shows, TMDB for movies/shows).
+- `curl "http://localhost:8080/suggest?query=dune"` – lightweight TMDB suggestions for autocomplete.
 
 ## Swagger / OpenAPI
 
@@ -56,7 +57,7 @@ The server listens on `http://localhost:8080`. Useful requests:
 - `cmd/api/main.go` wires the HTTP server, mux, and endpoints.
 - `internal/release.Service` encapsulates business logic around fetching/sanitizing release data.
 - `internal/tvmaze.Client` performs outbound HTTP calls to the public [TVMaze API](https://www.tvmaze.com/api).
-- `internal/tmdb.Client` queries the [TMDB API](https://developer.themoviedb.org/reference/intro) for movies and extra TV metadata.
+- `internal/tmdb.Client` queries the [TMDB API](https://developer.themoviedb.org/reference/intro) for movies, extra TV metadata, and search suggestions.
 - All responses are JSON-encoded; errors use idiomatic HTTP status codes (400, 404, etc.).
 
 This service is intentionally small but production-friendly: future steps include caching, additional sources, and richer error reporting.

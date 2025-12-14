@@ -4,3 +4,10 @@ export type ReleaseInfo = {
   nextRelease: string;
   source: string;
 };
+
+export type Suggestion = {
+  id: number;
+  title: string;
+  mediaType: string;
+  year?: string;
+};

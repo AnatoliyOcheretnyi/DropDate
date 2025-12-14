@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ReleaseInfo = {
   title: string;
@@ -9,41 +9,121 @@ type ReleaseInfo = {
   source: string;
 };
 
+type Suggestion = {
+  id: number;
+  title: string;
+  mediaType: string;
+  year?: string;
+};
+
 export default function HomePage() {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError("Введи назву серіалу або фільму.");
-      setRelease(null);
+  useEffect(() => {
+    const trimmed = title.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setSuggestions([]);
+      setSelectedSuggestion(null);
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    if (selectedSuggestion && selectedSuggestion.title.toLowerCase() !== trimmed.toLowerCase()) {
+      setSelectedSuggestion(null);
+    }
 
-    try {
-      const response = await fetch(`/api/next-release?title=${encodeURIComponent(trimmedTitle)}`);
-      const payload = await response.json();
+    setIsFetchingSuggestions(true);
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    controllerRef.current = controller;
 
-      if (!response.ok) {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/suggest?query=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal
+        });
+        const payload = await response.json();
+        if (response.ok) {
+          setSuggestions((payload?.results as Suggestion[]) || []);
+        } else {
+          setSuggestions([]);
+        }
+      } catch (fetchError) {
+        if ((fetchError as Error).name !== "AbortError") {
+          setSuggestions([]);
+        }
+      } finally {
+        setIsFetchingSuggestions(false);
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [selectedSuggestion, title]);
+
+  const fetchRelease = useCallback(
+    async (inputTitle: string, suggestion: Suggestion | null) => {
+      const trimmedTitle = inputTitle.trim();
+      if (!trimmedTitle) {
+        setError("Введи назву серіалу або фільму.");
         setRelease(null);
-        setError(payload?.message || "Не вдалося отримати дані.");
         return;
       }
 
-      setRelease(payload as ReleaseInfo);
-    } catch (fetchError) {
-      setRelease(null);
-      setError(fetchError instanceof Error ? fetchError.message : "Щось пішло не так.");
-    } finally {
-      setIsLoading(false);
-    }
+      const params = new URLSearchParams();
+      params.set("title", trimmedTitle);
+      if (suggestion) {
+        params.set("tmdbId", String(suggestion.id));
+        params.set("mediaType", suggestion.mediaType);
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/next-release?${params.toString()}`);
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setRelease(null);
+          setError(payload?.message || "Не вдалося отримати дані.");
+          return;
+        }
+
+        setRelease(payload as ReleaseInfo);
+        setSuggestions([]);
+      } catch (fetchError) {
+        setRelease(null);
+        setError(fetchError instanceof Error ? fetchError.message : "Щось пішло не так.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleSuggestionSelect = (suggestion: Suggestion) => {
+    setSelectedSuggestion(suggestion);
+    setTitle(suggestion.title);
+    fetchRelease(suggestion.title, suggestion);
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    fetchRelease(title, selectedSuggestion);
   };
 
   return (
@@ -74,6 +154,22 @@ export default function HomePage() {
             </button>
           </div>
         </form>
+        {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
+        {suggestions.length > 0 && (
+          <ul className="suggestions">
+            {suggestions.map((suggestion) => (
+              <li key={`${suggestion.mediaType}-${suggestion.id}`}>
+                <button type="button" onClick={() => handleSuggestionSelect(suggestion)}>
+                  <p className="suggestion-title">{suggestion.title}</p>
+                  <p className="suggestion-meta">
+                    {suggestion.mediaType === "movie" ? "Фільм" : "Серіал"}
+                    {suggestion.year ? ` · ${suggestion.year}` : ""}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         {error && <p className="error">{error}</p>}
       </section>
 

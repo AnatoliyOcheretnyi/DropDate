@@ -110,6 +110,55 @@ main.page {
   margin-top: 0.25rem;
 }
 
+.hint {
+  color: rgba(245, 245, 245, 0.6);
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+.suggestions {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.suggestions li + li {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.suggestions button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestions button:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.suggestion-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.suggestion-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(245, 245, 245, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.2rem;
+}
+
 .card {
   border-radius: 1.5rem;
   padding: 1.75rem;

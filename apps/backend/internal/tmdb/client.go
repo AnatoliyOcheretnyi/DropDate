@@ -27,6 +27,14 @@ type ReleaseInfo struct {
 	Source      string
 }
 
+// Suggestion is a lightweight search result.
+type Suggestion struct {
+	ID        int
+	Title     string
+	MediaType string
+	Year      string
+}
+
 // ErrNotFound is returned when TMDB has no relevant item.
 var ErrNotFound = errors.New("tmdb: not found")
 
@@ -78,6 +86,46 @@ func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, er
 	}
 
 	return ReleaseInfo{}, ErrNotFound
+}
+
+// Suggestions returns a small list of potential matches for autocomplete.
+func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Suggestion, error) {
+	results, err := c.search(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	suggestions := make([]Suggestion, 0, len(results))
+	for _, result := range results {
+		if result.MediaType != "tv" && result.MediaType != "movie" {
+			continue
+		}
+		name := result.Title
+		if name == "" {
+			name = result.Name
+		}
+		if name == "" {
+			continue
+		}
+
+		year := result.ReleaseDate
+		if year == "" {
+			year = result.FirstAirDate
+		}
+
+		suggestions = append(suggestions, Suggestion{
+			ID:        result.ID,
+			Title:     name,
+			MediaType: result.MediaType,
+			Year:      yearFromDate(year),
+		})
+
+		if limit > 0 && len(suggestions) >= limit {
+			break
+		}
+	}
+
+	return suggestions, nil
 }
 
 func (c *Client) search(ctx context.Context, title string) ([]searchResult, error) {
@@ -191,8 +239,12 @@ func (c *Client) do(req *http.Request, dst any) error {
 }
 
 type searchResult struct {
-	ID        int    `json:"id"`
-	MediaType string `json:"media_type"`
+	ID           int    `json:"id"`
+	MediaType    string `json:"media_type"`
+	Title        string `json:"title"`
+	Name         string `json:"name"`
+	ReleaseDate  string `json:"release_date"`
+	FirstAirDate string `json:"first_air_date"`
 }
 
 type multiSearchResponse struct {
@@ -211,4 +263,11 @@ type tvNextEpisodeEntry struct {
 type movieDetailsResponse struct {
 	Title       string `json:"title"`
 	ReleaseDate string `json:"release_date"`
+}
+
+func yearFromDate(date string) string {
+	if len(date) >= 4 {
+		return date[:4]
+	}
+	return ""
 }

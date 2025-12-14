@@ -15,7 +15,7 @@ From repo root you can also run `yarn dev:frontend` (Nx target).
 
 ## API proxy
 
-Requests go through the Next.js route `/api/next-release`, which forwards to the Go API and keeps the browser free from CORS headaches. Adjust the backend URL via `.env.local`.
+Requests go through the Next.js route `/api/next-release`, which forwards to the Go API and keeps the browser free from CORS headaches. Adjust the backend URL via `.env.local`. Autosuggest hits `/api/suggest` which proxies the backend `/suggest` endpoint and shows up to 5 TMDB matches (title + year).
 
 ## Scripts
 

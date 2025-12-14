@@ -1,20 +1,22 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReleaseInfo } from '../types/release';
+import { getBackendURL } from '../utils/config';
 
-const DEFAULT_BACKEND_URL = 'http://localhost:8080';
+type SearchParams = {
+  title: string;
+  tmdbId?: number;
+  mediaType?: string;
+};
 
 export function useNextRelease() {
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const backendUrl = useMemo(
-    () => process.env.EXPO_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL,
-    []
-  );
+  const backendUrl = useMemo(() => getBackendURL(), []);
 
   const search = useCallback(
-    async (title: string) => {
+    async ({ title, tmdbId, mediaType }: SearchParams) => {
       const trimmed = title.trim();
       if (!trimmed) {
         setError('Please enter a title first.');
@@ -26,8 +28,16 @@ export function useNextRelease() {
       setError(null);
 
       try {
-        const safeBase = backendUrl.replace(/\/$/, '');
-        const url = `${safeBase}/next-release?title=${encodeURIComponent(trimmed)}`;
+        const params = new URLSearchParams();
+        params.set('title', trimmed);
+        if (tmdbId) {
+          params.set('tmdbId', String(tmdbId));
+        }
+        if (mediaType) {
+          params.set('mediaType', mediaType);
+        }
+
+        const url = `${backendUrl}/next-release?${params.toString()}`;
 
         const response = await fetch(url, {
           headers: { accept: 'application/json' },

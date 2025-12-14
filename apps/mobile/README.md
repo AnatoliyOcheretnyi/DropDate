@@ -18,7 +18,7 @@ npm install                 # or yarn/pnpm
 npx expo start
 ```
 
-Expo CLI will give you QR codes and simulator options. The UI expects the backend to run locally on port 8080 (matching `.env.example`).
+Expo CLI will give you QR codes and simulator options. The UI expects the backend to run locally on port 8080 (matching `.env.example`). Typing at least 2 characters triggers `/suggest` requests and renders a small list of TMDB matches (title + year); tapping a suggestion performs the full `/next-release` lookup automatically.
 
 ## Project layout
 
