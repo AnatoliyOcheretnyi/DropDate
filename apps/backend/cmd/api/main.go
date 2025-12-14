@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json" // стандартна бібліотека для кодування/декодування JSON.
 	"errors"        // помічник для роботи з помилками та errors.Is().
 	"log"           // вбудований логгер, щоб писати в stdout.
 	"net/http"      // базовий HTTP-стек Go.
+	"os"            // читаємо конфіг з env.
 	"strings"       // утиліти рядків для обрізання пробілів.
 	"time"          // робота з часом та таймаутами.
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release" // бізнес-логіка релізів.
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"    // клієнт до TMDB.
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tvmaze"  // HTTP-клієнт до зовнішнього API.
 )
 
@@ -17,11 +20,29 @@ type application struct {
 	releases *release.Service
 }
 
+const tmdbTokenEnvVar = "TMDB_ACCESS_TOKEN"
+
 func main() {
+	loadEnvFiles(".env", ".env.local")
+
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+
 	// окремо створюємо клієнт до TVMaze, щоб інжектити як залежність.
-	tvmazeClient := tvmaze.NewClient(&http.Client{Timeout: 5 * time.Second})
+	tvmazeClient := tvmaze.NewClient(httpClient)
+
+	var tmdbClient *tmdb.Client
+	if token := os.Getenv(tmdbTokenEnvVar); token != "" {
+		client, err := tmdb.NewClient(httpClient, token)
+		if err != nil {
+			log.Fatalf("failed to init TMDB client: %v", err)
+		}
+		tmdbClient = client
+	} else {
+		log.Printf("%s not set, continuing without TMDB integration", tmdbTokenEnvVar)
+	}
+
 	app := &application{
-		releases: release.NewService(tvmazeClient),
+		releases: release.NewService(tvmazeClient, tmdbClient, log.Default()),
 	}
 
 	// http.NewServeMux() створює внутрішній роутер "шлях -> хендлер".
@@ -42,6 +63,47 @@ func main() {
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
+	}
+}
+
+func loadEnvFiles(paths ...string) {
+	for _, path := range paths {
+		file, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+
+			if key == "" {
+				continue
+			}
+			if _, exists := os.LookupEnv(key); exists {
+				continue
+			}
+			if err := os.Setenv(key, value); err != nil {
+				log.Printf("failed to set env %s from %s: %v", key, path, err)
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Printf("error reading %s: %v", path, err)
+		}
+
+		_ = file.Close()
 	}
 }
 

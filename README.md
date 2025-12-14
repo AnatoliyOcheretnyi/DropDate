@@ -4,7 +4,7 @@ DropDate is a small playground for tracking the next release date of a show or m
 
 ## Stack
 
-- **Backend (`apps/backend`)** — Go HTTP API that proxies TVMaze and exposes `/health` + `/next-release` endpoints.
+- **Backend (`apps/backend`)** — Go HTTP API that proxies TVMaze (series) and TMDB (series + movies) via `/health` + `/next-release`.
 - **Frontend (`apps/frontend`)** — Next.js 14 single page that queries the API via `/api/next-release` (responsive layout, UA copy).
 - **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`.
 
@@ -15,7 +15,7 @@ yarn install
 ```
 
 Environment tweaks:
-- Backend uses Go defaults; no env file is required yet.
+- Backend reads `TMDB_ACCESS_TOKEN` (optional) to enable TMDB lookups in addition to TVMaze. Copy `apps/backend/.env.example` → `.env` (or `.env.local`) and place your TMDB token there, or export it manually.
 - Frontend reads `BACKEND_URL` from `apps/frontend/.env.local` (copy `.env.example`).
 - Mobile reads `EXPO_PUBLIC_BACKEND_URL` from `apps/mobile/.env` (copy `.env.example` and use a LAN IP for physical devices).
 
