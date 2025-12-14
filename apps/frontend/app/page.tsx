@@ -1,22 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-
-type ReleaseInfo = {
-  title: string;
-  type: string;
-  nextRelease: string;
-  source: string;
-  posterUrl?: string;
-  status: "upcoming" | "released" | "ended";
-};
-
-type Suggestion = {
-  id: number;
-  title: string;
-  mediaType: string;
-  year?: string;
-};
+import { getReleaseStatusLabel, type ReleaseInfo, type Suggestion } from "../lib/release";
 
 export default function HomePage() {
   const [title, setTitle] = useState("");
@@ -178,7 +163,7 @@ export default function HomePage() {
       {release && (
         <section className="result">
           <article className="card">
-            <p className="card-label">{getStatusLabel(release)}</p>
+            <p className="card-label">{getReleaseStatusLabel(release.status, release.type)}</p>
             <div className="card-body">
               <div className={`poster${release.posterUrl ? "" : " placeholder"}`}>
                 {release.posterUrl ? (
@@ -226,14 +211,4 @@ export default function HomePage() {
       )}
     </main>
   );
-}
-
-function getStatusLabel(release: ReleaseInfo) {
-  if (release.status === "released") {
-    return release.type === "movie" ? "Фільм вже вийшов" : "Реліз відбувся";
-  }
-  if (release.status === "ended") {
-    return "Серіал завершився";
-  }
-  return "Наступний реліз";
 }

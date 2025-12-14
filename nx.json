@@ -31,6 +31,7 @@
   "projects": {
     "backend": "apps/backend",
     "frontend": "apps/frontend",
-    "mobile": "apps/mobile"
+    "mobile": "apps/mobile",
+    "shared": "libs/shared"
   }
 }

@@ -1,6 +1,6 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import type { ReleaseInfo } from '../types/release';
+import { getReleaseStatusLabel, type ReleaseInfo } from '../types/release';
 
 const formatter = new Intl.DateTimeFormat('uk-UA', {
   dateStyle: 'full',
@@ -13,7 +13,7 @@ type Props = {
 export function ReleaseCard({ release }: Props) {
   const date = formatter.format(new Date(release.nextRelease));
   const placeholder = !release.posterUrl;
-  const label = getStatusLabel(release);
+  const label = getReleaseStatusLabel(release.status, release.type);
 
   return (
     <View style={styles.card}>
@@ -46,16 +46,6 @@ function Detail({ label, value }: { label: string; value: string }) {
       <Text style={styles.metaValue}>{value}</Text>
     </View>
   );
-}
-
-function getStatusLabel(release: ReleaseInfo) {
-  if (release.status === 'released') {
-    return release.type === 'movie' ? 'Фільм вже вийшов' : 'Реліз відбувся';
-  }
-  if (release.status === 'ended') {
-    return 'Серіал завершився';
-  }
-  return 'Наступний реліз';
 }
 
 const styles = StyleSheet.create({

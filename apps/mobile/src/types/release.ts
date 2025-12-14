@@ -1,15 +1,7 @@
-export type ReleaseInfo = {
-  title: string;
-  type: string;
-  nextRelease: string;
-  source: string;
-  posterUrl?: string;
-  status: "upcoming" | "released" | "ended";
-};
-
-export type Suggestion = {
-  id: number;
-  title: string;
-  mediaType: string;
-  year?: string;
-};
+export type {
+  ReleaseInfo,
+  Suggestion,
+  ReleaseStatus,
+  ReleaseType,
+} from "../../../../libs/shared/src/release";
+export { getReleaseStatusLabel } from "../../../../libs/shared/src/release";
