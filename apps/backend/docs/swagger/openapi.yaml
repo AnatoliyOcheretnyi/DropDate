@@ -113,6 +113,10 @@ components:
           type: string
           format: uri
           example: "https://image.tmdb.org/t/p/w342/abc123.jpg"
+        status:
+          type: string
+          enum: [upcoming, released, ended]
+          example: upcoming
     Suggestion:
       type: object
       properties:

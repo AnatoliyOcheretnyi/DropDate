@@ -4,6 +4,7 @@ export type ReleaseInfo = {
   nextRelease: string;
   source: string;
   posterUrl?: string;
+  status: "upcoming" | "released" | "ended";
 };
 
 export type Suggestion = {

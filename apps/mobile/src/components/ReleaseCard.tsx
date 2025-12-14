@@ -13,10 +13,11 @@ type Props = {
 export function ReleaseCard({ release }: Props) {
   const date = formatter.format(new Date(release.nextRelease));
   const placeholder = !release.posterUrl;
+  const label = getStatusLabel(release);
 
   return (
     <View style={styles.card}>
-      <Text style={styles.label}>Наступний реліз</Text>
+      <Text style={styles.label}>{label}</Text>
       <View style={styles.content}>
         <View style={[styles.poster, placeholder && styles.posterPlaceholder]}>
           {release.posterUrl ? (
@@ -45,6 +46,16 @@ function Detail({ label, value }: { label: string; value: string }) {
       <Text style={styles.metaValue}>{value}</Text>
     </View>
   );
+}
+
+function getStatusLabel(release: ReleaseInfo) {
+  if (release.status === 'released') {
+    return release.type === 'movie' ? 'Фільм вже вийшов' : 'Реліз відбувся';
+  }
+  if (release.status === 'ended') {
+    return 'Серіал завершився';
+  }
+  return 'Наступний реліз';
 }
 
 const styles = StyleSheet.create({

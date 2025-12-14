@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/releasestatus"
 )
 
 const defaultBaseURL = "https://api.themoviedb.org/3"
@@ -27,6 +30,7 @@ type ReleaseInfo struct {
 	NextRelease time.Time
 	Source      string
 	PosterURL   string
+	Status      string
 }
 
 // Suggestion is a lightweight search result.
@@ -158,20 +162,11 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
-	q.Set("append_to_response", "next_episode_to_air")
+	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air")
 	req.URL.RawQuery = q.Encode()
 
 	var payload tvDetailsResponse
 	if err := c.do(req, &payload); err != nil {
-		return ReleaseInfo{}, err
-	}
-
-	if payload.NextEpisode == nil || payload.NextEpisode.AirDate == "" {
-		return ReleaseInfo{}, ErrNotFound
-	}
-
-	releaseDate, err := time.Parse("2006-01-02", payload.NextEpisode.AirDate)
-	if err != nil {
 		return ReleaseInfo{}, err
 	}
 
@@ -180,13 +175,38 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 		poster = buildPosterURL(payload.PosterPath)
 	}
 
-	return ReleaseInfo{
-		Title:       payload.Name,
-		Type:        "series",
-		NextRelease: releaseDate,
-		Source:      "tmdb",
-		PosterURL:   poster,
-	}, nil
+	if payload.NextEpisode != nil && payload.NextEpisode.AirDate != "" {
+		releaseDate, err := time.Parse("2006-01-02", payload.NextEpisode.AirDate)
+		if err != nil {
+			return ReleaseInfo{}, err
+		}
+
+		return ReleaseInfo{
+			Title:       payload.Name,
+			Type:        "series",
+			NextRelease: releaseDate,
+			Source:      "tmdb",
+			PosterURL:   poster,
+			Status:      releasestatus.StatusUpcoming,
+		}, nil
+	}
+
+	if strings.EqualFold(payload.Status, "Ended") && payload.LastEpisode != nil && payload.LastEpisode.AirDate != "" {
+		releaseDate, err := time.Parse("2006-01-02", payload.LastEpisode.AirDate)
+		if err != nil {
+			return ReleaseInfo{}, err
+		}
+		return ReleaseInfo{
+			Title:       payload.Name,
+			Type:        "series",
+			NextRelease: releaseDate,
+			Source:      "tmdb",
+			PosterURL:   poster,
+			Status:      releasestatus.StatusEnded,
+		}, nil
+	}
+
+	return ReleaseInfo{}, ErrNotFound
 }
 
 func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
@@ -224,7 +244,15 @@ func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
 		NextRelease: releaseDate,
 		Source:      "tmdb",
 		PosterURL:   poster,
+		Status:      movieStatus(releaseDate),
 	}, nil
+}
+
+func movieStatus(releaseDate time.Time) string {
+	if time.Now().Before(releaseDate) {
+		return releasestatus.StatusUpcoming
+	}
+	return releasestatus.StatusReleased
 }
 
 func (c *Client) do(req *http.Request, dst any) error {
@@ -266,12 +294,14 @@ type multiSearchResponse struct {
 }
 
 type tvDetailsResponse struct {
-	Name        string              `json:"name"`
-	NextEpisode *tvNextEpisodeEntry `json:"next_episode_to_air"`
-	PosterPath  string              `json:"poster_path"`
+	Name        string          `json:"name"`
+	NextEpisode *tvEpisodeEntry `json:"next_episode_to_air"`
+	LastEpisode *tvEpisodeEntry `json:"last_episode_to_air"`
+	Status      string          `json:"status"`
+	PosterPath  string          `json:"poster_path"`
 }
 
-type tvNextEpisodeEntry struct {
+type tvEpisodeEntry struct {
 	AirDate string `json:"air_date"`
 }
 

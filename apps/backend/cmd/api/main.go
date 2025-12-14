@@ -42,8 +42,26 @@ func main() {
 		log.Printf("%s not set, continuing without TMDB integration", tmdbTokenEnvVar)
 	}
 
+	var providers []release.ReleaseProvider
+	var suggester release.SuggestionProvider
+
+	if tmdbClient != nil {
+		if p := release.NewTMDBProvider(tmdbClient); p != nil {
+			providers = append(providers, p)
+		}
+		suggester = release.NewTMDBSuggestionProvider(tmdbClient)
+	}
+
+	if p := release.NewTVMazeProvider(tvmazeClient); p != nil {
+		providers = append(providers, p)
+	}
+
+	if len(providers) == 0 {
+		log.Fatal("no release providers configured")
+	}
+
 	app := &application{
-		releases: release.NewService(tvmazeClient, tmdbClient, log.Default()),
+		releases: release.NewService(providers, suggester, log.Default()),
 	}
 
 	// http.NewServeMux() створює внутрішній роутер "шлях -> хендлер".

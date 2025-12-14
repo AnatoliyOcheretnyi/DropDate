@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
+
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/releasestatus"
 )
 
 // Client інкапсулює HTTP-клієнт і базовий URL.
@@ -34,6 +37,7 @@ type ReleaseInfo struct {
 	NextRelease time.Time
 	Source      string
 	PosterURL   string
+	Status      string
 }
 
 // ErrNotFound повертаємо, коли API не знайшло серіал.
@@ -70,34 +74,53 @@ func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, er
 		return ReleaseInfo{}, err
 	}
 
-	if payload.Embedded == nil || payload.Embedded.NextEpisode == nil {
-		return ReleaseInfo{}, ErrNotFound
-	}
-
-	next := payload.Embedded.NextEpisode
-	parsedTime, err := time.Parse(time.RFC3339, next.AirStamp)
-	if err != nil {
-		return ReleaseInfo{}, err
-	}
-
 	poster := ""
 	if payload.Image != nil {
 		poster = payload.Image.Medium
 	}
 
-	return ReleaseInfo{
-		Title:       payload.Name,
-		Type:        "series",
-		NextRelease: parsedTime,
-		Source:      "tvmaze",
-		PosterURL:   poster,
-	}, nil
+	if payload.Embedded != nil && payload.Embedded.NextEpisode != nil {
+		next := payload.Embedded.NextEpisode
+		parsedTime, err := time.Parse(time.RFC3339, next.AirStamp)
+		if err != nil {
+			return ReleaseInfo{}, err
+		}
+		return ReleaseInfo{
+			Title:       payload.Name,
+			Type:        "series",
+			NextRelease: parsedTime,
+			Source:      "tvmaze",
+			PosterURL:   poster,
+			Status:      releasestatus.StatusUpcoming,
+		}, nil
+	}
+
+	if payload.Embedded != nil && payload.Embedded.PreviousEpisode != nil && strings.EqualFold(payload.Status, "Ended") {
+		prev := payload.Embedded.PreviousEpisode
+		if prev.AirStamp != "" {
+			parsedTime, err := time.Parse(time.RFC3339, prev.AirStamp)
+			if err != nil {
+				return ReleaseInfo{}, err
+			}
+			return ReleaseInfo{
+				Title:       payload.Name,
+				Type:        "series",
+				NextRelease: parsedTime,
+				Source:      "tvmaze",
+				PosterURL:   poster,
+				Status:      releasestatus.StatusEnded,
+			}, nil
+		}
+	}
+
+	return ReleaseInfo{}, ErrNotFound
 }
 
 // singleSearchResponse описує тільки ті поля, що нам потрібні
 type singleSearchResponse struct {
 	Name     string               `json:"name"`
 	Type     string               `json:"type"`
+	Status   string               `json:"status"`
 	Embedded *embeddedInformation `json:"_embedded"`
 	Image    *showImage           `json:"image"`
 }
@@ -108,7 +131,8 @@ type showImage struct {
 }
 
 type embeddedInformation struct {
-	NextEpisode *episode `json:"nextepisode"`
+	NextEpisode     *episode `json:"nextepisode"`
+	PreviousEpisode *episode `json:"previousepisode"`
 }
 
 type episode struct {

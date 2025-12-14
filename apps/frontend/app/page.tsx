@@ -8,6 +8,7 @@ type ReleaseInfo = {
   nextRelease: string;
   source: string;
   posterUrl?: string;
+  status: "upcoming" | "released" | "ended";
 };
 
 type Suggestion = {
@@ -177,7 +178,7 @@ export default function HomePage() {
       {release && (
         <section className="result">
           <article className="card">
-            <p className="card-label">Наступний реліз</p>
+            <p className="card-label">{getStatusLabel(release)}</p>
             <div className="card-body">
               <div className={`poster${release.posterUrl ? "" : " placeholder"}`}>
                 {release.posterUrl ? (
@@ -225,4 +226,14 @@ export default function HomePage() {
       )}
     </main>
   );
+}
+
+function getStatusLabel(release: ReleaseInfo) {
+  if (release.status === "released") {
+    return release.type === "movie" ? "Фільм вже вийшов" : "Реліз відбувся";
+  }
+  if (release.status === "ended") {
+    return "Серіал завершився";
+  }
+  return "Наступний реліз";
 }

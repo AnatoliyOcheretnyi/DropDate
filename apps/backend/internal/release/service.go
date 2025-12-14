@@ -7,9 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
-	"github.com/AnatoliyOcheretnyi/dropdate/internal/tvmaze"
 )
 
 // Info описує наступний реліз фільму або серіалу.
@@ -19,6 +16,7 @@ type Info struct {
 	NextRelease time.Time `json:"nextRelease"`
 	Source      string    `json:"source"`
 	PosterURL   string    `json:"posterUrl,omitempty"`
+	Status      string    `json:"status"`
 }
 
 // Suggestion describes minimal search result.
@@ -34,11 +32,11 @@ var (
 	ErrNotFound = errors.New("release not found")
 )
 
-// Service працює поверх TVMaze API.
+// Service об'єднує кілька провайдерів релізів і (опційно) провайдера підказок.
 type Service struct {
-	tvmaze *tvmaze.Client
-	tmdb   *tmdb.Client
-	logger *log.Logger
+	providers []ReleaseProvider
+	suggester SuggestionProvider
+	logger    *log.Logger
 
 	cache    map[string]cacheEntry
 	cacheMu  sync.RWMutex
@@ -50,20 +48,23 @@ type cacheEntry struct {
 	expires time.Time
 }
 
-// NewService приймає залежності у вигляді клієнтів.
-func NewService(tvmazeClient *tvmaze.Client, tmdbClient *tmdb.Client, logger *log.Logger) *Service {
-	if tvmazeClient == nil {
-		tvmazeClient = tvmaze.NewClient(nil)
-	}
+// NewService приймає провайдерів як залежності.
+func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logger *log.Logger) *Service {
 	if logger == nil {
 		logger = log.Default()
 	}
+	cleanProviders := make([]ReleaseProvider, 0, len(providers))
+	for _, provider := range providers {
+		if provider != nil {
+			cleanProviders = append(cleanProviders, provider)
+		}
+	}
 	return &Service{
-		tvmaze:   tvmazeClient,
-		tmdb:     tmdbClient,
-		logger:   logger,
-		cache:    make(map[string]cacheEntry),
-		cacheTTL: 30 * time.Minute,
+		providers: cleanProviders,
+		suggester: suggester,
+		logger:    logger,
+		cache:     make(map[string]cacheEntry),
+		cacheTTL:  30 * time.Minute,
 	}
 }
 
@@ -76,54 +77,21 @@ func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
 		return info, nil
 	}
 
-	// TVMaze покриває серіали й повертає найближчий епізод.
-	if s.tvmaze != nil {
-		s.logf("tvmaze lookup for %q", title)
-		info, err := s.tvmaze.NextRelease(ctx, title)
+	for _, provider := range s.providers {
+		s.logf("%s lookup for %q", provider.Name(), title)
+		info, err := provider.NextRelease(ctx, title)
 		if err == nil {
-			s.logf("tvmaze hit: title=%q type=%s next=%s", info.Title, info.Type, info.NextRelease.Format(time.RFC3339))
-			out := Info{
-				Title:       info.Title,
-				Type:        info.Type,
-				NextRelease: info.NextRelease,
-				Source:      info.Source,
-				PosterURL:   info.PosterURL,
-			}
-			s.saveCache(key, out)
-			s.logf("tvmaze response for %q took %s", title, time.Since(start))
-			return out, nil
+			s.logf("%s hit: title=%q type=%s next=%s", provider.Name(), info.Title, info.Type, info.NextRelease.Format(time.RFC3339))
+			s.saveCache(key, info)
+			s.logf("%s response for %q took %s", provider.Name(), title, time.Since(start))
+			return info, nil
 		}
-		if errors.Is(err, tvmaze.ErrNotFound) {
-			s.logf("tvmaze miss for %q", title)
-		} else {
-			s.logf("tvmaze error for %q: %v", title, err)
-			return Info{}, err
+		if errors.Is(err, ErrNotFound) {
+			s.logf("%s miss for %q", provider.Name(), title)
+			continue
 		}
-	}
-
-	// TMDB додає ще й дані по фільмах та серіалах.
-	if s.tmdb != nil {
-		s.logf("tmdb lookup for %q", title)
-		info, err := s.tmdb.NextRelease(ctx, title)
-		if err == nil {
-			s.logf("tmdb hit: title=%q type=%s next=%s", info.Title, info.Type, info.NextRelease.Format(time.RFC3339))
-			out := Info{
-				Title:       info.Title,
-				Type:        info.Type,
-				NextRelease: info.NextRelease,
-				Source:      info.Source,
-				PosterURL:   info.PosterURL,
-			}
-			s.saveCache(key, out)
-			s.logf("tmdb response for %q took %s", title, time.Since(start))
-			return out, nil
-		}
-		if errors.Is(err, tmdb.ErrNotFound) {
-			s.logf("tmdb miss for %q", title)
-		} else {
-			s.logf("tmdb error for %q: %v", title, err)
-			return Info{}, err
-		}
+		s.logf("%s error for %q: %v", provider.Name(), title, err)
+		return Info{}, err
 	}
 
 	s.logf("no releases found for %q (took %s)", title, time.Since(start))
@@ -138,26 +106,11 @@ func (s *Service) logf(format string, args ...any) {
 
 // Suggestions returns lightweight TMDB matches.
 func (s *Service) Suggestions(ctx context.Context, query string, limit int) ([]Suggestion, error) {
-	if s.tmdb == nil {
+	if s.suggester == nil {
 		return []Suggestion{}, nil
 	}
 
-	results, err := s.tmdb.Suggestions(ctx, query, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]Suggestion, 0, len(results))
-	for _, res := range results {
-		out = append(out, Suggestion{
-			ID:        res.ID,
-			Title:     res.Title,
-			MediaType: res.MediaType,
-			Year:      res.Year,
-		})
-	}
-
-	return out, nil
+	return s.suggester.Suggestions(ctx, query, limit)
 }
 
 func (s *Service) cacheKey(title string) string {
