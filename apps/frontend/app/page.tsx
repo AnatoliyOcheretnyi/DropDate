@@ -1,109 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getReleaseStatusLabel, type ReleaseInfo, type Suggestion } from "../lib/release";
-
-const STORAGE_KEY = "dropdate:saved-releases";
-
-type SavedRelease = ReleaseInfo & { id: string };
-
-const normalizeTitle = (value: string) => value.trim().toLowerCase();
-const releaseIdentifier = (title: string, type: ReleaseInfo["type"]) =>
-  `${normalizeTitle(title)}::${type}`;
-const getReleaseId = (release: ReleaseInfo) => releaseIdentifier(release.title, release.type);
-const getSuggestionId = (suggestion: Suggestion) =>
-  releaseIdentifier(suggestion.title, suggestion.mediaType === "movie" ? "movie" : "series");
+import { useCallback, useState } from "react";
+import type { ReleaseInfo, Suggestion } from "../lib/release";
+import { ResultCard } from "./components/ResultCard";
+import { SavedList } from "./components/SavedList";
+import { Suggestions } from "./components/Suggestions";
+import { Tabs } from "./components/Tabs";
+import { useSavedReleases } from "./hooks/useSavedReleases";
+import { useSuggestions } from "./hooks/useSuggestions";
 
 export default function HomePage() {
-  const readSavedFromStorage = () => {
-    if (typeof window === "undefined") {
-      return [] as SavedRelease[];
-    }
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        return JSON.parse(raw) as SavedRelease[];
-      }
-    } catch {
-      // ignore broken storage
-    }
-    return [];
-  };
-
-  const initialSaved = readSavedFromStorage();
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
-  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
-  const [activeTab, setActiveTab] = useState<"search" | "saved">(
-    initialSaved.length > 0 ? "saved" : "search"
+  const {
+    saved,
+    isReady: isStorageReady,
+    addRelease,
+    removeRelease,
+    isReleaseSaved,
+    isSuggestionSaved,
+    initialTab,
+  } = useSavedReleases();
+  const [activeTab, setActiveTab] = useState<"search" | "saved">(initialTab);
+  const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
+    title,
+    selectedSuggestion,
+    () => setSelectedSuggestion(null)
   );
-  const [savedReleases, setSavedReleases] = useState<SavedRelease[]>(initialSaved);
-  const [isStorageReady, setIsStorageReady] = useState(typeof window !== "undefined");
-  const controllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const stored = readSavedFromStorage();
-    setSavedReleases(stored);
-    if (stored.length > 0) {
-      setActiveTab("saved");
-    }
-    setIsStorageReady(true);
-  }, []);
-
-  useEffect(() => {
-    const trimmed = title.trim();
-    if (!trimmed || trimmed.length < 2) {
-      setSuggestions([]);
-      setSelectedSuggestion(null);
-      if (controllerRef.current) {
-        controllerRef.current.abort();
-      }
-      return;
-    }
-
-    if (selectedSuggestion && selectedSuggestion.title.toLowerCase() !== trimmed.toLowerCase()) {
-      setSelectedSuggestion(null);
-    }
-
-    setIsFetchingSuggestions(true);
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    controllerRef.current = controller;
-
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/suggest?query=${encodeURIComponent(trimmed)}`, {
-          signal: controller.signal
-        });
-        const payload = await response.json();
-        if (response.ok) {
-          setSuggestions((payload?.results as Suggestion[]) || []);
-        } else {
-          setSuggestions([]);
-        }
-      } catch (fetchError) {
-        if ((fetchError as Error).name !== "AbortError") {
-          setSuggestions([]);
-        }
-      } finally {
-        setIsFetchingSuggestions(false);
-      }
-    }, 250);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [selectedSuggestion, title]);
 
   const fetchRelease = useCallback(
     async (inputTitle: string, suggestion: Suggestion | null) => {
@@ -135,7 +61,6 @@ export default function HomePage() {
         }
 
         setRelease(payload as ReleaseInfo);
-        setSuggestions([]);
       } catch (fetchError) {
         setRelease(null);
         setError(fetchError instanceof Error ? fetchError.message : "Щось пішло не так.");
@@ -157,48 +82,7 @@ export default function HomePage() {
     fetchRelease(title, selectedSuggestion);
   };
 
-  const persistSaved = useCallback((updater: (list: SavedRelease[]) => SavedRelease[]) => {
-    setSavedReleases((prev) => {
-      const next = updater(prev);
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore
-        }
-      }
-      return next;
-    });
-  }, []);
-
-  const isCurrentSaved =
-    release && savedReleases.some((item) => item.id === getReleaseId(release));
-
-  const handleSaveCurrent = () => {
-    if (!release || isCurrentSaved || !isStorageReady) {
-      return;
-    }
-    const entry: SavedRelease = {
-      ...release,
-      id: getReleaseId(release)
-    };
-    persistSaved((prev) => [...prev, entry]);
-  };
-
-  const handleRemoveSaved = (id: string) => {
-    if (!isStorageReady) {
-      return;
-    }
-    persistSaved((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const suggestionIsSaved = (suggestion: Suggestion) => {
-    if (!isStorageReady) {
-      return false;
-    }
-    const id = getSuggestionId(suggestion);
-    return savedReleases.some((item) => item.id === id);
-  };
+  const isCurrentSaved = isReleaseSaved(release);
 
   return (
     <main className="page">
@@ -210,170 +94,62 @@ export default function HomePage() {
         </p>
       </section>
 
-      <nav className="tabs">
-        <button
-          type="button"
-          className={activeTab === "search" ? "active" : ""}
-          onClick={() => setActiveTab("search")}
-        >
-          Пошук
-        </button>
-        <button
-          type="button"
-          className={activeTab === "saved" ? "active" : ""}
-          onClick={() => setActiveTab("saved")}
-        >
-          Мій список ({savedReleases.length})
-        </button>
-      </nav>
+      <Tabs active={activeTab} savedCount={saved.length} onChange={setActiveTab} />
 
       {activeTab === "search" && (
-        <section className="search">
-        <form className="search-form" onSubmit={handleSubmit}>
-          <label htmlFor="title">Назва</label>
-          <div className="search-input-group">
-            <input
-              id="title"
-              name="title"
-              type="text"
-              placeholder="Наприклад, Dune"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              autoComplete="off"
-            />
-            <button type="submit" disabled={isLoading}>
-              {isLoading ? "Шукаємо…" : "Знайти"}
-            </button>
-          </div>
-        </form>
-        {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
-        {suggestions.length > 0 && (
-          <ul className="suggestions">
-            {suggestions.map((suggestion) => (
-              <li key={`${suggestion.mediaType}-${suggestion.id}`}>
-                <button type="button" onClick={() => handleSuggestionSelect(suggestion)}>
-                  <p className="suggestion-title">{suggestion.title}</p>
-                  <div className="suggestion-meta-row">
-                    <p className="suggestion-meta">
-                      {suggestion.mediaType === "movie" ? "Фільм" : "Серіал"}
-                      {suggestion.year ? ` · ${suggestion.year}` : ""}
-                    </p>
-                    {suggestionIsSaved(suggestion) && <span className="saved-pill">У списку</span>}
-                  </div>
+        <>
+          <section className="search">
+            <form className="search-form" onSubmit={handleSubmit}>
+              <label htmlFor="title">Назва</label>
+              <div className="search-input-group">
+                <input
+                  id="title"
+                  name="title"
+                  type="text"
+                  placeholder="Наприклад, Dune"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  autoComplete="off"
+                />
+                <button type="submit" disabled={isLoading}>
+                  {isLoading ? "Шукаємо…" : "Знайти"}
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {error && <p className="error">{error}</p>}
-      </section>
-      )}
+              </div>
+            </form>
 
-      {activeTab === "search" && release && (
-        <section className="result">
-          <article className="card">
-            <div className="card-head">
-              <p className="card-label">{getReleaseStatusLabel(release.status, release.type)}</p>
-              <button
-                type="button"
-                className="secondary"
-                onClick={handleSaveCurrent}
-                disabled={!isStorageReady || Boolean(isCurrentSaved)}
-              >
-                {isCurrentSaved ? "У списку" : "Додати у список"}
-              </button>
-            </div>
-            <div className="card-body">
-              <div className={`poster${release.posterUrl ? "" : " placeholder"}`}>
-                {release.posterUrl ? (
-                  <img src={release.posterUrl} alt={release.title} loading="lazy" />
-                ) : (
-                  <span>{release.title.slice(0, 1)}</span>
-                )}
-              </div>
-              <div className="card-details">
-                <h2>{release.title}</h2>
-                <ReleaseDetails release={release} />
-              </div>
-            </div>
-          </article>
-        </section>
+            {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
+            <Suggestions
+              suggestions={suggestions}
+              isSaved={isSuggestionSaved}
+              onSelect={handleSuggestionSelect}
+            />
+            {error && <p className="error">{error}</p>}
+          </section>
+
+          {release && (
+            <section className="result">
+              <ResultCard
+                release={release}
+                onSave={() => addRelease(release)}
+                isSaved={Boolean(isCurrentSaved)}
+                disableActions={!isStorageReady}
+              />
+            </section>
+          )}
+        </>
       )}
 
       {activeTab === "saved" && (
         <section className="saved">
           {!isStorageReady ? (
             <p className="hint">Завантажуємо список…</p>
-          ) : savedReleases.length === 0 ? (
+          ) : saved.length === 0 ? (
             <p className="hint">Поки що порожньо. Додай перший тайтл через вкладку “Пошук”.</p>
           ) : (
-            <ul className="saved-list">
-              {savedReleases.map((item) => (
-                <li key={item.id}>
-                  <article className="card compact">
-                    <div className="card-head">
-                      <p className="card-label">{getReleaseStatusLabel(item.status, item.type)}</p>
-                      <button
-                        type="button"
-                        className="secondary danger"
-                        onClick={() => handleRemoveSaved(item.id)}
-                        disabled={!isStorageReady}
-                      >
-                        Прибрати
-                      </button>
-                    </div>
-                    <div className="card-body">
-                      <div className={`poster${item.posterUrl ? "" : " placeholder"}`}>
-                        {item.posterUrl ? (
-                          <img src={item.posterUrl} alt={item.title} loading="lazy" />
-                        ) : (
-                          <span>{item.title.slice(0, 1)}</span>
-                        )}
-                      </div>
-                      <div className="card-details">
-                        <h2>{item.title}</h2>
-                        <ReleaseDetails release={item} />
-                      </div>
-                    </div>
-                  </article>
-                </li>
-              ))}
-            </ul>
+            <SavedList items={saved} onRemove={removeRelease} actionsDisabled={!isStorageReady} />
           )}
         </section>
       )}
     </main>
-  );
-}
-
-function ReleaseDetails({ release }: { release: ReleaseInfo }) {
-  const releaseDate = new Date(release.nextRelease);
-  const formattedDate = releaseDate.toLocaleDateString("uk-UA", {
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  });
-  const formattedWeekday = releaseDate.toLocaleDateString("uk-UA", {
-    weekday: "long"
-  });
-
-  return (
-    <dl>
-      <div>
-        <dt>Тип</dt>
-        <dd>{release.type}</dd>
-      </div>
-      <div>
-        <dt>Дата</dt>
-        <dd className="date">
-          <span>{formattedDate}</span>
-          <span>{formattedWeekday}</span>
-        </dd>
-      </div>
-      <div>
-        <dt>Джерело</dt>
-        <dd>{release.source}</dd>
-      </div>
-    </dl>
   );
 }
