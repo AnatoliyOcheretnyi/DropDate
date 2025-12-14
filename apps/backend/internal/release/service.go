@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
@@ -37,6 +39,15 @@ type Service struct {
 	tvmaze *tvmaze.Client
 	tmdb   *tmdb.Client
 	logger *log.Logger
+
+	cache    map[string]cacheEntry
+	cacheMu  sync.RWMutex
+	cacheTTL time.Duration
+}
+
+type cacheEntry struct {
+	info    Info
+	expires time.Time
 }
 
 // NewService приймає залежності у вигляді клієнтів.
@@ -48,27 +59,39 @@ func NewService(tvmazeClient *tvmaze.Client, tmdbClient *tmdb.Client, logger *lo
 		logger = log.Default()
 	}
 	return &Service{
-		tvmaze: tvmazeClient,
-		tmdb:   tmdbClient,
-		logger: logger,
+		tvmaze:   tvmazeClient,
+		tmdb:     tmdbClient,
+		logger:   logger,
+		cache:    make(map[string]cacheEntry),
+		cacheTTL: 30 * time.Minute,
 	}
 }
 
 // NextRelease витягує дані з TVMaze і мапить у нашу структуру.
 func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
+	start := time.Now()
+	key := s.cacheKey(title)
+	if info, ok := s.lookupCache(key); ok {
+		s.logf("cache hit for %q (took %s)", title, time.Since(start))
+		return info, nil
+	}
+
 	// TVMaze покриває серіали й повертає найближчий епізод.
 	if s.tvmaze != nil {
 		s.logf("tvmaze lookup for %q", title)
 		info, err := s.tvmaze.NextRelease(ctx, title)
 		if err == nil {
 			s.logf("tvmaze hit: title=%q type=%s next=%s", info.Title, info.Type, info.NextRelease.Format(time.RFC3339))
-			return Info{
+			out := Info{
 				Title:       info.Title,
 				Type:        info.Type,
 				NextRelease: info.NextRelease,
 				Source:      info.Source,
 				PosterURL:   info.PosterURL,
-			}, nil
+			}
+			s.saveCache(key, out)
+			s.logf("tvmaze response for %q took %s", title, time.Since(start))
+			return out, nil
 		}
 		if errors.Is(err, tvmaze.ErrNotFound) {
 			s.logf("tvmaze miss for %q", title)
@@ -84,13 +107,16 @@ func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
 		info, err := s.tmdb.NextRelease(ctx, title)
 		if err == nil {
 			s.logf("tmdb hit: title=%q type=%s next=%s", info.Title, info.Type, info.NextRelease.Format(time.RFC3339))
-			return Info{
+			out := Info{
 				Title:       info.Title,
 				Type:        info.Type,
 				NextRelease: info.NextRelease,
 				Source:      info.Source,
 				PosterURL:   info.PosterURL,
-			}, nil
+			}
+			s.saveCache(key, out)
+			s.logf("tmdb response for %q took %s", title, time.Since(start))
+			return out, nil
 		}
 		if errors.Is(err, tmdb.ErrNotFound) {
 			s.logf("tmdb miss for %q", title)
@@ -100,7 +126,7 @@ func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
 		}
 	}
 
-	s.logf("no releases found for %q", title)
+	s.logf("no releases found for %q (took %s)", title, time.Since(start))
 	return Info{}, ErrNotFound
 }
 
@@ -132,4 +158,38 @@ func (s *Service) Suggestions(ctx context.Context, query string, limit int) ([]S
 	}
 
 	return out, nil
+}
+
+func (s *Service) cacheKey(title string) string {
+	return strings.ToLower(strings.TrimSpace(title))
+}
+
+func (s *Service) lookupCache(key string) (Info, bool) {
+	if key == "" {
+		return Info{}, false
+	}
+	s.cacheMu.RLock()
+	entry, ok := s.cache[key]
+	s.cacheMu.RUnlock()
+	if !ok || time.Now().After(entry.expires) {
+		if ok {
+			s.cacheMu.Lock()
+			delete(s.cache, key)
+			s.cacheMu.Unlock()
+		}
+		return Info{}, false
+	}
+	return entry.info, true
+}
+
+func (s *Service) saveCache(key string, info Info) {
+	if key == "" || s.cacheTTL <= 0 {
+		return
+	}
+	s.cacheMu.Lock()
+	s.cache[key] = cacheEntry{
+		info:    info,
+		expires: time.Now().Add(s.cacheTTL),
+	}
+	s.cacheMu.Unlock()
 }

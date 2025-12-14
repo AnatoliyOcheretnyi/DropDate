@@ -58,6 +58,7 @@ The server listens on `http://localhost:8080`. Useful requests:
 - `internal/release.Service` encapsulates business logic around fetching/sanitizing release data.
 - `internal/tvmaze.Client` performs outbound HTTP calls to the public [TVMaze API](https://www.tvmaze.com/api).
 - `internal/tmdb.Client` queries the [TMDB API](https://developer.themoviedb.org/reference/intro) for movies, extra TV metadata, search suggestions, and poster images.
+- `internal/release.Service` також має простий in-memory кеш (≈30 хв TTL), щоб не дублювати однакові запити до зовнішніх API і прискорити популярні тайтли.
 - All responses are JSON-encoded; errors use idiomatic HTTP status codes (400, 404, etc.).
 
 This service is intentionally small but production-friendly: future steps include caching, additional sources, and richer error reporting.
