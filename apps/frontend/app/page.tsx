@@ -15,6 +15,22 @@ const getSuggestionId = (suggestion: Suggestion) =>
   releaseIdentifier(suggestion.title, suggestion.mediaType === "movie" ? "movie" : "series");
 
 export default function HomePage() {
+  const readSavedFromStorage = () => {
+    if (typeof window === "undefined") {
+      return [] as SavedRelease[];
+    }
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        return JSON.parse(raw) as SavedRelease[];
+      }
+    } catch {
+      // ignore broken storage
+    }
+    return [];
+  };
+
+  const initialSaved = readSavedFromStorage();
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,38 +38,24 @@ export default function HomePage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
-  const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
-  const [savedReleases, setSavedReleases] = useState<SavedRelease[]>([]);
+  const [activeTab, setActiveTab] = useState<"search" | "saved">(
+    initialSaved.length > 0 ? "saved" : "search"
+  );
+  const [savedReleases, setSavedReleases] = useState<SavedRelease[]>(initialSaved);
+  const [isStorageReady, setIsStorageReady] = useState(typeof window !== "undefined");
   const controllerRef = useRef<AbortController | null>(null);
-  const hasHydratedStorage = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as SavedRelease[];
-        setSavedReleases(parsed);
-      }
-    } catch {
-      // ignore broken storage
-    } finally {
-      hasHydratedStorage.current = true;
+    const stored = readSavedFromStorage();
+    setSavedReleases(stored);
+    if (stored.length > 0) {
+      setActiveTab("saved");
     }
+    setIsStorageReady(true);
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !hasHydratedStorage.current) {
-      return;
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedReleases));
-    } catch {
-      // ignore write errors
-    }
-  }, [savedReleases]);
 
   useEffect(() => {
     const trimmed = title.trim();
@@ -155,25 +157,45 @@ export default function HomePage() {
     fetchRelease(title, selectedSuggestion);
   };
 
+  const persistSaved = useCallback((updater: (list: SavedRelease[]) => SavedRelease[]) => {
+    setSavedReleases((prev) => {
+      const next = updater(prev);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+      }
+      return next;
+    });
+  }, []);
+
   const isCurrentSaved =
     release && savedReleases.some((item) => item.id === getReleaseId(release));
 
   const handleSaveCurrent = () => {
-    if (!release || isCurrentSaved) {
+    if (!release || isCurrentSaved || !isStorageReady) {
       return;
     }
     const entry: SavedRelease = {
       ...release,
       id: getReleaseId(release)
     };
-    setSavedReleases((prev) => [...prev, entry]);
+    persistSaved((prev) => [...prev, entry]);
   };
 
   const handleRemoveSaved = (id: string) => {
-    setSavedReleases((prev) => prev.filter((item) => item.id !== id));
+    if (!isStorageReady) {
+      return;
+    }
+    persistSaved((prev) => prev.filter((item) => item.id !== id));
   };
 
   const suggestionIsSaved = (suggestion: Suggestion) => {
+    if (!isStorageReady) {
+      return false;
+    }
     const id = getSuggestionId(suggestion);
     return savedReleases.some((item) => item.id === id);
   };
@@ -256,7 +278,7 @@ export default function HomePage() {
                 type="button"
                 className="secondary"
                 onClick={handleSaveCurrent}
-                disabled={Boolean(isCurrentSaved)}
+                disabled={!isStorageReady || Boolean(isCurrentSaved)}
               >
                 {isCurrentSaved ? "У списку" : "Додати у список"}
               </button>
@@ -280,7 +302,9 @@ export default function HomePage() {
 
       {activeTab === "saved" && (
         <section className="saved">
-          {savedReleases.length === 0 ? (
+          {!isStorageReady ? (
+            <p className="hint">Завантажуємо список…</p>
+          ) : savedReleases.length === 0 ? (
             <p className="hint">Поки що порожньо. Додай перший тайтл через вкладку “Пошук”.</p>
           ) : (
             <ul className="saved-list">
@@ -293,6 +317,7 @@ export default function HomePage() {
                         type="button"
                         className="secondary danger"
                         onClick={() => handleRemoveSaved(item.id)}
+                        disabled={!isStorageReady}
                       >
                         Прибрати
                       </button>
