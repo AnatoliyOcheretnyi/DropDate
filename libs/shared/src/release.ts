@@ -15,6 +15,7 @@ export type Suggestion = {
   title: string;
   mediaType: "movie" | "tv";
   year?: string;
+  posterUrl?: string;
 };
 
 export function getReleaseStatusLabel(status: ReleaseStatus, type: ReleaseType): string {

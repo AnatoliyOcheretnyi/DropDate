@@ -138,6 +138,7 @@ func (p *tmdbSuggestionProvider) Suggestions(ctx context.Context, query string, 
 			Title:     res.Title,
 			MediaType: res.MediaType,
 			Year:      res.Year,
+			PosterURL: res.PosterURL,
 		})
 	}
 

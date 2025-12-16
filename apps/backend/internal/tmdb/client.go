@@ -39,6 +39,7 @@ type Suggestion struct {
 	Title     string
 	MediaType string
 	Year      string
+	PosterURL string
 }
 
 // ErrNotFound is returned when TMDB has no relevant item.
@@ -134,11 +135,17 @@ func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Su
 			year = result.FirstAirDate
 		}
 
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+
 		suggestions = append(suggestions, Suggestion{
 			ID:        result.ID,
 			Title:     name,
 			MediaType: result.MediaType,
 			Year:      yearFromDate(year),
+			PosterURL: poster,
 		})
 
 		if limit > 0 && len(suggestions) >= limit {
@@ -303,6 +310,7 @@ type searchResult struct {
 	Name         string `json:"name"`
 	ReleaseDate  string `json:"release_date"`
 	FirstAirDate string `json:"first_air_date"`
+	PosterPath   string `json:"poster_path"`
 }
 
 type multiSearchResponse struct {

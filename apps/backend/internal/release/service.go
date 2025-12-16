@@ -26,6 +26,7 @@ type Suggestion struct {
 	Title     string `json:"title"`
 	MediaType string `json:"mediaType"`
 	Year      string `json:"year,omitempty"`
+	PosterURL string `json:"posterUrl,omitempty"`
 }
 
 var (
