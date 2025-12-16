@@ -11,6 +11,9 @@ type Props = {
 };
 
 export function ResultCard({ release, onSave, isSaved, disableActions }: Props) {
+  const heroImage = release.backdropUrl || release.posterUrl;
+  const heroFallbackLetter = release.title.slice(0, 1);
+
   return (
     <article className="card">
       <div className="card-head">
@@ -24,18 +27,16 @@ export function ResultCard({ release, onSave, isSaved, disableActions }: Props) 
           {isSaved ? "У списку" : "Додати у список"}
         </button>
       </div>
-      <div className="card-body">
-        <div className={`poster${release.posterUrl ? "" : " placeholder"}`}>
-          {release.posterUrl ? (
-            <img src={release.posterUrl} alt={release.title} loading="lazy" />
-          ) : (
-            <span>{release.title.slice(0, 1)}</span>
-          )}
-        </div>
-        <div className="card-details">
-          <h2>{release.title}</h2>
-          <ReleaseDetails release={release} />
-        </div>
+      <div className={`card-hero${heroImage ? "" : " placeholder"}`}>
+        {heroImage ? (
+          <img src={heroImage} alt={release.title} loading="lazy" />
+        ) : (
+          <span>{heroFallbackLetter}</span>
+        )}
+      </div>
+      <div className="card-details">
+        <h2>{release.title}</h2>
+        <ReleaseDetails release={release} />
       </div>
     </article>
   );

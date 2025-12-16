@@ -37,6 +37,7 @@ type ReleaseInfo struct {
 	NextRelease time.Time
 	Source      string
 	PosterURL   string
+	BackdropURL string
 	Status      string
 }
 
@@ -91,6 +92,7 @@ func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, er
 			NextRelease: parsedTime,
 			Source:      "tvmaze",
 			PosterURL:   poster,
+			BackdropURL: "",
 			Status:      releasestatus.StatusUpcoming,
 		}, nil
 	}
@@ -108,6 +110,7 @@ func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, er
 				NextRelease: parsedTime,
 				Source:      "tvmaze",
 				PosterURL:   poster,
+				BackdropURL: "",
 				Status:      releasestatus.StatusEnded,
 			}, nil
 		}

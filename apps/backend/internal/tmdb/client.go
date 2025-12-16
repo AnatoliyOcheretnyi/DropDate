@@ -15,6 +15,7 @@ import (
 
 const defaultBaseURL = "https://api.themoviedb.org/3"
 const posterBaseURL = "https://image.tmdb.org/t/p/w342"
+const backdropBaseURL = "https://image.tmdb.org/t/p/w780"
 
 // Client represents a TMDB HTTP client.
 type Client struct {
@@ -30,6 +31,7 @@ type ReleaseInfo struct {
 	NextRelease time.Time
 	Source      string
 	PosterURL   string
+	BackdropURL string
 	Status      string
 }
 
@@ -196,6 +198,10 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 	if payload.PosterPath != "" {
 		poster = buildPosterURL(payload.PosterPath)
 	}
+	backdrop := ""
+	if payload.Backdrop != "" {
+		backdrop = buildBackdropURL(payload.Backdrop)
+	}
 
 	if payload.NextEpisode != nil && payload.NextEpisode.AirDate != "" {
 		releaseDate, err := time.Parse("2006-01-02", payload.NextEpisode.AirDate)
@@ -209,6 +215,7 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 			NextRelease: releaseDate,
 			Source:      "tmdb",
 			PosterURL:   poster,
+			BackdropURL: backdrop,
 			Status:      releasestatus.StatusUpcoming,
 		}, nil
 	}
@@ -224,6 +231,7 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 			NextRelease: releaseDate,
 			Source:      "tmdb",
 			PosterURL:   poster,
+			BackdropURL: backdrop,
 			Status:      releasestatus.StatusEnded,
 		}, nil
 	}
@@ -260,6 +268,10 @@ func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
 	if payload.PosterPath != "" {
 		poster = buildPosterURL(payload.PosterPath)
 	}
+	backdrop := ""
+	if payload.Backdrop != "" {
+		backdrop = buildBackdropURL(payload.Backdrop)
+	}
 
 	return ReleaseInfo{
 		Title:       payload.Title,
@@ -267,6 +279,7 @@ func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
 		NextRelease: releaseDate,
 		Source:      "tmdb",
 		PosterURL:   poster,
+		BackdropURL: backdrop,
 		Status:      movieStatus(releaseDate),
 	}, nil
 }
@@ -323,6 +336,7 @@ type tvDetailsResponse struct {
 	LastEpisode *tvEpisodeEntry `json:"last_episode_to_air"`
 	Status      string          `json:"status"`
 	PosterPath  string          `json:"poster_path"`
+	Backdrop    string          `json:"backdrop_path"`
 }
 
 type tvEpisodeEntry struct {
@@ -333,6 +347,7 @@ type movieDetailsResponse struct {
 	Title       string `json:"title"`
 	ReleaseDate string `json:"release_date"`
 	PosterPath  string `json:"poster_path"`
+	Backdrop    string `json:"backdrop_path"`
 }
 
 func yearFromDate(date string) string {
@@ -347,4 +362,11 @@ func buildPosterURL(path string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s%s", posterBaseURL, path)
+}
+
+func buildBackdropURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", backdropBaseURL, path)
 }

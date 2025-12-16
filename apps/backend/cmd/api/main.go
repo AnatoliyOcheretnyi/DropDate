@@ -14,7 +14,6 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release" // бізнес-логіка релізів.
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"    // клієнт до TMDB.
-	"github.com/AnatoliyOcheretnyi/dropdate/internal/tvmaze"  // HTTP-клієнт до зовнішнього API.
 )
 
 // application зберігає всі залежності HTTP-шару.
@@ -28,9 +27,6 @@ func main() {
 	loadEnvFiles(".env", ".env.local")
 
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-
-	// окремо створюємо клієнт до TVMaze, щоб інжектити як залежність.
-	tvmazeClient := tvmaze.NewClient(httpClient)
 
 	var tmdbClient *tmdb.Client
 	if token := os.Getenv(tmdbTokenEnvVar); token != "" {
@@ -51,10 +47,6 @@ func main() {
 			providers = append(providers, p)
 		}
 		suggester = release.NewTMDBSuggestionProvider(tmdbClient)
-	}
-
-	if p := release.NewTVMazeProvider(tvmazeClient); p != nil {
-		providers = append(providers, p)
 	}
 
 	if len(providers) == 0 {

@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	defaultCacheTTL = 30 * time.Minute
+	cacheVersion    = "v2"
+)
+
 // Info описує наступний реліз фільму або серіалу.
 type Info struct {
 	Title       string    `json:"title"`
@@ -17,6 +22,7 @@ type Info struct {
 	NextRelease time.Time `json:"nextRelease"`
 	Source      string    `json:"source"`
 	PosterURL   string    `json:"posterUrl,omitempty"`
+	BackdropURL string    `json:"backdropUrl,omitempty"`
 	Status      string    `json:"status"`
 }
 
@@ -72,7 +78,7 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		suggester: suggester,
 		logger:    logger,
 		cache:     make(map[string]cacheEntry),
-		cacheTTL:  30 * time.Minute,
+		cacheTTL:  defaultCacheTTL,
 	}
 }
 
@@ -101,7 +107,14 @@ func (s *Service) NextRelease(ctx context.Context, title string, hint *LookupHin
 		s.logf("%s lookup for %q", provider.Name(), title)
 		info, err := provider.NextRelease(ctx, title)
 		if err == nil {
-			s.logf("%s hit: title=%q type=%s next=%s", provider.Name(), info.Title, info.Type, info.NextRelease.Format(time.RFC3339))
+			s.logf("%s hit: title=%q type=%s next=%s poster=%t backdrop=%t",
+				provider.Name(),
+				info.Title,
+				info.Type,
+				info.NextRelease.Format(time.RFC3339),
+				info.PosterURL != "",
+				info.BackdropURL != "",
+			)
 			s.saveCache(key, info)
 			s.logf("%s response for %q took %s", provider.Name(), title, time.Since(start))
 			return info, nil
@@ -136,9 +149,12 @@ func (s *Service) Suggestions(ctx context.Context, query string, limit int) ([]S
 func (s *Service) cacheKey(title string, hint *LookupHint) string {
 	base := strings.ToLower(strings.TrimSpace(title))
 	if hint != nil && hint.TMDBID > 0 {
-		return fmt.Sprintf("%s#tmdb:%d:%s", base, hint.TMDBID, hint.MediaType)
+		return fmt.Sprintf("%s#tmdb:%d:%s#%s", base, hint.TMDBID, hint.MediaType, cacheVersion)
 	}
-	return base
+	if base == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s#%s", base, cacheVersion)
 }
 
 func (s *Service) lookupCache(key string) (Info, bool) {

@@ -7,6 +7,7 @@ export type ReleaseInfo = {
   nextRelease: string;
   source: string;
   posterUrl?: string;
+  backdropUrl?: string;
   status: ReleaseStatus;
 };
 

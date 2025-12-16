@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
-	"github.com/AnatoliyOcheretnyi/dropdate/internal/tvmaze"
 )
 
 // ReleaseProvider повертає наступний реліз для конкретного джерела.
@@ -18,41 +17,6 @@ type ReleaseProvider interface {
 type SuggestionProvider interface {
 	Name() string
 	Suggestions(ctx context.Context, query string, limit int) ([]Suggestion, error)
-}
-
-// NewTVMazeProvider адаптує tvmaze.Client під ReleaseProvider.
-func NewTVMazeProvider(client *tvmaze.Client) ReleaseProvider {
-	if client == nil {
-		return nil
-	}
-	return &tvmazeProvider{client: client}
-}
-
-type tvmazeProvider struct {
-	client *tvmaze.Client
-}
-
-func (p *tvmazeProvider) Name() string {
-	return "tvmaze"
-}
-
-func (p *tvmazeProvider) NextRelease(ctx context.Context, title string) (Info, error) {
-	info, err := p.client.NextRelease(ctx, title)
-	if err != nil {
-		if errors.Is(err, tvmaze.ErrNotFound) {
-			return Info{}, ErrNotFound
-		}
-		return Info{}, err
-	}
-
-	return Info{
-		Title:       info.Title,
-		Type:        info.Type,
-		NextRelease: info.NextRelease,
-		Source:      info.Source,
-		PosterURL:   info.PosterURL,
-		Status:      info.Status,
-	}, nil
 }
 
 // NewTMDBProvider адаптує tmdb.Client до ReleaseProvider.
@@ -86,6 +50,7 @@ func (p *tmdbReleaseProvider) NextRelease(ctx context.Context, title string) (In
 		NextRelease: info.NextRelease,
 		Source:      info.Source,
 		PosterURL:   info.PosterURL,
+		BackdropURL: info.BackdropURL,
 		Status:      info.Status,
 	}, nil
 }
@@ -105,6 +70,7 @@ func (p *tmdbReleaseProvider) LookupByID(ctx context.Context, id int, mediaType 
 		NextRelease: info.NextRelease,
 		Source:      info.Source,
 		PosterURL:   info.PosterURL,
+		BackdropURL: info.BackdropURL,
 		Status:      info.Status,
 	}, nil
 }

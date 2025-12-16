@@ -12,27 +12,26 @@ type Props = {
 
 export function ReleaseCard({ release }: Props) {
   const date = formatter.format(new Date(release.nextRelease));
-  const placeholder = !release.posterUrl;
+  const heroImage = release.backdropUrl ?? release.posterUrl;
+  const placeholder = !heroImage;
   const label = getReleaseStatusLabel(release.status, release.type);
 
   return (
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.content}>
-        <View style={[styles.poster, placeholder && styles.posterPlaceholder]}>
-          {release.posterUrl ? (
-            <Image source={{ uri: release.posterUrl }} style={styles.posterImage} />
-          ) : (
-            <Text style={styles.posterLetter}>{release.title.slice(0, 1)}</Text>
-          )}
-        </View>
-        <View style={styles.infoColumn}>
-          <Text style={styles.title}>{release.title}</Text>
-          <View style={styles.details}>
-            <Detail label="Тип" value={release.type} />
-            <Detail label="Дата" value={date} />
-            <Detail label="Джерело" value={release.source} />
-          </View>
+      <View style={[styles.hero, placeholder && styles.heroPlaceholder]}>
+        {heroImage ? (
+          <Image source={{ uri: heroImage }} style={styles.heroImage} />
+        ) : (
+          <Text style={styles.heroLetter}>{release.title.slice(0, 1)}</Text>
+        )}
+      </View>
+      <View style={styles.infoColumn}>
+        <Text style={styles.title}>{release.title}</Text>
+        <View style={styles.details}>
+          <Detail label="Тип" value={release.type} />
+          <Detail label="Дата" value={date} />
+          <Detail label="Джерело" value={release.source} />
         </View>
       </View>
     </View>
@@ -63,19 +62,14 @@ const styles = StyleSheet.create({
     color: colors.eyebrow,
     fontSize: 12,
   },
-  content: {
-    flexDirection: 'row',
-    gap: 16,
-    alignItems: 'center',
-  },
   title: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
   },
-  poster: {
-    width: 120,
-    height: 180,
+  hero: {
+    width: '100%',
+    aspectRatio: 16 / 9,
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -83,7 +77,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  posterPlaceholder: {
+  heroPlaceholder: {
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   infoColumn: {
@@ -91,12 +85,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
-  posterImage: {
+  heroImage: {
     width: '100%',
     height: '100%',
     borderRadius: 22,
   },
-  posterLetter: {
+  heroLetter: {
     color: colors.text,
     fontSize: 28,
     fontWeight: '700',
