@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReleaseInfo, Suggestion } from "../../lib/release";
 import {
   STORAGE_KEY,
@@ -25,10 +25,9 @@ const readSavedFromStorage = (): SavedRelease[] => {
 };
 
 export function useSavedReleases() {
-  const [saved, setSaved] = useState<SavedRelease[]>(() => readSavedFromStorage());
-  const [isReady, setIsReady] = useState(typeof window !== "undefined");
+  const [saved, setSaved] = useState<SavedRelease[]>([]);
+  const [isReady, setIsReady] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const initialTabRef = useRef<"search" | "saved">(saved.length > 0 ? "saved" : "search");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -151,7 +150,6 @@ export function useSavedReleases() {
     removeRelease,
     isReleaseSaved,
     isSuggestionSaved,
-    initialTab: initialTabRef.current,
     refreshAll,
     isRefreshing,
   };

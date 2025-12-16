@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReleaseInfo, Suggestion } from "../lib/release";
 import { ResultCard } from "./components/ResultCard";
 import { SavedList } from "./components/SavedList";
@@ -26,17 +26,25 @@ export default function HomePage() {
     removeRelease,
     isReleaseSaved,
     isSuggestionSaved,
-    initialTab,
     refreshAll,
     isRefreshing,
   } = useSavedReleases();
-  const [activeTab, setActiveTab] = useState<"search" | "saved">(initialTab);
+  const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
+  const hasAppliedInitialTab = useRef(false);
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
     handleClearSelection
   );
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!hasAppliedInitialTab.current && isStorageReady) {
+      if (saved.length > 0) {
+        setActiveTab("saved");
+      }
+      hasAppliedInitialTab.current = true;
+    }
+  }, [isStorageReady, saved.length]);
 
   const fetchRelease = useCallback(
     async (inputTitle: string, suggestion: Suggestion | null) => {
@@ -157,7 +165,7 @@ export default function HomePage() {
             {error && <p className="error">{error}</p>}
           </section>
 
-          {release && (
+         {suggestions.length === 0 && release && (
             <section className="result">
               <ResultCard
                 release={release}

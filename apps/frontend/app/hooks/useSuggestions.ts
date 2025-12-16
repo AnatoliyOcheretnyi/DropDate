@@ -13,8 +13,7 @@ export function useSuggestions(
   const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const raw = selected?.title || title;
-    const trimmed = raw.trim();
+    const trimmed = title.trim();
     if (!trimmed || trimmed.length < 2) {
       setSuggestions([]);
       if (controllerRef.current) {
@@ -26,7 +25,11 @@ export function useSuggestions(
       return;
     }
 
-    if (selected && selected.title.toLowerCase() !== trimmed.toLowerCase()) {
+    if (selected) {
+      if (selected.title.toLowerCase() === trimmed.toLowerCase()) {
+        setSuggestions([]);
+        return;
+      }
       onClearSelection();
     }
 
