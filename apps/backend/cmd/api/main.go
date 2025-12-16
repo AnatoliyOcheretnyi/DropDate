@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"encoding/json" // стандартна бібліотека для кодування/декодування JSON.
 	"errors"        // помічник для роботи з помилками та errors.Is().
-	"log"           // вбудований логгер, щоб писати в stdout.
-	"net/http"      // базовий HTTP-стек Go.
-	"os"            // читаємо конфіг з env.
+	"fmt"
+	"log"      // вбудований логгер, щоб писати в stdout.
+	"net/http" // базовий HTTP-стек Go.
+	"os"       // читаємо конфіг з env.
 	"strconv"
 	"strings" // утиліти рядків для обрізання пробілів.
 	"time"    // робота з часом та таймаутами.
@@ -69,6 +70,7 @@ func main() {
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/next-release", app.nextReleaseHandler)
 	mux.HandleFunc("/suggest", app.suggestHandler)
+	mux.HandleFunc("/bulk-next-release", app.bulkNextReleaseHandler)
 	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
 
@@ -218,5 +220,83 @@ func (app *application) suggestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
 		log.Printf("failed to encode suggestions: %v", err)
+	}
+}
+
+type bulkNextReleaseRequest struct {
+	Items []bulkNextReleaseItem `json:"items"`
+}
+
+type bulkNextReleaseItem struct {
+	ClientID  string `json:"clientId"`
+	Title     string `json:"title"`
+	TMDBID    int    `json:"tmdbId"`
+	MediaType string `json:"mediaType"`
+}
+
+type bulkNextReleaseResult struct {
+	ClientID string        `json:"clientId"`
+	Info     *release.Info `json:"info,omitempty"`
+	Error    string        `json:"error,omitempty"`
+}
+
+func (app *application) bulkNextReleaseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload bulkNextReleaseRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	results := make([]bulkNextReleaseResult, 0, len(payload.Items))
+	if len(payload.Items) == 0 {
+		http.Error(w, "items array is required", http.StatusBadRequest)
+		return
+	}
+
+	for _, item := range payload.Items {
+		entry := bulkNextReleaseResult{ClientID: item.ClientID}
+		title := strings.TrimSpace(item.Title)
+		if title == "" && item.TMDBID == 0 {
+			entry.Error = "title or tmdbId is required"
+			results = append(results, entry)
+			continue
+		}
+
+		lookupTitle := title
+		if lookupTitle == "" {
+			lookupTitle = fmt.Sprintf("tmdb:%d", item.TMDBID)
+		}
+
+		var hint *release.LookupHint
+		if item.TMDBID > 0 {
+			hint = &release.LookupHint{
+				TMDBID:    item.TMDBID,
+				MediaType: item.MediaType,
+			}
+		}
+
+		info, err := app.releases.NextRelease(r.Context(), lookupTitle, hint)
+		if err != nil {
+			if errors.Is(err, release.ErrNotFound) {
+				entry.Error = "not found"
+			} else {
+				entry.Error = err.Error()
+			}
+		} else {
+			copyInfo := info
+			entry.Info = &copyInfo
+		}
+
+		results = append(results, entry)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
+		log.Printf("failed to encode bulk response: %v", err)
 	}
 }

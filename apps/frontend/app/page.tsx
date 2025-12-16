@@ -27,6 +27,8 @@ export default function HomePage() {
     isReleaseSaved,
     isSuggestionSaved,
     initialTab,
+    refreshAll,
+    isRefreshing,
   } = useSavedReleases();
   const [activeTab, setActiveTab] = useState<"search" | "saved">(initialTab);
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
@@ -34,6 +36,7 @@ export default function HomePage() {
     selectedSuggestion,
     handleClearSelection
   );
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
   const fetchRelease = useCallback(
     async (inputTitle: string, suggestion: Suggestion | null) => {
@@ -90,6 +93,25 @@ export default function HomePage() {
   };
 
   const isCurrentSaved = isReleaseSaved(release);
+
+  const handleRefreshAllClick = async () => {
+    setRefreshMessage(null);
+    try {
+      const result = await refreshAll();
+      if (!result || result.results.length === 0) {
+        setRefreshMessage("Немає шоу для оновлення.");
+        return;
+      }
+      const failed = result.results.filter((item) => item.error);
+      if (failed.length > 0) {
+        setRefreshMessage(`Частину шоу не оновлено (${failed.length}).`);
+      } else {
+        setRefreshMessage("Список оновлено.");
+      }
+    } catch (err) {
+      setRefreshMessage(err instanceof Error ? err.message : "Не вдалося оновити список.");
+    }
+  };
 
   return (
     <main className="page">
@@ -150,6 +172,17 @@ export default function HomePage() {
 
       {activeTab === "saved" && (
         <section className="saved">
+          <div className="saved-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleRefreshAllClick}
+              disabled={!isStorageReady || saved.length === 0 || isRefreshing}
+            >
+              {isRefreshing ? "Оновлюємо…" : "Оновити всі"}
+            </button>
+            {refreshMessage && <p className="hint">{refreshMessage}</p>}
+          </div>
           {!isStorageReady ? (
             <p className="hint">Завантажуємо список…</p>
           ) : saved.length === 0 ? (

@@ -354,6 +354,14 @@ dd.date span:last-child {
   width: 100px;
 }
 
+.saved-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
 @media (min-width: 600px) {
   .search-input-group {
     flex-direction: row;
