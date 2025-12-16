@@ -190,6 +190,7 @@ main.page {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
 }
 
 .poster-card-fallback {
@@ -206,7 +207,7 @@ main.page {
 .poster-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.65));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,6 +216,27 @@ main.page {
   font-size: 0.95rem;
   transition: opacity 0.2s ease;
   opacity: 0;
+  border-radius: 1rem;
+}
+
+.poster-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.poster-card:hover::after,
+.poster-card:focus-visible::after {
+  border-color: rgba(84, 255, 182, 0.65);
+}
+
+.poster-card:hover img,
+.poster-card:focus-visible img {
+  transform: scale(1.03);
+  filter: saturate(1.1);
 }
 
 .poster-card:hover .poster-overlay,

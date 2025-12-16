@@ -5,12 +5,12 @@ import type { Suggestion } from "../../lib/release";
 type Props = {
   items: Suggestion[];
   isLoading: boolean;
-  onAdd: (suggestion: Suggestion) => void;
+  onSelect: (suggestion: Suggestion) => void;
   isSaved: (suggestion: Suggestion) => boolean;
-  addingId: number | null;
+  isBusy: (suggestion: Suggestion) => boolean;
 };
 
-export function SearchResultsGrid({ items, isLoading, onAdd, isSaved, addingId }: Props) {
+export function SearchResultsGrid({ items, isLoading, onSelect, isSaved, isBusy }: Props) {
   if (!isLoading && items.length === 0) {
     return null;
   }
@@ -32,17 +32,18 @@ export function SearchResultsGrid({ items, isLoading, onAdd, isSaved, addingId }
                 key={`${item.mediaType}-${item.id}`}
                 type="button"
                 className={`poster-card${saved ? " saved" : ""}`}
-                onClick={() => onAdd(item)}
-                disabled={saved || addingId === item.id}
+                onClick={() => onSelect(item)}
+                disabled={isBusy(item)}
               >
                 {item.posterUrl ? (
                   <img src={item.posterUrl} alt={item.title} loading="lazy" />
                 ) : (
                   <div className="poster-card-fallback">{item.title.slice(0, 1)}</div>
                 )}
-                <div className="poster-overlay">
+                <div className="poster-overlay" aria-hidden="true">
                   <span>
-                    {saved ? "У списку" : addingId === item.id ? "Додаємо…" : "Додати"}
+                    {saved &&
+                     "Додано"}
                   </span>
                 </div>
               </button>

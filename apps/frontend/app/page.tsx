@@ -145,22 +145,31 @@ export default function HomePage() {
     []
   );
 
-  const handleGalleryAdd = useCallback(
+  const handleGallerySelect = useCallback(
     async (suggestion: Suggestion) => {
+      setSelectedSuggestion(suggestion);
+      setHasSubmitted(false);
+      setIsInputFocused(false);
+      setTitle(suggestion.title);
+
       if (isSuggestionSaved(suggestion)) {
-        return;
+        const savedMatch = saved.find((item) =>
+          item.title.toLowerCase() === suggestion.title.toLowerCase()
+        );
+        if (savedMatch) {
+          setRelease(savedMatch);
+          return;
+        }
       }
+
       setAddingSuggestionId(suggestion.id);
       try {
-        const info = await fetchRelease(suggestion.title, suggestion);
-        if (info) {
-          addRelease(info);
-        }
+        await fetchRelease(suggestion.title, suggestion);
       } finally {
         setAddingSuggestionId(null);
       }
     },
-    [addRelease, fetchRelease, isSuggestionSaved]
+    [fetchRelease, isSuggestionSaved, saved]
   );
 
   const handleRefreshAllClick = async () => {
@@ -183,7 +192,7 @@ export default function HomePage() {
   };
 
   const shouldShowSuggestions = isInputFocused && suggestions.length > 0;
-  const shouldShowSelection = !shouldShowSuggestions && Boolean(selectedSuggestion) && Boolean(release);
+  const shouldShowSelection = !shouldShowSuggestions && Boolean(release);
   const shouldShowGrid = !shouldShowSuggestions && !selectedSuggestion && hasSubmitted;
 
   return (
@@ -263,9 +272,9 @@ export default function HomePage() {
             <SearchResultsGrid
               items={gallery}
               isLoading={isGalleryLoading}
-              onAdd={handleGalleryAdd}
+              onSelect={handleGallerySelect}
               isSaved={isSuggestionSaved}
-              addingId={addingSuggestionId}
+              isBusy={(suggestion) => addingSuggestionId === suggestion.id}
             />
           )}
         </>
