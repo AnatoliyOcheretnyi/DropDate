@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReleaseInfo, Suggestion } from "../lib/release";
 import { ResultCard } from "./components/ResultCard";
 import { SavedList } from "./components/SavedList";
+import { SearchResultsGrid } from "./components/SearchResultsGrid";
 import { Suggestions } from "./components/Suggestions";
 import { Tabs } from "./components/Tabs";
 import { useSavedReleases } from "./hooks/useSavedReleases";
@@ -15,6 +16,9 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const [gallery, setGallery] = useState<Suggestion[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
+  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
   }, []);
@@ -52,7 +56,7 @@ export default function HomePage() {
       if (!trimmedTitle) {
         setError("Введи назву серіалу або фільму.");
         setRelease(null);
-        return;
+        return null;
       }
 
       const params = new URLSearchParams();
@@ -72,13 +76,16 @@ export default function HomePage() {
         if (!response.ok) {
           setRelease(null);
           setError(payload?.message || "Не вдалося отримати дані.");
-          return;
+          return null;
         }
 
-        setRelease(payload as ReleaseInfo);
+        const info = payload as ReleaseInfo;
+        setRelease(info);
+        return info;
       } catch (fetchError) {
         setRelease(null);
         setError(fetchError instanceof Error ? fetchError.message : "Щось пішло не так.");
+        return null;
       } finally {
         setIsLoading(false);
       }
@@ -97,10 +104,56 @@ export default function HomePage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    fetchRelease(title, selectedSuggestion);
+    await fetchRelease(title, selectedSuggestion);
+    await loadGallery(title);
   };
 
   const isCurrentSaved = isReleaseSaved(release);
+
+  const loadGallery = useCallback(
+    async (query: string) => {
+      const trimmed = query.trim();
+      if (trimmed.length < 2) {
+        setGallery([]);
+        return;
+      }
+      setIsGalleryLoading(true);
+      try {
+        const response = await fetch(`/api/suggest?query=${encodeURIComponent(trimmed)}&limit=9`, {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setGallery([]);
+          return;
+        }
+        setGallery((payload?.results as Suggestion[]) || []);
+      } catch {
+        setGallery([]);
+      } finally {
+        setIsGalleryLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleGalleryAdd = useCallback(
+    async (suggestion: Suggestion) => {
+      if (isSuggestionSaved(suggestion)) {
+        return;
+      }
+      setAddingSuggestionId(suggestion.id);
+      try {
+        const info = await fetchRelease(suggestion.title, suggestion);
+        if (info) {
+          addRelease(info);
+        }
+      } finally {
+        setAddingSuggestionId(null);
+      }
+    },
+    [addRelease, fetchRelease, isSuggestionSaved]
+  );
 
   const handleRefreshAllClick = async () => {
     setRefreshMessage(null);
@@ -169,7 +222,7 @@ export default function HomePage() {
             {error && <p className="error">{error}</p>}
           </section>
 
-         {suggestions.length === 0 && release && (
+          {suggestions.length === 0 && release && (
             <section className="result">
               <ResultCard
                 release={release}
@@ -179,6 +232,14 @@ export default function HomePage() {
               />
             </section>
           )}
+
+          <SearchResultsGrid
+            items={gallery}
+            isLoading={isGalleryLoading}
+            onAdd={handleGalleryAdd}
+            isSaved={isSuggestionSaved}
+            addingId={addingSuggestionId}
+          />
         </>
       )}
 

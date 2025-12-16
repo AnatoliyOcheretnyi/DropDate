@@ -1,0 +1,55 @@
+"use client";
+
+import type { Suggestion } from "../../lib/release";
+
+type Props = {
+  items: Suggestion[];
+  isLoading: boolean;
+  onAdd: (suggestion: Suggestion) => void;
+  isSaved: (suggestion: Suggestion) => boolean;
+  addingId: number | null;
+};
+
+export function SearchResultsGrid({ items, isLoading, onAdd, isSaved, addingId }: Props) {
+  if (!isLoading && items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="search-grid">
+      <div className="grid-head">
+        <h3>Рекомендації</h3>
+        {isLoading && <p className="hint">Завантажуємо підбірку…</p>}
+      </div>
+      {!isLoading && items.length === 0 ? (
+        <p className="hint">Нічого не знайдено.</p>
+      ) : (
+        <div className="poster-grid">
+          {items.map((item) => {
+            const saved = isSaved(item);
+            return (
+              <button
+                key={`${item.mediaType}-${item.id}`}
+                type="button"
+                className={`poster-card${saved ? " saved" : ""}`}
+                onClick={() => onAdd(item)}
+                disabled={saved || addingId === item.id}
+              >
+                {item.posterUrl ? (
+                  <img src={item.posterUrl} alt={item.title} loading="lazy" />
+                ) : (
+                  <div className="poster-card-fallback">{item.title.slice(0, 1)}</div>
+                )}
+                <div className="poster-overlay">
+                  <span>
+                    {saved ? "У списку" : addingId === item.id ? "Додаємо…" : "Додати"}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}

@@ -27,18 +27,18 @@ export function SavedList({ items, onRemove, actionsDisabled }: Props) {
                 Прибрати
               </button>
             </div>
-            <div className="card-body">
-              <div className={`poster${item.posterUrl ? "" : " placeholder"}`}>
-                {item.posterUrl ? (
-                  <img src={item.posterUrl} alt={item.title} loading="lazy" />
-                ) : (
-                  <span>{item.title.slice(0, 1)}</span>
-                )}
-              </div>
-              <div className="card-details">
-                <h2>{item.title}</h2>
-                <ReleaseDetails release={item} />
-              </div>
+            <div
+              className={`card-hero${item.backdropUrl || item.posterUrl ? "" : " placeholder"}`}
+            >
+              {item.backdropUrl || item.posterUrl ? (
+                <img src={item.backdropUrl || item.posterUrl} alt={item.title} loading="lazy" />
+              ) : (
+                <span>{item.title.slice(0, 1)}</span>
+              )}
+            </div>
+            <div className="card-details">
+              <h2>{item.title}</h2>
+              <ReleaseDetails release={item} />
             </div>
           </article>
         </li>
