@@ -19,6 +19,9 @@ export default function HomePage() {
   const [gallery, setGallery] = useState<Suggestion[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
   const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
   }, []);
@@ -97,6 +100,8 @@ export default function HomePage() {
     (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
       setTitle(suggestion.title);
+      setHasSubmitted(false);
+      setIsInputFocused(false);
       fetchRelease(suggestion.title, suggestion);
     },
     [fetchRelease]
@@ -104,7 +109,10 @@ export default function HomePage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await fetchRelease(title, selectedSuggestion);
+    setHasSubmitted(true);
+    setSelectedSuggestion(null);
+    setIsInputFocused(false);
+    setRelease(null);
     await loadGallery(title);
   };
 
@@ -174,6 +182,10 @@ export default function HomePage() {
     }
   };
 
+  const shouldShowSuggestions = isInputFocused && suggestions.length > 0;
+  const shouldShowSelection = !shouldShowSuggestions && Boolean(selectedSuggestion) && Boolean(release);
+  const shouldShowGrid = !shouldShowSuggestions && !selectedSuggestion && hasSubmitted;
+
   return (
     <main className="page">
       <section className="hero">
@@ -198,8 +210,22 @@ export default function HomePage() {
                   type="text"
                   placeholder="Наприклад, Dune"
                   value={title}
-                  onChange={(event) => setTitle(event.target.value)}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                    setHasSubmitted(false);
+                  }}
                   autoComplete="off"
+                  onFocus={() => {
+                    if (blurTimeoutRef.current) {
+                      clearTimeout(blurTimeoutRef.current);
+                    }
+                    setIsInputFocused(true);
+                  }}
+                  onBlur={() => {
+                    blurTimeoutRef.current = setTimeout(() => {
+                      setIsInputFocused(false);
+                    }, 150);
+                  }}
                 />
                 <button type="submit" disabled={isLoading}>
                   {isLoading ? "Шукаємо…" : "Знайти"}
@@ -207,11 +233,11 @@ export default function HomePage() {
               </div>
             </form>
 
-            <div className="search-feedback">
+            <div className="search-autocomplete">
               <div className="hint-slot">
                 {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
               </div>
-              {suggestions.length > 0 && (
+              {shouldShowSuggestions && (
                 <Suggestions
                   suggestions={suggestions}
                   isSaved={isSuggestionSaved}
@@ -222,7 +248,7 @@ export default function HomePage() {
             {error && <p className="error">{error}</p>}
           </section>
 
-          {suggestions.length === 0 && release && (
+          {shouldShowSelection && release && (
             <section className="result">
               <ResultCard
                 release={release}
@@ -233,13 +259,15 @@ export default function HomePage() {
             </section>
           )}
 
-          <SearchResultsGrid
-            items={gallery}
-            isLoading={isGalleryLoading}
-            onAdd={handleGalleryAdd}
-            isSaved={isSuggestionSaved}
-            addingId={addingSuggestionId}
-          />
+          {shouldShowGrid && (
+            <SearchResultsGrid
+              items={gallery}
+              isLoading={isGalleryLoading}
+              onAdd={handleGalleryAdd}
+              isSaved={isSuggestionSaved}
+              addingId={addingSuggestionId}
+            />
+          )}
         </>
       )}
 
