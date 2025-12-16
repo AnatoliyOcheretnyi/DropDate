@@ -10,7 +10,13 @@ type Props = {
   isBusy: (suggestion: Suggestion) => boolean;
 };
 
-export function SearchResultsGrid({ items, isLoading, onSelect, isSaved, isBusy }: Props) {
+export function SearchResultsGrid({
+  items,
+  isLoading,
+  onSelect,
+  isSaved,
+  isBusy,
+}: Props) {
   if (!isLoading && items.length === 0) {
     return null;
   }
@@ -38,13 +44,12 @@ export function SearchResultsGrid({ items, isLoading, onSelect, isSaved, isBusy 
                 {item.posterUrl ? (
                   <img src={item.posterUrl} alt={item.title} loading="lazy" />
                 ) : (
-                  <div className="poster-card-fallback">{item.title.slice(0, 1)}</div>
+                  <div className="poster-card-fallback">
+                    {item.title.slice(0, 1)}
+                  </div>
                 )}
                 <div className="poster-overlay" aria-hidden="true">
-                  <span>
-                    {saved &&
-                     "Додано"}
-                  </span>
+                  <span>{saved && "Додано"}</span>
                 </div>
               </button>
             );
