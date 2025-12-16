@@ -142,10 +142,18 @@ main.page {
   margin-top: 0.35rem;
 }
 
+.search-feedback {
+  margin-top: 0.5rem;
+}
+
+.hint-slot {
+  min-height: 1.25rem;
+}
+
 .suggestions {
   list-style: none;
   padding: 0;
-  margin: 0.5rem 0 0;
+  margin: 0.75rem 0 0;
   border: 1px solid var(--border);
   border-radius: 0.9rem;
   background: rgba(0, 0, 0, 0.35);

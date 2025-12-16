@@ -154,14 +154,18 @@ export default function HomePage() {
               </div>
             </form>
 
-            {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
-            {suggestions.length > 0 && (
-              <Suggestions
-                suggestions={suggestions}
-                isSaved={isSuggestionSaved}
-                onSelect={handleSuggestionSelect}
-              />
-            )}
+            <div className="search-feedback">
+              <div className="hint-slot">
+                {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
+              </div>
+              {suggestions.length > 0 && (
+                <Suggestions
+                  suggestions={suggestions}
+                  isSaved={isSuggestionSaved}
+                  onSelect={handleSuggestionSelect}
+                />
+              )}
+            </div>
             {error && <p className="error">{error}</p>}
           </section>
 
