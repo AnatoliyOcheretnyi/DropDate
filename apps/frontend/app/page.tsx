@@ -15,6 +15,10 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const handleClearSelection = useCallback(() => {
+    setSelectedSuggestion(null);
+  }, []);
+
   const {
     saved,
     isReady: isStorageReady,
@@ -28,7 +32,7 @@ export default function HomePage() {
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
-    () => setSelectedSuggestion(null)
+    handleClearSelection
   );
 
   const fetchRelease = useCallback(
@@ -71,11 +75,14 @@ export default function HomePage() {
     []
   );
 
-  const handleSuggestionSelect = (suggestion: Suggestion) => {
-    setSelectedSuggestion(suggestion);
-    setTitle(suggestion.title);
-    fetchRelease(suggestion.title, suggestion);
-  };
+  const handleSuggestionSelect = useCallback(
+    (suggestion: Suggestion) => {
+      setSelectedSuggestion(suggestion);
+      setTitle(suggestion.title);
+      fetchRelease(suggestion.title, suggestion);
+    },
+    [fetchRelease]
+  );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -118,11 +125,13 @@ export default function HomePage() {
             </form>
 
             {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
-            <Suggestions
-              suggestions={suggestions}
-              isSaved={isSuggestionSaved}
-              onSelect={handleSuggestionSelect}
-            />
+            {suggestions.length > 0 && (
+              <Suggestions
+                suggestions={suggestions}
+                isSaved={isSuggestionSaved}
+                onSelect={handleSuggestionSelect}
+              />
+            )}
             {error && <p className="error">{error}</p>}
           </section>
 

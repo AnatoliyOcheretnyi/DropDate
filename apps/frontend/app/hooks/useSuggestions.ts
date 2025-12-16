@@ -13,7 +13,8 @@ export function useSuggestions(
   const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const trimmed = title.trim();
+    const raw = selected?.title || title;
+    const trimmed = raw.trim();
     if (!trimmed || trimmed.length < 2) {
       setSuggestions([]);
       if (controllerRef.current) {

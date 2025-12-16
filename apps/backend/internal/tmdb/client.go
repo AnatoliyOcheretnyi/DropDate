@@ -94,6 +94,21 @@ func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, er
 	return ReleaseInfo{}, ErrNotFound
 }
 
+// LookupByID повертає реліз за конкретним TMDB ID.
+func (c *Client) LookupByID(ctx context.Context, id int, mediaType string) (ReleaseInfo, error) {
+	switch mediaType {
+	case "movie":
+		return c.fetchMovie(ctx, id)
+	case "tv":
+		return c.fetchTV(ctx, id)
+	default:
+		if info, err := c.fetchTV(ctx, id); err == nil {
+			return info, nil
+		}
+		return c.fetchMovie(ctx, id)
+	}
+}
+
 // Suggestions returns a small list of potential matches for autocomplete.
 func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Suggestion, error) {
 	results, err := c.search(ctx, query)
@@ -191,7 +206,7 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 		}, nil
 	}
 
-	if strings.EqualFold(payload.Status, "Ended") && payload.LastEpisode != nil && payload.LastEpisode.AirDate != "" {
+	if (strings.EqualFold(payload.Status, "Ended") || strings.EqualFold(payload.Status, "Returning Series")) && payload.LastEpisode != nil && payload.LastEpisode.AirDate != "" {
 		releaseDate, err := time.Parse("2006-01-02", payload.LastEpisode.AirDate)
 		if err != nil {
 			return ReleaseInfo{}, err
@@ -207,6 +222,7 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 	}
 
 	return ReleaseInfo{}, ErrNotFound
+
 }
 
 func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {

@@ -90,6 +90,25 @@ func (p *tmdbReleaseProvider) NextRelease(ctx context.Context, title string) (In
 	}, nil
 }
 
+func (p *tmdbReleaseProvider) LookupByID(ctx context.Context, id int, mediaType string) (Info, error) {
+	info, err := p.client.LookupByID(ctx, id, mediaType)
+	if err != nil {
+		if errors.Is(err, tmdb.ErrNotFound) {
+			return Info{}, ErrNotFound
+		}
+		return Info{}, err
+	}
+
+	return Info{
+		Title:       info.Title,
+		Type:        info.Type,
+		NextRelease: info.NextRelease,
+		Source:      info.Source,
+		PosterURL:   info.PosterURL,
+		Status:      info.Status,
+	}, nil
+}
+
 // NewTMDBSuggestionProvider створює SuggestionProvider поверх TMDB.
 func NewTMDBSuggestionProvider(client *tmdb.Client) SuggestionProvider {
 	if client == nil {

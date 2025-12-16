@@ -156,7 +156,23 @@ func (app *application) nextReleaseHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	info, err := app.releases.NextRelease(r.Context(), title)
+	var hint *release.LookupHint
+	if idStr := strings.TrimSpace(r.URL.Query().Get("tmdbId")); idStr != "" {
+		if id, err := strconv.Atoi(idStr); err == nil && id > 0 {
+			hint = &release.LookupHint{
+				TMDBID:    id,
+				MediaType: strings.TrimSpace(r.URL.Query().Get("mediaType")),
+			}
+		}
+	}
+
+	if hint != nil {
+		log.Printf("next-release query: title=%q tmdbId=%d mediaType=%s", title, hint.TMDBID, hint.MediaType)
+	} else {
+		log.Printf("next-release query: title=%q (no hint)", title)
+	}
+
+	info, err := app.releases.NextRelease(r.Context(), title, hint)
 	if err != nil {
 		if errors.Is(err, release.ErrNotFound) {
 			http.Error(w, "release not found", http.StatusNotFound)

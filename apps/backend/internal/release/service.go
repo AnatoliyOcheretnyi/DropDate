@@ -3,6 +3,7 @@ package release
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -43,6 +44,12 @@ type Service struct {
 	cacheTTL time.Duration
 }
 
+// LookupHint описує додаткові підказки для пошуку.
+type LookupHint struct {
+	TMDBID    int
+	MediaType string
+}
+
 type cacheEntry struct {
 	info    Info
 	expires time.Time
@@ -69,12 +76,24 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 }
 
 // NextRelease витягує дані з TVMaze і мапить у нашу структуру.
-func (s *Service) NextRelease(ctx context.Context, title string) (Info, error) {
+func (s *Service) NextRelease(ctx context.Context, title string, hint *LookupHint) (Info, error) {
 	start := time.Now()
-	key := s.cacheKey(title)
+	key := s.cacheKey(title, hint)
 	if info, ok := s.lookupCache(key); ok {
 		s.logf("cache hit for %q (took %s)", title, time.Since(start))
 		return info, nil
+	}
+
+	if hint != nil && hint.TMDBID > 0 {
+		if info, err := s.lookupByHint(ctx, title, hint); err == nil {
+			s.saveCache(key, info)
+			s.logf("tmdb direct hit for %q (took %s)", title, time.Since(start))
+			return info, nil
+		} else if errors.Is(err, ErrNotFound) {
+			s.logf("tmdb direct miss for %q (hint id=%d), falling back to providers", title, hint.TMDBID)
+		} else {
+			return Info{}, err
+		}
 	}
 
 	for _, provider := range s.providers {
@@ -113,8 +132,12 @@ func (s *Service) Suggestions(ctx context.Context, query string, limit int) ([]S
 	return s.suggester.Suggestions(ctx, query, limit)
 }
 
-func (s *Service) cacheKey(title string) string {
-	return strings.ToLower(strings.TrimSpace(title))
+func (s *Service) cacheKey(title string, hint *LookupHint) string {
+	base := strings.ToLower(strings.TrimSpace(title))
+	if hint != nil && hint.TMDBID > 0 {
+		return fmt.Sprintf("%s#tmdb:%d:%s", base, hint.TMDBID, hint.MediaType)
+	}
+	return base
 }
 
 func (s *Service) lookupCache(key string) (Info, bool) {
@@ -145,4 +168,30 @@ func (s *Service) saveCache(key string, info Info) {
 		expires: time.Now().Add(s.cacheTTL),
 	}
 	s.cacheMu.Unlock()
+}
+
+func (s *Service) lookupByHint(ctx context.Context, title string, hint *LookupHint) (Info, error) {
+	if hint == nil || hint.TMDBID <= 0 {
+		return Info{}, ErrNotFound
+	}
+
+	for _, provider := range s.providers {
+		if provider.Name() != "tmdb" {
+			continue
+		}
+		type tmdbDirect interface {
+			LookupByID(ctx context.Context, id int, mediaType string) (Info, error)
+		}
+		directProvider, ok := provider.(tmdbDirect)
+		if !ok {
+			continue
+		}
+		info, err := directProvider.LookupByID(ctx, hint.TMDBID, hint.MediaType)
+		if err != nil {
+			return Info{}, err
+		}
+		return info, nil
+	}
+
+	return Info{}, ErrNotFound
 }
