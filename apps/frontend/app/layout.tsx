@@ -1,9 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://drop-date.com";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0b1f1a",
+  colorScheme: "dark"
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -26,6 +33,12 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: "/"
+  },
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/apple-touch-icon.svg"
   },
   openGraph: {
     type: "website",
