@@ -33,6 +33,7 @@ export function SearchResultsGrid({
         <div className="poster-grid">
           {items.map((item) => {
             const saved = isSaved(item);
+
             return (
               <button
                 key={`${item.mediaType}-${item.id}`}

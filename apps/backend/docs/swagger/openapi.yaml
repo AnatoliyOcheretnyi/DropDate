@@ -91,6 +91,59 @@ paths:
                       $ref: '#/components/schemas/Suggestion'
         '400':
           description: Некоректний рядок пошуку
+  /bulk-next-release:
+    post:
+      summary: Пакетне оновлення релізів
+      description: >
+        Повертає масив результатів для списку тайтлів або TMDB ID.
+        Кожен елемент відповідає одному вхідному `clientId` і містить `info` або `error`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [clientId]
+                    properties:
+                      clientId:
+                        type: string
+                        example: "saved:the-boys"
+                      title:
+                        type: string
+                        example: "The Boys"
+                      tmdbId:
+                        type: integer
+                        example: 76479
+                      mediaType:
+                        type: string
+                        enum: [movie, tv]
+              required: [items]
+      responses:
+        '200':
+          description: Пакетна відповідь
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clientId:
+                          type: string
+                        info:
+                          $ref: '#/components/schemas/ReleaseInfo'
+                        error:
+                          type: string
+        '400':
+          description: Некоректний payload
 components:
   schemas:
     ReleaseInfo:
