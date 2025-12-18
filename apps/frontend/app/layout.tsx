@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Footer } from "./components/Footer";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://drop-date.com";
@@ -70,7 +71,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uk">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
