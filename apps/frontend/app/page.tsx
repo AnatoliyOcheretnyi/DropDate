@@ -15,10 +15,13 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] =
+    useState<Suggestion | null>(null);
   const [gallery, setGallery] = useState<Suggestion[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
-  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
+  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(
+    null
+  );
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -87,7 +90,11 @@ export default function HomePage() {
         return info;
       } catch (fetchError) {
         setRelease(null);
-        setError(fetchError instanceof Error ? fetchError.message : "Щось пішло не так.");
+        setError(
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Щось пішло не так."
+        );
         return null;
       } finally {
         setIsLoading(false);
@@ -118,32 +125,32 @@ export default function HomePage() {
 
   const isCurrentSaved = isReleaseSaved(release);
 
-  const loadGallery = useCallback(
-    async (query: string) => {
-      const trimmed = query.trim();
-      if (trimmed.length < 2) {
+  const loadGallery = useCallback(async (query: string) => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setGallery([]);
+      return;
+    }
+    setIsGalleryLoading(true);
+    try {
+      const response = await fetch(
+        `/api/suggest?query=${encodeURIComponent(trimmed)}&limit=9`,
+        {
+          cache: "no-store",
+        }
+      );
+      const payload = await response.json();
+      if (!response.ok) {
         setGallery([]);
         return;
       }
-      setIsGalleryLoading(true);
-      try {
-        const response = await fetch(`/api/suggest?query=${encodeURIComponent(trimmed)}&limit=9`, {
-          cache: "no-store",
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-          setGallery([]);
-          return;
-        }
-        setGallery((payload?.results as Suggestion[]) || []);
-      } catch {
-        setGallery([]);
-      } finally {
-        setIsGalleryLoading(false);
-      }
-    },
-    []
-  );
+      setGallery((payload?.results as Suggestion[]) || []);
+    } catch {
+      setGallery([]);
+    } finally {
+      setIsGalleryLoading(false);
+    }
+  }, []);
 
   const handleGallerySelect = useCallback(
     async (suggestion: Suggestion) => {
@@ -153,8 +160,8 @@ export default function HomePage() {
       setTitle(suggestion.title);
 
       if (isSuggestionSaved(suggestion)) {
-        const savedMatch = saved.find((item) =>
-          item.title.toLowerCase() === suggestion.title.toLowerCase()
+        const savedMatch = saved.find(
+          (item) => item.title.toLowerCase() === suggestion.title.toLowerCase()
         );
         if (savedMatch) {
           setRelease(savedMatch);
@@ -187,13 +194,16 @@ export default function HomePage() {
         setRefreshMessage("Список оновлено.");
       }
     } catch (err) {
-      setRefreshMessage(err instanceof Error ? err.message : "Не вдалося оновити список.");
+      setRefreshMessage(
+        err instanceof Error ? err.message : "Не вдалося оновити список."
+      );
     }
   };
 
   const shouldShowSuggestions = isInputFocused && suggestions.length > 0;
   const shouldShowSelection = !shouldShowSuggestions && Boolean(release);
-  const shouldShowGrid = !shouldShowSuggestions && !selectedSuggestion && hasSubmitted;
+  const shouldShowGrid =
+    !shouldShowSuggestions && !selectedSuggestion && hasSubmitted;
 
   return (
     <main className="page">
@@ -201,11 +211,16 @@ export default function HomePage() {
         <p className="eyebrow">beta</p>
         <h1>DropDate</h1>
         <p className="lead">
-          Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не прогавити нову серію.
+          Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не
+          прогавити нову серію.
         </p>
       </section>
 
-      <Tabs active={activeTab} savedCount={saved.length} onChange={setActiveTab} />
+      <Tabs
+        active={activeTab}
+        savedCount={saved.length}
+        onChange={setActiveTab}
+      />
 
       {activeTab === "search" && (
         <>
@@ -244,7 +259,9 @@ export default function HomePage() {
 
             <div className="search-autocomplete">
               <div className="hint-slot">
-                {isFetchingSuggestions && <p className="hint">Підбираємо варіанти…</p>}
+                {isFetchingSuggestions && (
+                  <p className="hint">Підбираємо варіанти…</p>
+                )}
               </div>
               {shouldShowSuggestions && (
                 <Suggestions
@@ -296,9 +313,15 @@ export default function HomePage() {
           {!isStorageReady ? (
             <p className="hint">Завантажуємо список…</p>
           ) : saved.length === 0 ? (
-            <p className="hint">Поки що порожньо. Додай перший тайтл через вкладку “Пошук”.</p>
+            <p className="hint">
+              Поки що порожньо. Додай перший тайтл через вкладку “Пошук”.
+            </p>
           ) : (
-            <SavedList items={saved} onRemove={removeRelease} actionsDisabled={!isStorageReady} />
+            <SavedList
+              items={saved}
+              onRemove={removeRelease}
+              actionsDisabled={!isStorageReady}
+            />
           )}
         </section>
       )}

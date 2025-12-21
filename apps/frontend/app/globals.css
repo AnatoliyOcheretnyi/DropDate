@@ -569,3 +569,23 @@ dd.date span:last-child {
     width: 160px;
   }
 }
+
+@media (max-width: 600px) {
+  main.page {
+    padding: 2.5rem 1.25rem 3rem;
+  }
+
+  .poster-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .site-footer-inner {
+    grid-template-columns: 1fr;
+    row-gap: 1rem;
+    justify-items: center;
+  }
+
+  .footer-year {
+    justify-self: start;
+  }
+}
