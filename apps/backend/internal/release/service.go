@@ -44,6 +44,7 @@ var (
 type Service struct {
 	providers []ReleaseProvider
 	suggester SuggestionProvider
+	trending  TrendingProvider
 	logger    *log.Logger
 
 	cache    map[string]cacheEntry
@@ -55,6 +56,11 @@ type Service struct {
 type LookupHint struct {
 	TMDBID    int
 	MediaType string
+}
+
+// TrendingProvider повертає список популярних тайтлів (TMDB).
+type TrendingProvider interface {
+	Trending(ctx context.Context, window string, limit int) ([]Suggestion, error)
 }
 
 type cacheEntry struct {
@@ -76,9 +82,15 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 	return &Service{
 		providers: cleanProviders,
 		suggester: suggester,
-		logger:    logger,
-		cache:     make(map[string]cacheEntry),
-		cacheTTL:  defaultCacheTTL,
+		trending: func() TrendingProvider {
+			if t, ok := suggester.(TrendingProvider); ok {
+				return t
+			}
+			return nil
+		}(),
+		logger:   logger,
+		cache:    make(map[string]cacheEntry),
+		cacheTTL: defaultCacheTTL,
 	}
 }
 
@@ -144,6 +156,14 @@ func (s *Service) Suggestions(ctx context.Context, query string, limit int) ([]S
 	}
 
 	return s.suggester.Suggestions(ctx, query, limit)
+}
+
+// Trending повертає популярні тайтли з TMDB.
+func (s *Service) Trending(ctx context.Context, window string, limit int) ([]Suggestion, error) {
+	if s.trending == nil {
+		return []Suggestion{}, nil
+	}
+	return s.trending.Trending(ctx, window, limit)
 }
 
 func (s *Service) cacheKey(title string, hint *LookupHint) string {

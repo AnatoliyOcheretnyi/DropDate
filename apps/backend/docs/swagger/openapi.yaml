@@ -91,6 +91,40 @@ paths:
                       $ref: '#/components/schemas/Suggestion'
         '400':
           description: Некоректний рядок пошуку
+  /trending:
+    get:
+      summary: Популярне зараз
+      description: Повертає популярні тайтли з TMDB (movies + TV).
+      parameters:
+        - in: query
+          name: window
+          schema:
+            type: string
+            enum: [day, week]
+            default: day
+          required: false
+          description: Вікно трендів (day або week).
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 12
+          required: false
+          description: Скільки результатів повернути.
+      responses:
+        '200':
+          description: Список популярних тайтлів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
+        '500':
+          description: Помилка TMDB
   /bulk-next-release:
     post:
       summary: Пакетне оновлення релізів

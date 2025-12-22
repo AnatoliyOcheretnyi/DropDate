@@ -158,6 +158,58 @@ func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Su
 	return suggestions, nil
 }
 
+// Trending returns TMDB trending titles (movies + TV) for a time window.
+func (c *Client) Trending(ctx context.Context, window string, limit int) ([]Suggestion, error) {
+	window = normalizeWindow(window)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/trending/all/%s", c.baseURL, window), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+
+	var payload trendingResponse
+	if err := c.do(req, &payload); err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(payload.Results))
+	for _, result := range payload.Results {
+		if result.MediaType != "tv" && result.MediaType != "movie" {
+			continue
+		}
+		name := result.Title
+		if name == "" {
+			name = result.Name
+		}
+		if name == "" {
+			continue
+		}
+		year := result.ReleaseDate
+		if year == "" {
+			year = result.FirstAirDate
+		}
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     name,
+			MediaType: result.MediaType,
+			Year:      yearFromDate(year),
+			PosterURL: poster,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+
+	return out, nil
+}
+
 func (c *Client) search(ctx context.Context, title string) ([]searchResult, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/search/multi", c.baseURL), nil)
 	if err != nil {
@@ -330,6 +382,20 @@ type multiSearchResponse struct {
 	Results []searchResult `json:"results"`
 }
 
+type trendingResponse struct {
+	Results []trendingResult `json:"results"`
+}
+
+type trendingResult struct {
+	ID           int    `json:"id"`
+	MediaType    string `json:"media_type"`
+	Title        string `json:"title"`
+	Name         string `json:"name"`
+	ReleaseDate  string `json:"release_date"`
+	FirstAirDate string `json:"first_air_date"`
+	PosterPath   string `json:"poster_path"`
+}
+
 type tvDetailsResponse struct {
 	Name        string          `json:"name"`
 	NextEpisode *tvEpisodeEntry `json:"next_episode_to_air"`
@@ -355,6 +421,15 @@ func yearFromDate(date string) string {
 		return date[:4]
 	}
 	return ""
+}
+
+func normalizeWindow(window string) string {
+	switch strings.ToLower(strings.TrimSpace(window)) {
+	case "week":
+		return "week"
+	default:
+		return "day"
+	}
 }
 
 func buildPosterURL(path string) string {

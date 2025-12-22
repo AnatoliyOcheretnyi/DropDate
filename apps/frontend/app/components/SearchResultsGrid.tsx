@@ -8,6 +8,8 @@ type Props = {
   onSelect: (suggestion: Suggestion) => void;
   isSaved: (suggestion: Suggestion) => boolean;
   isBusy: (suggestion: Suggestion) => boolean;
+  title?: string;
+  emptyLabel?: string;
 };
 
 export function SearchResultsGrid({
@@ -16,6 +18,8 @@ export function SearchResultsGrid({
   onSelect,
   isSaved,
   isBusy,
+  title = "Рекомендації",
+  emptyLabel = "Нічого не знайдено.",
 }: Props) {
   if (!isLoading && items.length === 0) {
     return null;
@@ -24,11 +28,11 @@ export function SearchResultsGrid({
   return (
     <section className="search-grid">
       <div className="grid-head">
-        <h3>Рекомендації</h3>
+        <h3>{title}</h3>
         {isLoading && <p className="hint">Завантажуємо підбірку…</p>}
       </div>
       {!isLoading && items.length === 0 ? (
-        <p className="hint">Нічого не знайдено.</p>
+        <p className="hint">{emptyLabel}</p>
       ) : (
         <div className="poster-grid">
           {items.map((item) => {

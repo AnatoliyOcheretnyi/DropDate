@@ -22,6 +22,8 @@ export default function HomePage() {
   const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(
     null
   );
+  const [trending, setTrending] = useState<Suggestion[]>([]);
+  const [isTrendingLoading, setIsTrendingLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,6 +57,35 @@ export default function HomePage() {
       hasAppliedInitialTab.current = true;
     }
   }, [isStorageReady, saved.length]);
+
+  const loadTrending = useCallback(async () => {
+    setIsTrendingLoading(true);
+    try {
+      const response = await fetch("/api/trending?window=week&limit=12", {
+        cache: "no-store",
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setTrending([]);
+        return;
+      }
+      setTrending((payload?.results as Suggestion[]) || []);
+    } catch {
+      setTrending([]);
+    } finally {
+      setIsTrendingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "search") {
+      return;
+    }
+    if (trending.length > 0 || isTrendingLoading) {
+      return;
+    }
+    loadTrending();
+  }, [activeTab, isTrendingLoading, loadTrending, trending.length]);
 
   const fetchRelease = useCallback(
     async (inputTitle: string, suggestion: Suggestion | null) => {
@@ -204,6 +235,11 @@ export default function HomePage() {
   const shouldShowSelection = !shouldShowSuggestions && Boolean(release);
   const shouldShowGrid =
     !shouldShowSuggestions && !selectedSuggestion && hasSubmitted;
+  const shouldShowTrending =
+    !shouldShowSuggestions &&
+    !selectedSuggestion &&
+    !hasSubmitted &&
+    title.trim() === "";
 
   return (
     <main className="page">
@@ -292,6 +328,20 @@ export default function HomePage() {
               onSelect={handleGallerySelect}
               isSaved={isSuggestionSaved}
               isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+              title="Рекомендації після пошуку"
+              emptyLabel="Нічого не знайдено. Спробуй іншу назву."
+            />
+          )}
+
+          {shouldShowTrending && (
+            <SearchResultsGrid
+              items={trending}
+              isLoading={isTrendingLoading}
+              onSelect={handleGallerySelect}
+              isSaved={isSuggestionSaved}
+              isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+              title="Популярне зараз"
+              emptyLabel="Не вдалося отримати тренди."
             />
           )}
         </>

@@ -62,6 +62,7 @@ func main() {
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/next-release", app.nextReleaseHandler)
 	mux.HandleFunc("/suggest", app.suggestHandler)
+	mux.HandleFunc("/trending", app.trendingHandler)
 	mux.HandleFunc("/bulk-next-release", app.bulkNextReleaseHandler)
 	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
@@ -212,6 +213,33 @@ func (app *application) suggestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
 		log.Printf("failed to encode suggestions: %v", err)
+	}
+}
+
+func (app *application) trendingHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	window := strings.TrimSpace(r.URL.Query().Get("window"))
+	limit := 12
+	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	results, err := app.releases.Trending(r.Context(), window, limit)
+	if err != nil {
+		log.Printf("trending failed: %v", err)
+		http.Error(w, "failed to fetch trending", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
+		log.Printf("failed to encode trending: %v", err)
 	}
 }
 
