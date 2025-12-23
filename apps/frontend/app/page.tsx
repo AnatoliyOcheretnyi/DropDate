@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReleaseInfo, Suggestion } from "../lib/release";
+import { Header } from "./components/Header";
 import { ResultCard } from "./components/ResultCard";
 import { SavedList } from "./components/SavedList";
 import { SearchResultsGrid } from "./components/SearchResultsGrid";
-import { Suggestions } from "./components/Suggestions";
-import { Tabs } from "./components/Tabs";
 import { useSavedReleases } from "./hooks/useSavedReleases";
 import { useSuggestions } from "./hooks/useSuggestions";
 
@@ -26,6 +25,7 @@ export default function HomePage() {
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
@@ -41,23 +41,13 @@ export default function HomePage() {
     refreshAll,
     isRefreshing,
   } = useSavedReleases();
-  const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
-  const hasAppliedInitialTab = useRef(false);
+  const [activeView, setActiveView] = useState<"home" | "saved">("home");
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
     handleClearSelection
   );
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-  useEffect(() => {
-    if (!hasAppliedInitialTab.current && isStorageReady) {
-      if (saved.length > 0) {
-        setActiveTab("saved");
-      }
-      hasAppliedInitialTab.current = true;
-    }
-  }, [isStorageReady, saved.length]);
-
   const loadTrending = useCallback(async () => {
     setIsTrendingLoading(true);
     try {
@@ -78,14 +68,21 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab !== "search") {
+    if (activeView !== "home") {
       return;
     }
     if (trending.length > 0 || isTrendingLoading) {
       return;
     }
     loadTrending();
-  }, [activeTab, isTrendingLoading, loadTrending, trending.length]);
+  }, [activeView, isTrendingLoading, loadTrending, trending.length]);
+
+  useEffect(() => {
+    if (activeView !== "home") {
+      setIsInputFocused(false);
+      setIsSearchOpen(false);
+    }
+  }, [activeView]);
 
   const fetchRelease = useCallback(
     async (inputTitle: string, suggestion: Suggestion | null) => {
@@ -140,6 +137,7 @@ export default function HomePage() {
       setTitle(suggestion.title);
       setHasSubmitted(false);
       setIsInputFocused(false);
+      setIsSearchOpen(false);
       fetchRelease(suggestion.title, suggestion);
     },
     [fetchRelease]
@@ -150,6 +148,7 @@ export default function HomePage() {
     setHasSubmitted(true);
     setSelectedSuggestion(null);
     setIsInputFocused(false);
+    setIsSearchOpen(false);
     setRelease(null);
     await loadGallery(title);
   };
@@ -188,6 +187,7 @@ export default function HomePage() {
       setSelectedSuggestion(suggestion);
       setHasSubmitted(false);
       setIsInputFocused(false);
+      setIsSearchOpen(false);
       setTitle(suggestion.title);
 
       if (isSuggestionSaved(suggestion)) {
@@ -231,11 +231,16 @@ export default function HomePage() {
     }
   };
 
-  const shouldShowSuggestions = isInputFocused && suggestions.length > 0;
+  const shouldShowSuggestions =
+    activeView === "home" && isSearchOpen && isInputFocused && suggestions.length > 0;
   const shouldShowSelection = !shouldShowSuggestions && Boolean(release);
   const shouldShowGrid =
-    !shouldShowSuggestions && !selectedSuggestion && hasSubmitted;
+    activeView === "home" &&
+    !shouldShowSuggestions &&
+    !selectedSuggestion &&
+    hasSubmitted;
   const shouldShowTrending =
+    activeView === "home" &&
     !shouldShowSuggestions &&
     !selectedSuggestion &&
     !hasSubmitted &&
@@ -252,75 +257,65 @@ export default function HomePage() {
     return undefined;
   }, [shouldShowSuggestions]);
 
+  const handleSearchToggle = () => {
+    setIsSearchOpen((prev) => !prev);
+    setActiveView("home");
+  };
+
   return (
     <main className="page">
-      <section className="hero">
-        <p className="eyebrow">beta</p>
-        <h1>DropDate</h1>
-        <p className="lead">
-          Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не
-          прогавити нову серію.
-        </p>
-      </section>
-
-      <Tabs
-        active={activeTab}
+      <Header
+        active={activeView}
         savedCount={saved.length}
-        onChange={setActiveTab}
+        onChange={setActiveView}
+        title={title}
+        isLoading={isLoading}
+        isSearchOpen={isSearchOpen}
+        onSearchToggle={handleSearchToggle}
+        onSearchChange={(value) => {
+          setTitle(value);
+          setHasSubmitted(false);
+        }}
+        onSearchSubmit={handleSubmit}
+        onSearchFocus={() => setIsInputFocused(true)}
+        onSearchBlur={() => {
+          blurTimeoutRef.current = setTimeout(() => {
+            setIsInputFocused(false);
+          }, 150);
+        }}
+        suggestions={suggestions}
+        isFetchingSuggestions={isFetchingSuggestions}
+        onSuggestionSelect={handleSuggestionSelect}
+        isSuggestionSaved={isSuggestionSaved}
       />
 
-      {activeTab === "search" && (
+      {activeView === "home" && (
         <>
-          <section className="search">
-            <form className="search-form" onSubmit={handleSubmit}>
-              <label htmlFor="title">Назва</label>
-              <div className="search-input-group">
-                <input
-                  id="title"
-                  name="title"
-                  type="text"
-                  placeholder="Наприклад, Dune"
-                  value={title}
-                  onChange={(event) => {
-                    setTitle(event.target.value);
-                    setHasSubmitted(false);
-                  }}
-                  autoComplete="off"
-                  onFocus={() => {
-                    if (blurTimeoutRef.current) {
-                      clearTimeout(blurTimeoutRef.current);
-                    }
-                    setIsInputFocused(true);
-                  }}
-                  onBlur={() => {
-                    blurTimeoutRef.current = setTimeout(() => {
-                      setIsInputFocused(false);
-                    }, 150);
-                  }}
-                />
-                <button type="submit" disabled={isLoading}>
-                  {isLoading ? "Шукаємо…" : "Знайти"}
-                </button>
-              </div>
-            </form>
-
-            <div className="search-autocomplete">
-              <div className="hint-slot">
-                {isFetchingSuggestions && (
-                  <p className="hint">Підбираємо варіанти…</p>
-                )}
-              </div>
-              {shouldShowSuggestions && (
-                <Suggestions
-                  suggestions={suggestions}
-                  isSaved={isSuggestionSaved}
-                  onSelect={handleSuggestionSelect}
-                />
-              )}
-            </div>
-            {error && <p className="error">{error}</p>}
+          <section className="hero">
+            <p className="eyebrow">beta</p>
+            <h1>DropDate</h1>
+            <p className="lead">
+              Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не
+              прогавити нову серію.
+            </p>
           </section>
 
+          {shouldShowTrending && (
+            <SearchResultsGrid
+              items={trending}
+              isLoading={isTrendingLoading}
+              onSelect={handleGallerySelect}
+              isSaved={isSuggestionSaved}
+              isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+              title="Популярне зараз"
+              emptyLabel="Не вдалося отримати тренди."
+            />
+          )}
+        </>
+      )}
+
+      {activeView === "home" && (
+        <>
           {shouldShowSelection && release && (
             <section className="result">
               <ResultCard
@@ -343,22 +338,10 @@ export default function HomePage() {
               emptyLabel="Нічого не знайдено. Спробуй іншу назву."
             />
           )}
-
-          {shouldShowTrending && (
-            <SearchResultsGrid
-              items={trending}
-              isLoading={isTrendingLoading}
-              onSelect={handleGallerySelect}
-              isSaved={isSuggestionSaved}
-              isBusy={(suggestion) => addingSuggestionId === suggestion.id}
-              title="Популярне зараз"
-              emptyLabel="Не вдалося отримати тренди."
-            />
-          )}
         </>
       )}
 
-      {activeTab === "saved" && (
+      {activeView === "saved" && (
         <section className="saved">
           <div className="saved-actions">
             <button
