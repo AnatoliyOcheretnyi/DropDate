@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
@@ -17,7 +17,7 @@ type SearchPayload = {
   totalResults: number;
 };
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
@@ -330,5 +330,13 @@ export default function SearchPage() {
         </button>
       )}
     </main>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<main className="page" />}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

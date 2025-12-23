@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../lib/release";
 import { Header } from "./components/Header";
@@ -11,7 +11,7 @@ import { TrendingCarousel } from "./components/TrendingCarousel";
 import { useSavedReleases } from "./hooks/useSavedReleases";
 import { useSuggestions } from "./hooks/useSuggestions";
 
-export default function HomePage() {
+function HomePageContent() {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] =
@@ -351,5 +351,13 @@ export default function HomePage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<main className="page" />}>
+      <HomePageContent />
+    </Suspense>
   );
 }
