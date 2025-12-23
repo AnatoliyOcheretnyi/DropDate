@@ -241,6 +241,17 @@ export default function HomePage() {
     !hasSubmitted &&
     title.trim() === "";
 
+  useEffect(() => {
+    if (shouldShowSuggestions) {
+      document.body.classList.add("no-scroll");
+      return () => {
+        document.body.classList.remove("no-scroll");
+      };
+    }
+    document.body.classList.remove("no-scroll");
+    return undefined;
+  }, [shouldShowSuggestions]);
+
   return (
     <main className="page">
       <section className="hero">

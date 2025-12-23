@@ -23,6 +23,10 @@ body {
   flex-direction: column;
 }
 
+body.no-scroll {
+  overflow: hidden;
+}
+
 main.page {
   max-width: 720px;
   margin: 0 auto;
@@ -320,12 +324,15 @@ main.page {
   margin: 0.5rem 0 0;
   border: 1px solid var(--border);
   border-radius: 0.9rem;
-  background: rgba(0, 0, 0, 0.35);
+  background: #06090c;
   position: absolute;
   width: 100%;
   top: calc(100% + 0.25rem);
-  z-index: 5;
-  box-shadow: 0 20px 45px rgba(3, 3, 3, 0.6);
+  z-index: 50;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.85);
+  max-height: min(420px, calc(100vh - 260px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .suggestions li + li {
