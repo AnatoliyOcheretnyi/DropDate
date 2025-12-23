@@ -30,6 +30,13 @@ const formatDate = (value?: string) => {
   }).format(parsed);
 };
 
+const yearFromDate = (value?: string) => {
+  if (!value || value.length < 4) {
+    return "";
+  }
+  return value.slice(0, 4);
+};
+
 export default function TitleDetailsPage() {
   const params = useParams<{ mediaType: string; id: string }>();
   const router = useRouter();
@@ -152,7 +159,7 @@ export default function TitleDetailsPage() {
   }, [details]);
 
   return (
-    <main className="page">
+    <main className="page page--details">
       <Header
         active="home"
         savedCount={saved.length}
@@ -178,55 +185,132 @@ export default function TitleDetailsPage() {
         isSuggestionSaved={isSuggestionSaved}
       />
 
-      <section className="details-hero details-bleed">
-        {details?.backdropUrl && (
-          <div className="details-backdrop">
-            <img src={details.backdropUrl} alt="" aria-hidden="true" />
-          </div>
-        )}
-        <div className="details-inner">
-          <div className="details-content">
-            <div className="details-poster">
-              {details?.posterUrl ? (
-                <img src={details.posterUrl} alt={details.title} />
-              ) : (
-                <div className="poster-card-fallback">{details?.title?.slice(0, 1) || "?"}</div>
-              )}
-            </div>
-            <div className="details-main">
-              <p className="eyebrow">{details?.mediaType === "movie" ? "movie" : "series"}</p>
-              <h1>{details?.title || "Завантаження..."}</h1>
-              {details?.tagline && <p className="details-tagline">{details.tagline}</p>}
-              <p className="details-overview">{details?.overview || "Опис поки відсутній."}</p>
-              <div className="details-actions">
-                {release && details ? (
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() =>
-                      addRelease(release, {
-                        tmdbId: details.id,
-                        mediaType: details.mediaType,
-                      })
-                    }
-                    disabled={Boolean(isReleaseSaved(release))}
-                  >
-                    {isReleaseSaved(release) ? "У списку" : "Додати у список"}
-                  </button>
-                ) : (
-                  <span className="hint">Немає даних про реліз</span>
-                )}
+      {isLoading && !details ? (
+        <section className="details-hero details-bleed">
+          <div className="details-backdrop skeleton-block" />
+          <div className="details-inner">
+            <div className="details-content">
+              <div className="details-poster">
+                <div className="details-poster-skeleton skeleton-block" />
+              </div>
+              <div className="details-main">
+                <div className="skeleton-line skeleton-line--tiny" />
+                <div className="skeleton-line skeleton-line--title" />
+                <div className="skeleton-line skeleton-line--subtitle" />
+                <div className="skeleton-line" />
+                <div className="skeleton-line" />
+                <div className="skeleton-line skeleton-line--short" />
+                <div className="skeleton-button skeleton-block" />
+              </div>
+              <div className="details-side">
+                <div className="skeleton-line skeleton-line--title" />
+                <div className="skeleton-line" />
+                <div className="skeleton-line skeleton-line--short" />
+                <div className="skeleton-line" />
+                <div className="skeleton-line skeleton-line--short" />
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="details-hero details-bleed">
+          {details?.backdropUrl && (
+            <div className="details-backdrop">
+              <img src={details.backdropUrl} alt="" aria-hidden="true" />
+            </div>
+          )}
+          <div className="details-inner">
+            <div className="details-content">
+              <div className="details-poster">
+                {details?.posterUrl ? (
+                  <img src={details.posterUrl} alt={details.title} />
+                ) : (
+                  <div className="poster-card-fallback">{details?.title?.slice(0, 1) || "?"}</div>
+                )}
+              </div>
+              <div className="details-main">
+                <p className="eyebrow">{details?.mediaType === "movie" ? "movie" : "series"}</p>
+                <h1>{details?.title || "Завантаження..."}</h1>
+                <div className="details-facts">
+                  {details?.releaseDate || details?.firstAirDate ? (
+                    <span>{yearFromDate(details.releaseDate || details.firstAirDate)}</span>
+                  ) : null}
+                  {details?.runtime ? <span>{details.runtime} хв</span> : null}
+                  {details?.seasonCount ? <span>{details.seasonCount} сезонів</span> : null}
+                  {details?.episodeCount ? <span>{details.episodeCount} епізодів</span> : null}
+                  {details?.networks && details.networks.length > 0 ? (
+                    <span>{details.networks.join(", ")}</span>
+                  ) : null}
+                </div>
+                {details?.tagline && <p className="details-tagline">{details.tagline}</p>}
+                <p className="details-overview">{details?.overview || "Опис поки відсутній."}</p>
+                <div className="details-actions">
+                  {release && details ? (
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        addRelease(release, {
+                          tmdbId: details.id,
+                          mediaType: details.mediaType,
+                        })
+                      }
+                      disabled={Boolean(isReleaseSaved(release))}
+                    >
+                      {isReleaseSaved(release) ? "У списку" : "Додати у список"}
+                    </button>
+                  ) : (
+                    <span className="hint">Немає даних про реліз</span>
+                  )}
+                </div>
+              </div>
+              <aside className="details-side">
+                <div className="details-side-card">
+                  <div className="details-stat">
+                    <span>Рейтинг TMDB</span>
+                    <strong>{details?.voteAverage ? details.voteAverage.toFixed(1) : "—"}</strong>
+                  </div>
+                  <div className="details-stat">
+                    <span>Голосів</span>
+                    <strong>{details?.voteCount ? details.voteCount.toLocaleString("uk-UA") : "—"}</strong>
+                  </div>
+                  <div className="details-stat">
+                    <span>Популярність</span>
+                    <strong>{details?.popularity ? details.popularity.toFixed(1) : "—"}</strong>
+                  </div>
+                </div>
+                <div className="details-side-card">
+                  <h4>Деталі</h4>
+                  <ul>
+                    <li>Статус: {details?.status || "—"}</li>
+                    <li>Реліз: {formatDate(details?.releaseDate || details?.firstAirDate)}</li>
+                    {details?.originCountry && details.originCountry.length > 0 ? (
+                      <li>Країна: {details.originCountry.join(", ")}</li>
+                    ) : null}
+                    {details?.genres && details.genres.length > 0 ? (
+                      <li>Жанри: {details.genres.join(", ")}</li>
+                    ) : null}
+                    {details?.homepage ? (
+                      <li>
+                        Сайт:{" "}
+                        <a href={details.homepage} target="_blank" rel="noreferrer">
+                          Перейти
+                        </a>
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      )}
 
       {error && <p className="hint">{error}</p>}
 
       {details && (
         <>
-          <section className="details-meta">
+          <section className="details-meta details-section">
             <div className="details-grid">
               {metaRows.map((row) => (
                 <div key={row.label} className="detail-row">
@@ -265,7 +349,7 @@ export default function TitleDetailsPage() {
           </section>
 
           {release && (
-            <section className="details-release">
+            <section className="details-release details-section">
               <h2>Наступний реліз</h2>
               <div className="details-release-card">
                 <div className="details-release-info">
@@ -301,7 +385,7 @@ export default function TitleDetailsPage() {
       )}
 
       {recommendations.length > 0 && (
-        <section className="details-recs">
+        <section className="details-recs details-section">
           <SearchResultsGrid
             items={recommendations}
             isLoading={isLoading}
