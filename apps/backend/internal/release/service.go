@@ -42,10 +42,11 @@ var (
 
 // Service об'єднує кілька провайдерів релізів і (опційно) провайдера підказок.
 type Service struct {
-	providers []ReleaseProvider
-	suggester SuggestionProvider
-	trending  TrendingProvider
-	logger    *log.Logger
+	providers      []ReleaseProvider
+	suggester      SuggestionProvider
+	trending       TrendingProvider
+	trendingByType TrendingByTypeProvider
+	logger         *log.Logger
 
 	cache    map[string]cacheEntry
 	cacheMu  sync.RWMutex
@@ -61,6 +62,11 @@ type LookupHint struct {
 // TrendingProvider повертає список популярних тайтлів (TMDB).
 type TrendingProvider interface {
 	Trending(ctx context.Context, window string, limit int) ([]Suggestion, error)
+}
+
+// TrendingByTypeProvider повертає популярні тайтли за типом.
+type TrendingByTypeProvider interface {
+	TrendingByType(ctx context.Context, mediaType string, window string, limit int) ([]Suggestion, error)
 }
 
 type cacheEntry struct {
@@ -84,6 +90,12 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		suggester: suggester,
 		trending: func() TrendingProvider {
 			if t, ok := suggester.(TrendingProvider); ok {
+				return t
+			}
+			return nil
+		}(),
+		trendingByType: func() TrendingByTypeProvider {
+			if t, ok := suggester.(TrendingByTypeProvider); ok {
 				return t
 			}
 			return nil
@@ -164,6 +176,18 @@ func (s *Service) Trending(ctx context.Context, window string, limit int) ([]Sug
 		return []Suggestion{}, nil
 	}
 	return s.trending.Trending(ctx, window, limit)
+}
+
+func (s *Service) TrendingByType(
+	ctx context.Context,
+	mediaType string,
+	window string,
+	limit int,
+) ([]Suggestion, error) {
+	if s.trendingByType == nil {
+		return []Suggestion{}, nil
+	}
+	return s.trendingByType.TrendingByType(ctx, mediaType, window, limit)
 }
 
 func (s *Service) cacheKey(title string, hint *LookupHint) string {

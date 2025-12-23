@@ -6,6 +6,7 @@ import { Header } from "./components/Header";
 import { ResultCard } from "./components/ResultCard";
 import { SavedList } from "./components/SavedList";
 import { SearchResultsGrid } from "./components/SearchResultsGrid";
+import { TrendingCarousel } from "./components/TrendingCarousel";
 import { useSavedReleases } from "./hooks/useSavedReleases";
 import { useSuggestions } from "./hooks/useSuggestions";
 
@@ -21,7 +22,8 @@ export default function HomePage() {
   const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(
     null
   );
-  const [trending, setTrending] = useState<Suggestion[]>([]);
+  const [trendingMovies, setTrendingMovies] = useState<Suggestion[]>([]);
+  const [trendingSeries, setTrendingSeries] = useState<Suggestion[]>([]);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -51,17 +53,22 @@ export default function HomePage() {
   const loadTrending = useCallback(async () => {
     setIsTrendingLoading(true);
     try {
-      const response = await fetch("/api/trending?window=week&limit=12", {
+      const response = await fetch("/api/trending?window=week&limit=18", {
         cache: "no-store",
       });
       const payload = await response.json();
       if (!response.ok) {
-        setTrending([]);
+        setTrendingMovies([]);
+        setTrendingSeries([]);
         return;
       }
-      setTrending((payload?.results as Suggestion[]) || []);
+      const movies = (payload?.movies as Suggestion[]) || [];
+      const series = (payload?.series as Suggestion[]) || [];
+      setTrendingMovies(movies);
+      setTrendingSeries(series);
     } catch {
-      setTrending([]);
+      setTrendingMovies([]);
+      setTrendingSeries([]);
     } finally {
       setIsTrendingLoading(false);
     }
@@ -71,11 +78,21 @@ export default function HomePage() {
     if (activeView !== "home") {
       return;
     }
-    if (trending.length > 0 || isTrendingLoading) {
+    if (
+      trendingMovies.length > 0 ||
+      trendingSeries.length > 0 ||
+      isTrendingLoading
+    ) {
       return;
     }
     loadTrending();
-  }, [activeView, isTrendingLoading, loadTrending, trending.length]);
+  }, [
+    activeView,
+    isTrendingLoading,
+    loadTrending,
+    trendingMovies.length,
+    trendingSeries.length,
+  ]);
 
   useEffect(() => {
     if (activeView !== "home") {
@@ -245,7 +262,6 @@ export default function HomePage() {
     !selectedSuggestion &&
     !hasSubmitted &&
     title.trim() === "";
-
   useEffect(() => {
     if (shouldShowSuggestions) {
       document.body.classList.add("no-scroll");
@@ -291,25 +307,36 @@ export default function HomePage() {
 
       {activeView === "home" && (
         <>
-          <section className="hero">
-            <p className="eyebrow">beta</p>
-            <h1>DropDate</h1>
-            <p className="lead">
-              Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не
-              прогавити нову серію.
-            </p>
+          <section className="hero hero-bleed">
+            <div className="hero-inner">
+              <p className="eyebrow">beta</p>
+              <h1>DropDate</h1>
+              <p className="lead">
+                Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не
+                прогавити нову серію.
+              </p>
+            </div>
           </section>
 
           {shouldShowTrending && (
-            <SearchResultsGrid
-              items={trending}
-              isLoading={isTrendingLoading}
-              onSelect={handleGallerySelect}
-              isSaved={isSuggestionSaved}
-              isBusy={(suggestion) => addingSuggestionId === suggestion.id}
-              title="Популярне зараз"
-              emptyLabel="Не вдалося отримати тренди."
-            />
+            <>
+              <TrendingCarousel
+                title="Фільми зараз в тренді"
+                items={trendingMovies}
+                isLoading={isTrendingLoading}
+                onSelect={handleGallerySelect}
+                isSaved={isSuggestionSaved}
+                isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+              />
+              <TrendingCarousel
+                title="Серіали зараз в тренді"
+                items={trendingSeries}
+                isLoading={isTrendingLoading}
+                onSelect={handleGallerySelect}
+                isSaved={isSuggestionSaved}
+                isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+              />
+            </>
           )}
         </>
       )}

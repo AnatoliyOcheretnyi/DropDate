@@ -130,3 +130,28 @@ func (p *tmdbSuggestionProvider) Trending(ctx context.Context, window string, li
 
 	return out, nil
 }
+
+func (p *tmdbSuggestionProvider) TrendingByType(
+	ctx context.Context,
+	mediaType string,
+	window string,
+	limit int,
+) ([]Suggestion, error) {
+	results, err := p.client.TrendingByType(ctx, mediaType, window, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(results))
+	for _, res := range results {
+		out = append(out, Suggestion{
+			ID:        res.ID,
+			Title:     res.Title,
+			MediaType: res.MediaType,
+			Year:      res.Year,
+			PosterURL: res.PosterURL,
+		})
+	}
+
+	return out, nil
+}

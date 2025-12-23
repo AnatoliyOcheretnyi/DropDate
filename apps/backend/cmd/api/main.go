@@ -223,22 +223,32 @@ func (app *application) trendingHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	window := strings.TrimSpace(r.URL.Query().Get("window"))
-	limit := 12
+	limit := 18
 	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
 		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
 			limit = parsed
 		}
 	}
 
-	results, err := app.releases.Trending(r.Context(), window, limit)
+	movies, err := app.releases.TrendingByType(r.Context(), "movie", window, limit)
 	if err != nil {
-		log.Printf("trending failed: %v", err)
-		http.Error(w, "failed to fetch trending", http.StatusInternalServerError)
+		log.Printf("trending movies failed: %v", err)
+		http.Error(w, "failed to fetch trending movies", http.StatusInternalServerError)
+		return
+	}
+
+	series, err := app.releases.TrendingByType(r.Context(), "tv", window, limit)
+	if err != nil {
+		log.Printf("trending series failed: %v", err)
+		http.Error(w, "failed to fetch trending series", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"movies": movies,
+		"series": series,
+	}); err != nil {
 		log.Printf("failed to encode trending: %v", err)
 	}
 }

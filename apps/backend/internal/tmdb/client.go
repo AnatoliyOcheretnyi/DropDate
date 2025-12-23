@@ -210,6 +210,69 @@ func (c *Client) Trending(ctx context.Context, window string, limit int) ([]Sugg
 	return out, nil
 }
 
+// TrendingByType returns TMDB trending titles for a specific media type.
+func (c *Client) TrendingByType(
+	ctx context.Context,
+	mediaType string,
+	window string,
+	limit int,
+) ([]Suggestion, error) {
+	if mediaType != "movie" && mediaType != "tv" {
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
+
+	window = normalizeWindow(window)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/trending/%s/%s", c.baseURL, mediaType, window),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+
+	var payload trendingResponse
+	if err := c.do(req, &payload); err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(payload.Results))
+	for _, result := range payload.Results {
+		name := result.Title
+		if name == "" {
+			name = result.Name
+		}
+		if name == "" {
+			continue
+		}
+		year := result.ReleaseDate
+		if year == "" {
+			year = result.FirstAirDate
+		}
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     name,
+			MediaType: mediaType,
+			Year:      yearFromDate(year),
+			PosterURL: poster,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+
+	return out, nil
+}
+
 func (c *Client) search(ctx context.Context, title string) ([]searchResult, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/search/multi", c.baseURL), nil)
 	if err != nil {

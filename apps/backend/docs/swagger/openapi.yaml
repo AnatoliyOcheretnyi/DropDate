@@ -94,7 +94,7 @@ paths:
   /trending:
     get:
       summary: Популярне зараз
-      description: Повертає популярні тайтли з TMDB (movies + TV).
+      description: Повертає популярні фільми і серіали з TMDB.
       parameters:
         - in: query
           name: window
@@ -108,18 +108,22 @@ paths:
           name: limit
           schema:
             type: integer
-            default: 12
+            default: 18
           required: false
-          description: Скільки результатів повернути.
+          description: Скільки результатів повернути для кожного типу.
       responses:
         '200':
-          description: Список популярних тайтлів
+          description: Списки популярних фільмів і серіалів
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  results:
+                  movies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
+                  series:
                     type: array
                     items:
                       $ref: '#/components/schemas/Suggestion'

@@ -30,7 +30,7 @@ body.no-scroll {
 main.page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 0 1.5rem 4rem;
+  padding: 0 3rem 4rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -57,7 +57,7 @@ main.page {
 .site-header-inner {
   width: 100%;
   margin: 0;
-  padding: 0 1.5rem 0.1rem;
+  padding: 0 3rem 0.1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -80,7 +80,6 @@ main.page {
   height: 80px;
   border-radius: 16px;
   object-fit: contain;
-  background: rgba(0, 0, 0, 0.25);
   padding: 6px;
 }
 
@@ -283,6 +282,15 @@ main.page {
   color: var(--text);
 }
 
+.hero-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+.hero-inner {
+  padding: 0 3rem;
+}
+
 .hero h1 {
   font-size: clamp(2.8rem, 8vw, 4rem);
   margin: 0.2rem 0;
@@ -392,6 +400,44 @@ main.page {
 .search-grid h3 {
   margin: 0;
   font-size: 1.1rem;
+}
+
+.trend-section {
+  margin-top: .5rem;
+}
+
+.trend-section + .trend-section {
+  margin-top: .5rem;
+}
+
+.trend-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+.trend-inner {
+  padding: 0 3rem;
+}
+
+.trend-carousel {
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.trend-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, 200px);
+  grid-auto-columns: 140px;
+  gap: 1rem;
+  width: max-content;
+  padding-right: 0.5rem;
+}
+
+.trend-carousel .poster-card {
+  height: 200px;
+  min-height: 0;
 }
 
 .poster-grid {
@@ -741,11 +787,11 @@ dd.date span:last-child {
 
 @media (max-width: 600px) {
   main.page {
-    padding: 2.5rem 1.25rem 3rem;
+    padding: 0 2rem 3rem;
   }
 
   .site-header-inner {
-    padding: 0 1.25rem 0.75rem;
+    padding: 0 2rem 0.75rem;
   }
 
   .header-actions {
@@ -764,6 +810,23 @@ dd.date span:last-child {
 
   .poster-grid {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .hero-inner {
+    padding: 0 2rem;
+  }
+
+  .trend-inner {
+    padding: 0 2rem;
+  }
+
+  .trend-track {
+    grid-template-rows: repeat(2, 170px);
+    grid-auto-columns: 120px;
+  }
+
+  .trend-carousel .poster-card {
+    height: 170px;
   }
 
   .site-footer-inner {
