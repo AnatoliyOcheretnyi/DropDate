@@ -19,6 +19,33 @@ export type Suggestion = {
   posterUrl?: string;
 };
 
+export type Details = {
+  id: number;
+  title: string;
+  mediaType: "movie" | "tv";
+  overview?: string;
+  tagline?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
+  status?: string;
+  releaseDate?: string;
+  firstAirDate?: string;
+  lastAirDate?: string;
+  nextAirDate?: string;
+  nextEpisodeName?: string;
+  lastEpisodeName?: string;
+  seasonCount?: number;
+  episodeCount?: number;
+  runtime?: number;
+  genres?: string[];
+  networks?: string[];
+  voteAverage?: number;
+  voteCount?: number;
+  popularity?: number;
+  homepage?: string;
+  originCountry?: string[];
+};
+
 export function getReleaseStatusLabel(status: ReleaseStatus, type: ReleaseType): string {
   if (status === "released") {
     return type === "movie" ? "Фільм вже вийшов" : "Реліз відбувся";

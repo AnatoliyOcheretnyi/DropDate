@@ -180,3 +180,65 @@ func (p *tmdbSuggestionProvider) Search(ctx context.Context, query string, page 
 		TotalResults: results.TotalResults,
 	}, nil
 }
+
+func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType string) (Details, error) {
+	info, err := p.client.DetailsByID(ctx, id, mediaType)
+	if err != nil {
+		if errors.Is(err, tmdb.ErrNotFound) {
+			return Details{}, ErrNotFound
+		}
+		return Details{}, err
+	}
+
+	return Details{
+		ID:            info.ID,
+		Title:         info.Title,
+		MediaType:     info.MediaType,
+		Overview:      info.Overview,
+		Tagline:       info.Tagline,
+		PosterURL:     info.PosterURL,
+		BackdropURL:   info.BackdropURL,
+		Status:        info.Status,
+		ReleaseDate:   info.ReleaseDate,
+		FirstAirDate:  info.FirstAirDate,
+		LastAirDate:   info.LastAirDate,
+		NextAirDate:   info.NextAirDate,
+		NextEpisode:   info.NextEpisode,
+		LastEpisode:   info.LastEpisode,
+		SeasonCount:   info.SeasonCount,
+		EpisodeCount:  info.EpisodeCount,
+		Runtime:       info.Runtime,
+		Genres:        info.Genres,
+		Networks:      info.Networks,
+		VoteAverage:   info.VoteAverage,
+		VoteCount:     info.VoteCount,
+		Popularity:    info.Popularity,
+		Homepage:      info.Homepage,
+		OriginCountry: info.OriginCountry,
+	}, nil
+}
+
+func (p *tmdbSuggestionProvider) Recommendations(
+	ctx context.Context,
+	id int,
+	mediaType string,
+	limit int,
+) ([]Suggestion, error) {
+	results, err := p.client.Recommendations(ctx, id, mediaType, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(results))
+	for _, res := range results {
+		out = append(out, Suggestion{
+			ID:        res.ID,
+			Title:     res.Title,
+			MediaType: res.MediaType,
+			Year:      res.Year,
+			PosterURL: res.PosterURL,
+		})
+	}
+
+	return out, nil
+}

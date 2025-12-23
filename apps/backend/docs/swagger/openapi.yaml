@@ -169,6 +169,101 @@ paths:
           description: Некоректний запит
         '500':
           description: Помилка TMDB
+  /details:
+    get:
+      summary: Деталі тайтлу
+      description: Повертає деталі тайтлу, реліз та рекомендації.
+      parameters:
+        - in: query
+          name: tmdbId
+          schema:
+            type: integer
+          required: true
+          description: TMDB ID.
+        - in: query
+          name: mediaType
+          schema:
+            type: string
+            enum: [movie, tv]
+          required: true
+          description: Тип тайтлу.
+      responses:
+        '200':
+          description: Детальна інформація
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  details:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      title:
+                        type: string
+                      mediaType:
+                        type: string
+                      overview:
+                        type: string
+                      tagline:
+                        type: string
+                      posterUrl:
+                        type: string
+                      backdropUrl:
+                        type: string
+                      status:
+                        type: string
+                      releaseDate:
+                        type: string
+                      firstAirDate:
+                        type: string
+                      lastAirDate:
+                        type: string
+                      nextAirDate:
+                        type: string
+                      nextEpisodeName:
+                        type: string
+                      lastEpisodeName:
+                        type: string
+                      seasonCount:
+                        type: integer
+                      episodeCount:
+                        type: integer
+                      runtime:
+                        type: integer
+                      genres:
+                        type: array
+                        items:
+                          type: string
+                      networks:
+                        type: array
+                        items:
+                          type: string
+                      voteAverage:
+                        type: number
+                      voteCount:
+                        type: integer
+                      popularity:
+                        type: number
+                      homepage:
+                        type: string
+                      originCountry:
+                        type: array
+                        items:
+                          type: string
+                  release:
+                    $ref: '#/components/schemas/ReleaseInfo'
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
+        '400':
+          description: Некоректний запит
+        '404':
+          description: Не знайдено
+        '500':
+          description: Помилка TMDB
   /bulk-next-release:
     post:
       summary: Пакетне оновлення релізів

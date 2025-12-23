@@ -64,6 +64,7 @@ func main() {
 	mux.HandleFunc("/suggest", app.suggestHandler)
 	mux.HandleFunc("/trending", app.trendingHandler)
 	mux.HandleFunc("/search", app.searchHandler)
+	mux.HandleFunc("/details", app.detailsHandler)
 	mux.HandleFunc("/bulk-next-release", app.bulkNextReleaseHandler)
 	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
@@ -283,6 +284,74 @@ func (app *application) searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(results); err != nil {
 		log.Printf("failed to encode search: %v", err)
+	}
+}
+
+type detailsResponse struct {
+	Details         release.Details      `json:"details"`
+	Release         *release.Info        `json:"release,omitempty"`
+	Recommendations []release.Suggestion `json:"recommendations,omitempty"`
+}
+
+func (app *application) detailsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tmdbIDStr := strings.TrimSpace(r.URL.Query().Get("tmdbId"))
+	if tmdbIDStr == "" {
+		http.Error(w, "tmdbId is required", http.StatusBadRequest)
+		return
+	}
+	tmdbID, err := strconv.Atoi(tmdbIDStr)
+	if err != nil || tmdbID <= 0 {
+		http.Error(w, "invalid tmdbId", http.StatusBadRequest)
+		return
+	}
+
+	mediaType := strings.TrimSpace(r.URL.Query().Get("mediaType"))
+	if mediaType == "" {
+		http.Error(w, "mediaType is required", http.StatusBadRequest)
+		return
+	}
+
+	details, err := app.releases.Details(r.Context(), tmdbID, mediaType)
+	if err != nil {
+		if errors.Is(err, release.ErrNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("details failed: %v", err)
+		http.Error(w, "failed to fetch details", http.StatusInternalServerError)
+		return
+	}
+
+	recommendations, err := app.releases.Recommendations(r.Context(), tmdbID, mediaType, 12)
+	if err != nil {
+		log.Printf("recommendations failed: %v", err)
+		recommendations = []release.Suggestion{}
+	}
+
+	var releaseInfo *release.Info
+	if details.Title != "" {
+		info, err := app.releases.NextRelease(
+			r.Context(),
+			details.Title,
+			&release.LookupHint{TMDBID: tmdbID, MediaType: mediaType},
+		)
+		if err == nil {
+			releaseInfo = &info
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(detailsResponse{
+		Details:         details,
+		Release:         releaseInfo,
+		Recommendations: recommendations,
+	}); err != nil {
+		log.Printf("failed to encode details: %v", err)
 	}
 }
 

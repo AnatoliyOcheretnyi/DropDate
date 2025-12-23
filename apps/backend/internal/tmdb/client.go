@@ -36,6 +36,33 @@ type ReleaseInfo struct {
 	Status      string
 }
 
+type DetailInfo struct {
+	ID            int
+	Title         string
+	MediaType     string
+	Overview      string
+	Tagline       string
+	PosterURL     string
+	BackdropURL   string
+	Status        string
+	ReleaseDate   string
+	FirstAirDate  string
+	LastAirDate   string
+	NextAirDate   string
+	NextEpisode   string
+	LastEpisode   string
+	SeasonCount   int
+	EpisodeCount  int
+	Runtime       int
+	Genres        []string
+	Networks      []string
+	VoteAverage   float64
+	VoteCount     int
+	Popularity    float64
+	Homepage      string
+	OriginCountry []string
+}
+
 // Suggestion is a lightweight search result.
 type Suggestion struct {
 	ID        int
@@ -365,6 +392,79 @@ func (c *Client) SearchAll(ctx context.Context, query string, page int) (SearchR
 	}, nil
 }
 
+// DetailsByID returns full TMDB details for a movie or TV show.
+func (c *Client) DetailsByID(ctx context.Context, id int, mediaType string) (DetailInfo, error) {
+	switch mediaType {
+	case "movie":
+		return c.fetchMovieDetails(ctx, id)
+	case "tv":
+		return c.fetchTVDetails(ctx, id)
+	default:
+		return DetailInfo{}, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
+}
+
+// Recommendations returns similar titles for a movie or TV show.
+func (c *Client) Recommendations(
+	ctx context.Context,
+	id int,
+	mediaType string,
+	limit int,
+) ([]Suggestion, error) {
+	if mediaType != "movie" && mediaType != "tv" {
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/%s/%d/recommendations", c.baseURL, mediaType, id),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+
+	var payload recommendationResponse
+	if err := c.do(req, &payload); err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(payload.Results))
+	for _, result := range payload.Results {
+		name := result.Title
+		if name == "" {
+			name = result.Name
+		}
+		if name == "" {
+			continue
+		}
+		year := result.ReleaseDate
+		if year == "" {
+			year = result.FirstAirDate
+		}
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     name,
+			MediaType: mediaType,
+			Year:      yearFromDate(year),
+			PosterURL: poster,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+
+	return out, nil
+}
+
 func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/tv/%d", c.baseURL, id), nil)
 	if err != nil {
@@ -386,8 +486,8 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 		poster = buildPosterURL(payload.PosterPath)
 	}
 	backdrop := ""
-	if payload.Backdrop != "" {
-		backdrop = buildBackdropURL(payload.Backdrop)
+	if payload.BackdropPath != "" {
+		backdrop = buildBackdropURL(payload.BackdropPath)
 	}
 
 	if payload.NextEpisode != nil && payload.NextEpisode.AirDate != "" {
@@ -427,6 +527,144 @@ func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
 
 }
 
+func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/movie/%d", c.baseURL, id), nil)
+	if err != nil {
+		return DetailInfo{}, err
+	}
+
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+
+	var payload movieDetailsResponse
+	if err := c.do(req, &payload); err != nil {
+		if strings.Contains(err.Error(), "status 404") {
+			return DetailInfo{}, ErrNotFound
+		}
+		return DetailInfo{}, err
+	}
+
+	poster := ""
+	if payload.PosterPath != "" {
+		poster = buildPosterURL(payload.PosterPath)
+	}
+	backdrop := ""
+	if payload.BackdropPath != "" {
+		backdrop = buildBackdropURL(payload.BackdropPath)
+	}
+	genres := make([]string, 0, len(payload.Genres))
+	for _, genre := range payload.Genres {
+		if genre.Name != "" {
+			genres = append(genres, genre.Name)
+		}
+	}
+
+	return DetailInfo{
+		ID:            id,
+		Title:         payload.Title,
+		MediaType:     "movie",
+		Overview:      payload.Overview,
+		Tagline:       payload.Tagline,
+		PosterURL:     poster,
+		BackdropURL:   backdrop,
+		Status:        payload.Status,
+		ReleaseDate:   payload.ReleaseDate,
+		Runtime:       payload.Runtime,
+		Genres:        genres,
+		VoteAverage:   payload.VoteAverage,
+		VoteCount:     payload.VoteCount,
+		Popularity:    payload.Popularity,
+		Homepage:      payload.Homepage,
+		OriginCountry: payload.OriginCountry,
+	}, nil
+}
+
+func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/tv/%d", c.baseURL, id), nil)
+	if err != nil {
+		return DetailInfo{}, err
+	}
+
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air")
+	req.URL.RawQuery = q.Encode()
+
+	var payload tvDetailsResponse
+	if err := c.do(req, &payload); err != nil {
+		if strings.Contains(err.Error(), "status 404") {
+			return DetailInfo{}, ErrNotFound
+		}
+		return DetailInfo{}, err
+	}
+
+	poster := ""
+	if payload.PosterPath != "" {
+		poster = buildPosterURL(payload.PosterPath)
+	}
+	backdrop := ""
+	if payload.BackdropPath != "" {
+		backdrop = buildBackdropURL(payload.BackdropPath)
+	}
+	genres := make([]string, 0, len(payload.Genres))
+	for _, genre := range payload.Genres {
+		if genre.Name != "" {
+			genres = append(genres, genre.Name)
+		}
+	}
+	networks := make([]string, 0, len(payload.Networks))
+	for _, network := range payload.Networks {
+		if network.Name != "" {
+			networks = append(networks, network.Name)
+		}
+	}
+	runtime := 0
+	if len(payload.EpisodeRunTime) > 0 {
+		runtime = payload.EpisodeRunTime[0]
+	}
+	nextAirDate := ""
+	nextEpisodeName := ""
+	if payload.NextEpisode != nil {
+		nextAirDate = payload.NextEpisode.AirDate
+		nextEpisodeName = payload.NextEpisode.Name
+	}
+	lastAirDate := payload.LastAirDate
+	lastEpisodeName := ""
+	if payload.LastEpisode != nil {
+		if payload.LastEpisode.AirDate != "" {
+			lastAirDate = payload.LastEpisode.AirDate
+		}
+		lastEpisodeName = payload.LastEpisode.Name
+	}
+
+	return DetailInfo{
+		ID:            id,
+		Title:         payload.Name,
+		MediaType:     "tv",
+		Overview:      payload.Overview,
+		Tagline:       payload.Tagline,
+		PosterURL:     poster,
+		BackdropURL:   backdrop,
+		Status:        payload.Status,
+		FirstAirDate:  payload.FirstAirDate,
+		LastAirDate:   lastAirDate,
+		NextAirDate:   nextAirDate,
+		NextEpisode:   nextEpisodeName,
+		LastEpisode:   lastEpisodeName,
+		SeasonCount:   payload.NumberSeasons,
+		EpisodeCount:  payload.NumberEpisodes,
+		Runtime:       runtime,
+		Genres:        genres,
+		Networks:      networks,
+		VoteAverage:   payload.VoteAverage,
+		VoteCount:     payload.VoteCount,
+		Popularity:    payload.Popularity,
+		Homepage:      payload.Homepage,
+		OriginCountry: payload.OriginCountry,
+	}, nil
+}
+
 func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/movie/%d", c.baseURL, id), nil)
 	if err != nil {
@@ -456,8 +694,8 @@ func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
 		poster = buildPosterURL(payload.PosterPath)
 	}
 	backdrop := ""
-	if payload.Backdrop != "" {
-		backdrop = buildBackdropURL(payload.Backdrop)
+	if payload.BackdropPath != "" {
+		backdrop = buildBackdropURL(payload.BackdropPath)
 	}
 
 	return ReleaseInfo{
@@ -534,24 +772,70 @@ type trendingResult struct {
 	PosterPath   string `json:"poster_path"`
 }
 
+type recommendationResponse struct {
+	Results []recommendationResult `json:"results"`
+}
+
+type recommendationResult struct {
+	ID           int    `json:"id"`
+	Title        string `json:"title"`
+	Name         string `json:"name"`
+	ReleaseDate  string `json:"release_date"`
+	FirstAirDate string `json:"first_air_date"`
+	PosterPath   string `json:"poster_path"`
+}
+
+type movieDetailsResponse struct {
+	Title         string      `json:"title"`
+	Overview      string      `json:"overview"`
+	Tagline       string      `json:"tagline"`
+	Status        string      `json:"status"`
+	ReleaseDate   string      `json:"release_date"`
+	Runtime       int         `json:"runtime"`
+	Genres        []tmdbGenre `json:"genres"`
+	PosterPath    string      `json:"poster_path"`
+	BackdropPath  string      `json:"backdrop_path"`
+	VoteAverage   float64     `json:"vote_average"`
+	VoteCount     int         `json:"vote_count"`
+	Popularity    float64     `json:"popularity"`
+	Homepage      string      `json:"homepage"`
+	OriginCountry []string    `json:"origin_country"`
+}
+
 type tvDetailsResponse struct {
-	Name        string          `json:"name"`
-	NextEpisode *tvEpisodeEntry `json:"next_episode_to_air"`
-	LastEpisode *tvEpisodeEntry `json:"last_episode_to_air"`
-	Status      string          `json:"status"`
-	PosterPath  string          `json:"poster_path"`
-	Backdrop    string          `json:"backdrop_path"`
+	Name           string          `json:"name"`
+	Overview       string          `json:"overview"`
+	Tagline        string          `json:"tagline"`
+	Status         string          `json:"status"`
+	FirstAirDate   string          `json:"first_air_date"`
+	LastAirDate    string          `json:"last_air_date"`
+	NextEpisode    *tvEpisodeEntry `json:"next_episode_to_air"`
+	LastEpisode    *tvEpisodeEntry `json:"last_episode_to_air"`
+	NumberSeasons  int             `json:"number_of_seasons"`
+	NumberEpisodes int             `json:"number_of_episodes"`
+	EpisodeRunTime []int           `json:"episode_run_time"`
+	Genres         []tmdbGenre     `json:"genres"`
+	Networks       []tmdbNetwork   `json:"networks"`
+	PosterPath     string          `json:"poster_path"`
+	BackdropPath   string          `json:"backdrop_path"`
+	VoteAverage    float64         `json:"vote_average"`
+	VoteCount      int             `json:"vote_count"`
+	Popularity     float64         `json:"popularity"`
+	Homepage       string          `json:"homepage"`
+	OriginCountry  []string        `json:"origin_country"`
+}
+
+type tmdbGenre struct {
+	Name string `json:"name"`
+}
+
+type tmdbNetwork struct {
+	Name string `json:"name"`
 }
 
 type tvEpisodeEntry struct {
 	AirDate string `json:"air_date"`
-}
-
-type movieDetailsResponse struct {
-	Title       string `json:"title"`
-	ReleaseDate string `json:"release_date"`
-	PosterPath  string `json:"poster_path"`
-	Backdrop    string `json:"backdrop_path"`
+	Name    string `json:"name"`
 }
 
 func yearFromDate(date string) string {

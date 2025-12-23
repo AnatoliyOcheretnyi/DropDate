@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ReleaseInfo, Suggestion } from "../lib/release";
+import type { Suggestion } from "../lib/release";
 import { Header } from "./components/Header";
-import { ResultCard } from "./components/ResultCard";
 import { SavedList } from "./components/SavedList";
 import { TrendingCarousel } from "./components/TrendingCarousel";
 import { useSavedReleases } from "./hooks/useSavedReleases";
@@ -13,13 +12,8 @@ import { useSuggestions } from "./hooks/useSuggestions";
 export default function HomePage() {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
-  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(
-    null
-  );
   const [trendingMovies, setTrendingMovies] = useState<Suggestion[]>([]);
   const [trendingSeries, setTrendingSeries] = useState<Suggestion[]>([]);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
@@ -35,9 +29,7 @@ export default function HomePage() {
   const {
     saved,
     isReady: isStorageReady,
-    addRelease,
     removeRelease,
-    isReleaseSaved,
     isSuggestionSaved,
     refreshAll,
     isRefreshing,
@@ -100,62 +92,15 @@ export default function HomePage() {
     }
   }, [activeView]);
 
-  const fetchRelease = useCallback(
-    async (inputTitle: string, suggestion: Suggestion | null) => {
-      const trimmedTitle = inputTitle.trim();
-      if (!trimmedTitle) {
-        setError("Введи назву серіалу або фільму.");
-        setRelease(null);
-        return null;
-      }
-
-      const params = new URLSearchParams();
-      params.set("title", trimmedTitle);
-      if (suggestion) {
-        params.set("tmdbId", String(suggestion.id));
-        params.set("mediaType", suggestion.mediaType);
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`/api/next-release?${params.toString()}`);
-        const payload = await response.json();
-
-        if (!response.ok) {
-          setRelease(null);
-          setError(payload?.message || "Не вдалося отримати дані.");
-          return null;
-        }
-
-        const info = payload as ReleaseInfo;
-        setRelease(info);
-        return info;
-      } catch (fetchError) {
-        setRelease(null);
-        setError(
-          fetchError instanceof Error
-            ? fetchError.message
-            : "Щось пішло не так."
-        );
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    []
-  );
-
   const handleSuggestionSelect = useCallback(
     (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
       setTitle(suggestion.title);
       setIsInputFocused(false);
       setIsSearchOpen(false);
-      fetchRelease(suggestion.title, suggestion);
+      router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
-    [fetchRelease]
+    [router]
   );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -167,37 +112,18 @@ export default function HomePage() {
     setSelectedSuggestion(null);
     setIsInputFocused(false);
     setIsSearchOpen(false);
-    setRelease(null);
     router.push(`/search?query=${encodeURIComponent(trimmed)}`);
   };
 
-  const isCurrentSaved = isReleaseSaved(release);
-
   const handleGallerySelect = useCallback(
-    async (suggestion: Suggestion) => {
+    (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
       setIsInputFocused(false);
       setIsSearchOpen(false);
       setTitle(suggestion.title);
-
-      if (isSuggestionSaved(suggestion)) {
-        const savedMatch = saved.find(
-          (item) => item.title.toLowerCase() === suggestion.title.toLowerCase()
-        );
-        if (savedMatch) {
-          setRelease(savedMatch);
-          return;
-        }
-      }
-
-      setAddingSuggestionId(suggestion.id);
-      try {
-        await fetchRelease(suggestion.title, suggestion);
-      } finally {
-        setAddingSuggestionId(null);
-      }
+      router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
-    [fetchRelease, isSuggestionSaved, saved]
+    [router]
   );
 
   const handleRefreshAllClick = async () => {
@@ -223,7 +149,6 @@ export default function HomePage() {
 
   const shouldShowSuggestions =
     activeView === "home" && isSearchOpen && isInputFocused && suggestions.length > 0;
-  const shouldShowSelection = Boolean(release);
   const shouldShowTrending =
     activeView === "home" &&
     !selectedSuggestion;
@@ -302,7 +227,7 @@ export default function HomePage() {
                 isLoading={isTrendingLoading}
                 onSelect={handleGallerySelect}
                 isSaved={isSuggestionSaved}
-                isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+                isBusy={() => false}
               />
               <TrendingCarousel
                 title="Серіали зараз в тренді"
@@ -310,26 +235,10 @@ export default function HomePage() {
                 isLoading={isTrendingLoading}
                 onSelect={handleGallerySelect}
                 isSaved={isSuggestionSaved}
-                isBusy={(suggestion) => addingSuggestionId === suggestion.id}
+                isBusy={() => false}
               />
             </>
           )}
-        </>
-      )}
-
-      {activeView === "home" && (
-        <>
-          {shouldShowSelection && release && (
-            <section className="result">
-              <ResultCard
-                release={release}
-                onSave={() => addRelease(release)}
-                isSaved={Boolean(isCurrentSaved)}
-                disableActions={!isStorageReady}
-              />
-            </section>
-          )}
-
         </>
       )}
 

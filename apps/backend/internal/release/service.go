@@ -42,6 +42,33 @@ type SearchResults struct {
 	TotalResults int          `json:"totalResults"`
 }
 
+type Details struct {
+	ID            int      `json:"id"`
+	Title         string   `json:"title"`
+	MediaType     string   `json:"mediaType"`
+	Overview      string   `json:"overview,omitempty"`
+	Tagline       string   `json:"tagline,omitempty"`
+	PosterURL     string   `json:"posterUrl,omitempty"`
+	BackdropURL   string   `json:"backdropUrl,omitempty"`
+	Status        string   `json:"status,omitempty"`
+	ReleaseDate   string   `json:"releaseDate,omitempty"`
+	FirstAirDate  string   `json:"firstAirDate,omitempty"`
+	LastAirDate   string   `json:"lastAirDate,omitempty"`
+	NextAirDate   string   `json:"nextAirDate,omitempty"`
+	NextEpisode   string   `json:"nextEpisodeName,omitempty"`
+	LastEpisode   string   `json:"lastEpisodeName,omitempty"`
+	SeasonCount   int      `json:"seasonCount,omitempty"`
+	EpisodeCount  int      `json:"episodeCount,omitempty"`
+	Runtime       int      `json:"runtime,omitempty"`
+	Genres        []string `json:"genres,omitempty"`
+	Networks      []string `json:"networks,omitempty"`
+	VoteAverage   float64  `json:"voteAverage,omitempty"`
+	VoteCount     int      `json:"voteCount,omitempty"`
+	Popularity    float64  `json:"popularity,omitempty"`
+	Homepage      string   `json:"homepage,omitempty"`
+	OriginCountry []string `json:"originCountry,omitempty"`
+}
+
 var (
 	// ErrNotFound повертаємо, коли користувач питає про невідомий тайтл.
 	ErrNotFound = errors.New("release not found")
@@ -54,6 +81,7 @@ type Service struct {
 	trending       TrendingProvider
 	trendingByType TrendingByTypeProvider
 	searcher       SearchProvider
+	details        DetailsProvider
 	logger         *log.Logger
 
 	cache    map[string]cacheEntry
@@ -80,6 +108,11 @@ type TrendingByTypeProvider interface {
 // SearchProvider повертає повний список для пошуку з пагінацією.
 type SearchProvider interface {
 	Search(ctx context.Context, query string, page int) (SearchResults, error)
+}
+
+type DetailsProvider interface {
+	Details(ctx context.Context, id int, mediaType string) (Details, error)
+	Recommendations(ctx context.Context, id int, mediaType string, limit int) ([]Suggestion, error)
 }
 
 type cacheEntry struct {
@@ -116,6 +149,12 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		searcher: func() SearchProvider {
 			if s, ok := suggester.(SearchProvider); ok {
 				return s
+			}
+			return nil
+		}(),
+		details: func() DetailsProvider {
+			if d, ok := suggester.(DetailsProvider); ok {
+				return d
 			}
 			return nil
 		}(),
@@ -214,6 +253,25 @@ func (s *Service) Search(ctx context.Context, query string, page int) (SearchRes
 		return SearchResults{Results: []Suggestion{}, Page: page}, nil
 	}
 	return s.searcher.Search(ctx, query, page)
+}
+
+func (s *Service) Details(ctx context.Context, id int, mediaType string) (Details, error) {
+	if s.details == nil {
+		return Details{}, ErrNotFound
+	}
+	return s.details.Details(ctx, id, mediaType)
+}
+
+func (s *Service) Recommendations(
+	ctx context.Context,
+	id int,
+	mediaType string,
+	limit int,
+) ([]Suggestion, error) {
+	if s.details == nil {
+		return []Suggestion{}, nil
+	}
+	return s.details.Recommendations(ctx, id, mediaType, limit)
 }
 
 func (s *Service) cacheKey(title string, hint *LookupHint) string {
