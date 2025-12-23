@@ -35,6 +35,13 @@ type Suggestion struct {
 	PosterURL string `json:"posterUrl,omitempty"`
 }
 
+type SearchResults struct {
+	Results      []Suggestion `json:"results"`
+	Page         int          `json:"page"`
+	TotalPages   int          `json:"totalPages"`
+	TotalResults int          `json:"totalResults"`
+}
+
 var (
 	// ErrNotFound повертаємо, коли користувач питає про невідомий тайтл.
 	ErrNotFound = errors.New("release not found")
@@ -46,6 +53,7 @@ type Service struct {
 	suggester      SuggestionProvider
 	trending       TrendingProvider
 	trendingByType TrendingByTypeProvider
+	searcher       SearchProvider
 	logger         *log.Logger
 
 	cache    map[string]cacheEntry
@@ -67,6 +75,11 @@ type TrendingProvider interface {
 // TrendingByTypeProvider повертає популярні тайтли за типом.
 type TrendingByTypeProvider interface {
 	TrendingByType(ctx context.Context, mediaType string, window string, limit int) ([]Suggestion, error)
+}
+
+// SearchProvider повертає повний список для пошуку з пагінацією.
+type SearchProvider interface {
+	Search(ctx context.Context, query string, page int) (SearchResults, error)
 }
 
 type cacheEntry struct {
@@ -97,6 +110,12 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		trendingByType: func() TrendingByTypeProvider {
 			if t, ok := suggester.(TrendingByTypeProvider); ok {
 				return t
+			}
+			return nil
+		}(),
+		searcher: func() SearchProvider {
+			if s, ok := suggester.(SearchProvider); ok {
+				return s
 			}
 			return nil
 		}(),
@@ -188,6 +207,13 @@ func (s *Service) TrendingByType(
 		return []Suggestion{}, nil
 	}
 	return s.trendingByType.TrendingByType(ctx, mediaType, window, limit)
+}
+
+func (s *Service) Search(ctx context.Context, query string, page int) (SearchResults, error) {
+	if s.searcher == nil {
+		return SearchResults{Results: []Suggestion{}, Page: page}, nil
+	}
+	return s.searcher.Search(ctx, query, page)
 }
 
 func (s *Service) cacheKey(title string, hint *LookupHint) string {

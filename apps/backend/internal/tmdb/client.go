@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -274,23 +275,94 @@ func (c *Client) TrendingByType(
 }
 
 func (c *Client) search(ctx context.Context, title string) ([]searchResult, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/search/multi", c.baseURL), nil)
+	payload, err := c.searchPage(ctx, title, 1)
 	if err != nil {
 		return nil, err
+	}
+
+	return payload.Results, nil
+}
+
+func (c *Client) searchPage(ctx context.Context, title string, page int) (multiSearchResponse, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/search/multi", c.baseURL),
+		nil,
+	)
+	if err != nil {
+		return multiSearchResponse{}, err
 	}
 
 	q := req.URL.Query()
 	q.Set("query", title)
 	q.Set("include_adult", "false")
 	q.Set("language", "uk-UA")
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
 	req.URL.RawQuery = q.Encode()
 
 	var payload multiSearchResponse
 	if err := c.do(req, &payload); err != nil {
-		return nil, err
+		return multiSearchResponse{}, err
 	}
 
-	return payload.Results, nil
+	return payload, nil
+}
+
+type SearchResults struct {
+	Results      []Suggestion
+	Page         int
+	TotalPages   int
+	TotalResults int
+}
+
+// SearchAll returns paginated TMDB search results (movies + TV).
+func (c *Client) SearchAll(ctx context.Context, query string, page int) (SearchResults, error) {
+	if page < 1 {
+		page = 1
+	}
+	payload, err := c.searchPage(ctx, query, page)
+	if err != nil {
+		return SearchResults{}, err
+	}
+
+	out := make([]Suggestion, 0, len(payload.Results))
+	for _, result := range payload.Results {
+		if result.MediaType != "tv" && result.MediaType != "movie" {
+			continue
+		}
+		name := result.Title
+		if name == "" {
+			name = result.Name
+		}
+		if name == "" {
+			continue
+		}
+		year := result.ReleaseDate
+		if year == "" {
+			year = result.FirstAirDate
+		}
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     name,
+			MediaType: result.MediaType,
+			Year:      yearFromDate(year),
+			PosterURL: poster,
+		})
+	}
+
+	return SearchResults{
+		Results:      out,
+		Page:         payload.Page,
+		TotalPages:   payload.TotalPages,
+		TotalResults: payload.TotalResults,
+	}, nil
 }
 
 func (c *Client) fetchTV(ctx context.Context, id int) (ReleaseInfo, error) {
@@ -442,7 +514,10 @@ type searchResult struct {
 }
 
 type multiSearchResponse struct {
-	Results []searchResult `json:"results"`
+	Page         int            `json:"page"`
+	TotalPages   int            `json:"total_pages"`
+	TotalResults int            `json:"total_results"`
+	Results      []searchResult `json:"results"`
 }
 
 type trendingResponse struct {

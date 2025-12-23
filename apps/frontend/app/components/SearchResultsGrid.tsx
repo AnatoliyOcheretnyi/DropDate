@@ -10,6 +10,7 @@ type Props = {
   isBusy: (suggestion: Suggestion) => boolean;
   title?: string;
   emptyLabel?: string;
+  showEmpty?: boolean;
 };
 
 export function SearchResultsGrid({
@@ -20,8 +21,9 @@ export function SearchResultsGrid({
   isBusy,
   title = "Рекомендації",
   emptyLabel = "Нічого не знайдено.",
+  showEmpty = false,
 }: Props) {
-  if (!isLoading && items.length === 0) {
+  if (!isLoading && items.length === 0 && !showEmpty) {
     return null;
   }
 

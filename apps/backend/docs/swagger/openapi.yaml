@@ -129,6 +129,46 @@ paths:
                       $ref: '#/components/schemas/Suggestion'
         '500':
           description: Помилка TMDB
+  /search:
+    get:
+      summary: Повний пошук
+      description: Повертає список тайтлів за запитом з пагінацією.
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+          required: true
+          description: Пошуковий запит.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          required: false
+          description: Номер сторінки.
+      responses:
+        '200':
+          description: Результати пошуку
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  totalResults:
+                    type: integer
+        '400':
+          description: Некоректний запит
+        '500':
+          description: Помилка TMDB
   /bulk-next-release:
     post:
       summary: Пакетне оновлення релізів

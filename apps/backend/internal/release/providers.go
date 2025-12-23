@@ -155,3 +155,28 @@ func (p *tmdbSuggestionProvider) TrendingByType(
 
 	return out, nil
 }
+
+func (p *tmdbSuggestionProvider) Search(ctx context.Context, query string, page int) (SearchResults, error) {
+	results, err := p.client.SearchAll(ctx, query, page)
+	if err != nil {
+		return SearchResults{}, err
+	}
+
+	out := make([]Suggestion, 0, len(results.Results))
+	for _, res := range results.Results {
+		out = append(out, Suggestion{
+			ID:        res.ID,
+			Title:     res.Title,
+			MediaType: res.MediaType,
+			Year:      res.Year,
+			PosterURL: res.PosterURL,
+		})
+	}
+
+	return SearchResults{
+		Results:      out,
+		Page:         results.Page,
+		TotalPages:   results.TotalPages,
+		TotalResults: results.TotalResults,
+	}, nil
+}

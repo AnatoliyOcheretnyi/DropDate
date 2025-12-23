@@ -402,6 +402,62 @@ main.page {
   font-size: 1.1rem;
 }
 
+.search-title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.search-title .hint {
+  margin: 0.35rem 0 0;
+}
+
+.search-filters {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(245, 245, 245, 0.7);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.filter-chip.active,
+.filter-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.load-more {
+  align-self: center;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(245, 245, 245, 0.8);
+  padding: 0.6rem 1.6rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.load-more:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text);
+}
+
+.load-more:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .trend-section {
   margin-top: .5rem;
 }

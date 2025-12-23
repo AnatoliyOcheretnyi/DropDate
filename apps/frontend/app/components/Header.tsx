@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { Suggestion } from "../../lib/release";
 import { Suggestions } from "./Suggestions";
 
@@ -13,6 +14,7 @@ type Props = {
   isLoading: boolean;
   isSearchOpen: boolean;
   onSearchToggle: () => void;
+  onSearchClose: () => void;
   onSearchChange: (value: string) => void;
   onSearchSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onSearchFocus: () => void;
@@ -31,6 +33,7 @@ export function Header({
   isLoading,
   isSearchOpen,
   onSearchToggle,
+  onSearchClose,
   onSearchChange,
   onSearchSubmit,
   onSearchFocus,
@@ -40,6 +43,40 @@ export function Header({
   onSuggestionSelect,
   isSuggestionSaved,
 }: Props) {
+  const searchRef = useRef<HTMLFormElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return;
+    }
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return;
+    }
+
+    const handleClick = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (searchRef.current && !searchRef.current.contains(target)) {
+        onSearchClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+    };
+  }, [isSearchOpen, onSearchClose]);
+
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -52,10 +89,12 @@ export function Header({
         </button>
         <div className="header-actions">
           <form
+            ref={searchRef}
             className={`header-search${isSearchOpen ? " open" : ""}`}
             onSubmit={onSearchSubmit}
           >
             <input
+              ref={inputRef}
               type="text"
               placeholder="Пошук..."
               value={title}
@@ -66,17 +105,30 @@ export function Header({
             <button
               type="button"
               className="header-icon"
-              aria-label="Пошук"
-              onClick={onSearchToggle}
+              aria-label={isSearchOpen ? "Закрити пошук" : "Пошук"}
+              onClick={isSearchOpen ? onSearchClose : onSearchToggle}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0-2a9 9 0 1 0 5.66 15.99l4.68 4.68 1.41-1.41-4.68-4.68A9 9 0 0 0 11 2Z"
-                  fill="currentColor"
-                />
-              </svg>
+              {isSearchOpen ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0-2a9 9 0 1 0 5.66 15.99l4.68 4.68 1.41-1.41-4.68-4.68A9 9 0 0 0 11 2Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              )}
             </button>
-            <button type="submit" className="header-submit" disabled={isLoading}>
+            <button
+              type="submit"
+              className="header-submit"
+              disabled={isLoading || title.trim().length === 0}
+            >
               {isLoading ? "..." : "Знайти"}
             </button>
             {isSearchOpen && (

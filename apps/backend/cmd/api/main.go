@@ -63,6 +63,7 @@ func main() {
 	mux.HandleFunc("/next-release", app.nextReleaseHandler)
 	mux.HandleFunc("/suggest", app.suggestHandler)
 	mux.HandleFunc("/trending", app.trendingHandler)
+	mux.HandleFunc("/search", app.searchHandler)
 	mux.HandleFunc("/bulk-next-release", app.bulkNextReleaseHandler)
 	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
@@ -250,6 +251,38 @@ func (app *application) trendingHandler(w http.ResponseWriter, r *http.Request) 
 		"series": series,
 	}); err != nil {
 		log.Printf("failed to encode trending: %v", err)
+	}
+}
+
+func (app *application) searchHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	query := strings.TrimSpace(r.URL.Query().Get("query"))
+	if query == "" {
+		http.Error(w, "query is required", http.StatusBadRequest)
+		return
+	}
+
+	page := 1
+	if pageStr := strings.TrimSpace(r.URL.Query().Get("page")); pageStr != "" {
+		if parsed, err := strconv.Atoi(pageStr); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	results, err := app.releases.Search(r.Context(), query, page)
+	if err != nil {
+		log.Printf("search failed: %v", err)
+		http.Error(w, "failed to fetch search results", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Printf("failed to encode search: %v", err)
 	}
 }
 

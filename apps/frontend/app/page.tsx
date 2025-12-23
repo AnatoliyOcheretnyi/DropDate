@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ReleaseInfo, Suggestion } from "../lib/release";
 import { Header } from "./components/Header";
 import { ResultCard } from "./components/ResultCard";
 import { SavedList } from "./components/SavedList";
-import { SearchResultsGrid } from "./components/SearchResultsGrid";
 import { TrendingCarousel } from "./components/TrendingCarousel";
 import { useSavedReleases } from "./hooks/useSavedReleases";
 import { useSuggestions } from "./hooks/useSuggestions";
@@ -17,18 +17,17 @@ export default function HomePage() {
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
-  const [gallery, setGallery] = useState<Suggestion[]>([]);
-  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
   const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(
     null
   );
   const [trendingMovies, setTrendingMovies] = useState<Suggestion[]>([]);
   const [trendingSeries, setTrendingSeries] = useState<Suggestion[]>([]);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
   }, []);
@@ -152,7 +151,6 @@ export default function HomePage() {
     (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
       setTitle(suggestion.title);
-      setHasSubmitted(false);
       setIsInputFocused(false);
       setIsSearchOpen(false);
       fetchRelease(suggestion.title, suggestion);
@@ -162,47 +160,22 @@ export default function HomePage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setHasSubmitted(true);
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
     setSelectedSuggestion(null);
     setIsInputFocused(false);
     setIsSearchOpen(false);
     setRelease(null);
-    await loadGallery(title);
+    router.push(`/search?query=${encodeURIComponent(trimmed)}`);
   };
 
   const isCurrentSaved = isReleaseSaved(release);
 
-  const loadGallery = useCallback(async (query: string) => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setGallery([]);
-      return;
-    }
-    setIsGalleryLoading(true);
-    try {
-      const response = await fetch(
-        `/api/suggest?query=${encodeURIComponent(trimmed)}&limit=9`,
-        {
-          cache: "no-store",
-        }
-      );
-      const payload = await response.json();
-      if (!response.ok) {
-        setGallery([]);
-        return;
-      }
-      setGallery((payload?.results as Suggestion[]) || []);
-    } catch {
-      setGallery([]);
-    } finally {
-      setIsGalleryLoading(false);
-    }
-  }, []);
-
   const handleGallerySelect = useCallback(
     async (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
-      setHasSubmitted(false);
       setIsInputFocused(false);
       setIsSearchOpen(false);
       setTitle(suggestion.title);
@@ -250,18 +223,10 @@ export default function HomePage() {
 
   const shouldShowSuggestions =
     activeView === "home" && isSearchOpen && isInputFocused && suggestions.length > 0;
-  const shouldShowSelection = !shouldShowSuggestions && Boolean(release);
-  const shouldShowGrid =
-    activeView === "home" &&
-    !shouldShowSuggestions &&
-    !selectedSuggestion &&
-    hasSubmitted;
+  const shouldShowSelection = Boolean(release);
   const shouldShowTrending =
     activeView === "home" &&
-    !shouldShowSuggestions &&
-    !selectedSuggestion &&
-    !hasSubmitted &&
-    title.trim() === "";
+    !selectedSuggestion;
   useEffect(() => {
     if (shouldShowSuggestions) {
       document.body.classList.add("no-scroll");
@@ -278,6 +243,17 @@ export default function HomePage() {
     setActiveView("home");
   };
 
+  const handleSearchClose = useCallback(() => {
+    setIsSearchOpen(false);
+    setIsInputFocused(false);
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("view") === "saved") {
+      setActiveView("saved");
+    }
+  }, [searchParams]);
+
   return (
     <main className="page">
       <Header
@@ -288,9 +264,9 @@ export default function HomePage() {
         isLoading={isLoading}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
+        onSearchClose={handleSearchClose}
         onSearchChange={(value) => {
           setTitle(value);
-          setHasSubmitted(false);
         }}
         onSearchSubmit={handleSubmit}
         onSearchFocus={() => setIsInputFocused(true)}
@@ -354,17 +330,6 @@ export default function HomePage() {
             </section>
           )}
 
-          {shouldShowGrid && (
-            <SearchResultsGrid
-              items={gallery}
-              isLoading={isGalleryLoading}
-              onSelect={handleGallerySelect}
-              isSaved={isSuggestionSaved}
-              isBusy={(suggestion) => addingSuggestionId === suggestion.id}
-              title="Рекомендації після пошуку"
-              emptyLabel="Нічого не знайдено. Спробуй іншу назву."
-            />
-          )}
         </>
       )}
 
