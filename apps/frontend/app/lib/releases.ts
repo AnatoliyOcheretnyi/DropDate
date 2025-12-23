@@ -2,7 +2,11 @@ import type { ReleaseInfo, Suggestion } from "../../lib/release";
 
 export const STORAGE_KEY = "dropdate:saved-releases";
 
-export type SavedRelease = ReleaseInfo & { id: string };
+export type SavedRelease = ReleaseInfo & {
+  id: string;
+  tmdbId?: number;
+  mediaType?: Suggestion["mediaType"];
+};
 
 const normalizeTitle = (value: string) => value.trim().toLowerCase();
 

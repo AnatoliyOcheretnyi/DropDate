@@ -56,7 +56,9 @@ export function SearchResultsGrid({
                   </div>
                 )}
                 <div className="poster-overlay" aria-hidden="true">
-                  <span>{saved && "Додано"}</span>
+                  <span className={`poster-cta${saved ? " saved" : ""}`}>
+                    {saved ? "Додано" : "+"}
+                  </span>
                 </div>
               </button>
             );

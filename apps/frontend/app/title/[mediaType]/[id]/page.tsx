@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { Details, ReleaseInfo, Suggestion } from "../../../lib/release";
+import type { Details, ReleaseInfo, Suggestion } from "../../../../lib/release";
 import { Header } from "../../../components/Header";
-import { ResultCard } from "../../../components/ResultCard";
+import { getReleaseStatusLabel } from "../../../../lib/release";
 import { SearchResultsGrid } from "../../../components/SearchResultsGrid";
 import { useSavedReleases } from "../../../hooks/useSavedReleases";
 import { useSuggestions } from "../../../hooks/useSuggestions";
@@ -203,7 +203,12 @@ export default function TitleDetailsPage() {
                   <button
                     type="button"
                     className="primary"
-                    onClick={() => addRelease(release)}
+                    onClick={() =>
+                      addRelease(release, {
+                        tmdbId: details.id,
+                        mediaType: details.mediaType,
+                      })
+                    }
                     disabled={Boolean(isReleaseSaved(release))}
                   >
                     {isReleaseSaved(release) ? "У списку" : "Додати у список"}
@@ -262,11 +267,34 @@ export default function TitleDetailsPage() {
           {release && (
             <section className="details-release">
               <h2>Наступний реліз</h2>
-              <ResultCard
-                release={release}
-                onSave={() => addRelease(release)}
-                isSaved={Boolean(isReleaseSaved(release))}
-              />
+              <div className="details-release-card">
+                <div className="details-release-info">
+                  <span className="details-release-label">
+                    {getReleaseStatusLabel(release.status, release.type)}
+                  </span>
+                  <h3>{release.title}</h3>
+                  <p className="details-release-date">
+                    {formatDate(release.nextRelease)}
+                  </p>
+                  <p className="details-release-source">джерело: {release.source}</p>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => addRelease(release)}
+                    disabled={Boolean(isReleaseSaved(release))}
+                  >
+                    {isReleaseSaved(release) ? "У списку" : "Додати у список"}
+                  </button>
+                </div>
+                {release.backdropUrl || release.posterUrl ? (
+                  <div className="details-release-media">
+                    <img
+                      src={release.backdropUrl || release.posterUrl}
+                      alt={release.title}
+                    />
+                  </div>
+                ) : null}
+              </div>
             </section>
           )}
         </>

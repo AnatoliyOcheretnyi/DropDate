@@ -50,11 +50,13 @@ export function TrendingCarousel({
                       {item.title.slice(0, 1)}
                     </div>
                   )}
-                  <div className="poster-overlay" aria-hidden="true">
-                    <span>{saved && "Додано"}</span>
-                  </div>
-                </button>
-              );
+                <div className="poster-overlay" aria-hidden="true">
+                  <span className={`poster-cta${saved ? " saved" : ""}`}>
+                    {saved ? "Додано" : "+"}
+                  </span>
+                </div>
+              </button>
+            );
             })}
           </div>
         </div>

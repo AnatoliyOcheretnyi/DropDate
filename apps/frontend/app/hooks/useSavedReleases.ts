@@ -52,13 +52,13 @@ export function useSavedReleases() {
   }, []);
 
   const addRelease = useCallback(
-    (release: ReleaseInfo) => {
+    (release: ReleaseInfo, meta?: { tmdbId?: number; mediaType?: Suggestion["mediaType"] }) => {
       const id = getReleaseId(release);
       persist((prev) => {
         if (prev.some((item) => item.id === id)) {
           return prev;
         }
-        return [...prev, { ...release, id }];
+        return [...prev, { ...release, id, ...meta }];
       });
     },
     [persist]

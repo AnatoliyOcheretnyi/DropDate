@@ -710,6 +710,28 @@ main.page {
   border-radius: 1rem;
 }
 
+.poster-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.poster-cta.saved {
+  width: auto;
+  height: auto;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .poster-card::after {
   content: "";
   position: absolute;
@@ -981,6 +1003,191 @@ dd.date span:last-child {
   margin-bottom: 0.8rem;
 }
 
+.saved-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.saved-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.saved-section-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.saved-carousel {
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.saved-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 160px;
+  gap: 1rem;
+  width: max-content;
+}
+
+.saved-card {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  min-height: 240px;
+}
+
+.saved-card-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  position: relative;
+  display: block;
+}
+
+.saved-card-media {
+  height: 100%;
+}
+
+.saved-card img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.saved-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.saved-card-link:hover::after,
+.saved-card-link:focus-visible::after {
+  border-color: rgba(84, 255, 182, 0.65);
+}
+
+.saved-card-link:hover img,
+.saved-card-link:focus-visible img {
+  transform: scale(1.03);
+  filter: saturate(1.1);
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.saved-card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.75));
+}
+
+.saved-card-overlay h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.saved-card-overlay p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(245, 245, 245, 0.8);
+}
+
+.saved-card-status {
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  font-size: 0.6rem;
+  color: rgba(245, 245, 245, 0.7);
+}
+
+.saved-remove {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.65);
+  color: rgba(245, 245, 245, 0.8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.saved-remove:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.saved-remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.details-release-card {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 40%);
+  gap: 1.5rem;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.details-release-info h3 {
+  margin: 0.6rem 0;
+  font-size: 1.4rem;
+}
+
+.details-release-label {
+  text-transform: uppercase;
+  letter-spacing: 0.2rem;
+  font-size: 0.65rem;
+  color: rgba(245, 245, 245, 0.6);
+}
+
+.details-release-date {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+
+.details-release-source {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: rgba(245, 245, 245, 0.6);
+}
+
+.details-release-media {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.details-release-media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
 .saved-actions {
   display: flex;
   flex-direction: column;
@@ -1053,6 +1260,18 @@ dd.date span:last-child {
 
   .details-poster {
     max-width: 220px;
+  }
+
+  .saved-track {
+    grid-auto-columns: 140px;
+  }
+
+  .saved-card {
+    min-height: 210px;
+  }
+
+  .details-release-card {
+    grid-template-columns: 1fr;
   }
 
   .trend-carousel .poster-card {
