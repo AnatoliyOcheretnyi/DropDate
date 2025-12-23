@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Suggestion } from "../lib/release";
+import type { Details, ReleaseInfo, Suggestion } from "../lib/release";
 import { Header } from "./components/Header";
 import { SavedList } from "./components/SavedList";
 import { TrendingCarousel } from "./components/TrendingCarousel";
@@ -29,11 +29,13 @@ export default function HomePage() {
   const {
     saved,
     isReady: isStorageReady,
+    addRelease,
     removeRelease,
     isSuggestionSaved,
     refreshAll,
     isRefreshing,
   } = useSavedReleases();
+  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"home" | "saved">("home");
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
@@ -126,6 +128,80 @@ export default function HomePage() {
     [router]
   );
 
+  const buildFallbackRelease = useCallback(
+    (details: Details, mediaType: Suggestion["mediaType"]): ReleaseInfo | null => {
+      const dateSource =
+        details.nextAirDate ||
+        details.releaseDate ||
+        details.lastAirDate ||
+        details.firstAirDate;
+      if (!dateSource) {
+        return null;
+      }
+      const parsed = new Date(dateSource);
+      const isValid = !Number.isNaN(parsed.getTime());
+      const dateValue = isValid ? parsed.toISOString() : dateSource;
+      const isFuture = isValid ? parsed.getTime() > Date.now() : false;
+      const status =
+        mediaType === "movie"
+          ? isFuture
+            ? "upcoming"
+            : "released"
+          : details.status?.toLowerCase().includes("ended")
+          ? "ended"
+          : details.status?.toLowerCase().includes("canceled")
+          ? "ended"
+          : details.nextAirDate && isFuture
+          ? "upcoming"
+          : details.lastAirDate
+          ? "ended"
+          : "upcoming";
+
+      return {
+        title: details.title,
+        type: mediaType === "movie" ? "movie" : "series",
+        nextRelease: dateValue,
+        source: "tmdb",
+        posterUrl: details.posterUrl,
+        backdropUrl: details.backdropUrl,
+        status,
+      };
+    },
+    []
+  );
+
+  const handleAddSuggestion = useCallback(
+    async (suggestion: Suggestion) => {
+      if (isSuggestionSaved(suggestion)) {
+        return;
+      }
+      setAddingSuggestionId(suggestion.id);
+      try {
+        const response = await fetch(
+          `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
+          { cache: "no-store" }
+        );
+        const payload = await response.json();
+        if (!response.ok || !payload?.details) {
+          return;
+        }
+        const release: ReleaseInfo | null =
+          payload.release ||
+          buildFallbackRelease(payload.details as Details, suggestion.mediaType);
+        if (!release) {
+          return;
+        }
+        addRelease(release, {
+          tmdbId: suggestion.id,
+          mediaType: suggestion.mediaType,
+        });
+      } finally {
+        setAddingSuggestionId(null);
+      }
+    },
+    [addRelease, buildFallbackRelease, isSuggestionSaved]
+  );
+
   const handleRefreshAllClick = async () => {
     setRefreshMessage(null);
     try {
@@ -154,25 +230,6 @@ export default function HomePage() {
     suggestions.length > 0;
   const shouldShowTrending = activeView === "home" && !selectedSuggestion;
 
-  const soonReleases = useMemo(() => {
-    const now = new Date();
-    const endSoon = new Date();
-    endSoon.setDate(endSoon.getDate() + 30);
-    return saved
-      .filter((item) => item.status === "upcoming" && item.nextRelease)
-      .filter((item) => {
-        const date = new Date(item.nextRelease);
-        if (Number.isNaN(date.getTime())) {
-          return false;
-        }
-        return date >= now && date <= endSoon;
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.nextRelease).getTime() - new Date(b.nextRelease).getTime()
-      )
-      .slice(0, 12);
-  }, [saved]);
   useEffect(() => {
     if (shouldShowSuggestions) {
       document.body.classList.add("no-scroll");
@@ -239,71 +296,6 @@ export default function HomePage() {
               </p>
             </div>
           </section>
-
-          {soonReleases.length > 0 && (
-            <section className="saved-section">
-              <div className="saved-section-head">
-                <h3>Скоро реліз</h3>
-              </div>
-              <div className="saved-carousel">
-                <div className="saved-track">
-                  {soonReleases.map((item) => {
-                    const mediaType =
-                      item.mediaType ||
-                      (item.type === "movie" ? "movie" : "tv");
-                    const imageUrl = item.posterUrl || item.backdropUrl;
-                    return (
-                      <div key={item.id} className="saved-card">
-                        <button
-                          type="button"
-                          className="saved-card-link"
-                          onClick={() => {
-                            if (item.tmdbId) {
-                              router.push(`/title/${mediaType}/${item.tmdbId}`);
-                            } else {
-                              router.push(
-                                `/search?query=${encodeURIComponent(
-                                  item.title
-                                )}`
-                              );
-                            }
-                          }}
-                        >
-                          <div className="saved-card-media">
-                            {imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={item.title}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="poster-card-fallback">
-                                {item.title.slice(0, 1)}
-                              </div>
-                            )}
-                          </div>
-                          <div
-                            className="saved-card-overlay"
-                            aria-hidden="true"
-                          >
-                            <span className="saved-card-status">
-                              Наступний реліз
-                            </span>
-                            <h4>{item.title}</h4>
-                            <p>
-                              {new Date(item.nextRelease).toLocaleDateString(
-                                "uk-UA"
-                              )}
-                            </p>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
 
           {shouldShowTrending && (
             <>

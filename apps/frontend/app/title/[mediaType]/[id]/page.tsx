@@ -199,7 +199,7 @@ export default function TitleDetailsPage() {
               {details?.tagline && <p className="details-tagline">{details.tagline}</p>}
               <p className="details-overview">{details?.overview || "Опис поки відсутній."}</p>
               <div className="details-actions">
-                {release ? (
+                {release && details ? (
                   <button
                     type="button"
                     className="primary"
