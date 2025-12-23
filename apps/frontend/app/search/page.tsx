@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Suggestion } from "../lib/release";
+import type { Details, ReleaseInfo, Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
 import { SearchResultsGrid } from "../components/SearchResultsGrid";
 import { useSavedReleases } from "../hooks/useSavedReleases";
@@ -31,7 +31,8 @@ export default function SearchPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { saved, isSuggestionSaved } = useSavedReleases();
+  const { saved, isSuggestionSaved, addRelease } = useSavedReleases();
+  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
 
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
@@ -110,6 +111,48 @@ export default function SearchPage() {
     return results.filter((item) => item.mediaType === filter);
   }, [filter, results]);
 
+  const buildFallbackRelease = useCallback(
+    (details: Details, mediaType: Suggestion["mediaType"]): ReleaseInfo | null => {
+      const dateSource =
+        details.nextAirDate ||
+        details.releaseDate ||
+        details.lastAirDate ||
+        details.firstAirDate;
+      if (!dateSource) {
+        return null;
+      }
+      const parsed = new Date(dateSource);
+      const isValid = !Number.isNaN(parsed.getTime());
+      const dateValue = isValid ? parsed.toISOString() : dateSource;
+      const isFuture = isValid ? parsed.getTime() > Date.now() : false;
+      const status =
+        mediaType === "movie"
+          ? isFuture
+            ? "upcoming"
+            : "released"
+          : details.status?.toLowerCase().includes("ended")
+          ? "ended"
+          : details.status?.toLowerCase().includes("canceled")
+          ? "ended"
+          : details.nextAirDate && isFuture
+          ? "upcoming"
+          : details.lastAirDate
+          ? "ended"
+          : "upcoming";
+
+      return {
+        title: details.title,
+        type: mediaType === "movie" ? "movie" : "series",
+        nextRelease: dateValue,
+        source: "tmdb",
+        posterUrl: details.posterUrl,
+        backdropUrl: details.backdropUrl,
+        status,
+      };
+    },
+    []
+  );
+
   const handleSelect = useCallback(
     async (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
@@ -119,6 +162,38 @@ export default function SearchPage() {
       router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
     [router]
+  );
+
+  const handleAddSuggestion = useCallback(
+    async (suggestion: Suggestion) => {
+      if (isSuggestionSaved(suggestion)) {
+        return;
+      }
+      setAddingSuggestionId(suggestion.id);
+      try {
+        const response = await fetch(
+          `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
+          { cache: "no-store" }
+        );
+        const payload = await response.json();
+        if (!response.ok || !payload?.details) {
+          return;
+        }
+        const release: ReleaseInfo | null =
+          payload.release ||
+          buildFallbackRelease(payload.details as Details, suggestion.mediaType);
+        if (!release) {
+          return;
+        }
+        addRelease(release, {
+          tmdbId: suggestion.id,
+          mediaType: suggestion.mediaType,
+        });
+      } finally {
+        setAddingSuggestionId(null);
+      }
+    },
+    [addRelease, buildFallbackRelease, isSuggestionSaved]
   );
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -233,8 +308,10 @@ export default function SearchPage() {
         items={filteredResults}
         isLoading={isLoading}
         onSelect={handleSelect}
+        onAdd={handleAddSuggestion}
         isSaved={isSuggestionSaved}
         isBusy={() => false}
+        isAdding={(item) => addingSuggestionId === item.id}
         title="Усі результати"
         emptyLabel="Нічого не знайдено. Спробуй іншу назву."
         showEmpty
