@@ -148,10 +148,11 @@ export default function HomePage() {
   };
 
   const shouldShowSuggestions =
-    activeView === "home" && isSearchOpen && isInputFocused && suggestions.length > 0;
-  const shouldShowTrending =
     activeView === "home" &&
-    !selectedSuggestion;
+    isSearchOpen &&
+    isInputFocused &&
+    suggestions.length > 0;
+  const shouldShowTrending = activeView === "home" && !selectedSuggestion;
 
   const soonReleases = useMemo(() => {
     const now = new Date();
@@ -233,8 +234,8 @@ export default function HomePage() {
               <p className="eyebrow">beta</p>
               <h1>DropDate</h1>
               <p className="lead">
-                Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не
-                прогавити нову серію.
+                Вводиш назву — отримуєш дату наступного релізу. Простий спосіб
+                не прогавити нову серію.
               </p>
             </div>
           </section>
@@ -248,7 +249,8 @@ export default function HomePage() {
                 <div className="saved-track">
                   {soonReleases.map((item) => {
                     const mediaType =
-                      item.mediaType || (item.type === "movie" ? "movie" : "tv");
+                      item.mediaType ||
+                      (item.type === "movie" ? "movie" : "tv");
                     const imageUrl = item.posterUrl || item.backdropUrl;
                     return (
                       <div key={item.id} className="saved-card">
@@ -259,25 +261,40 @@ export default function HomePage() {
                             if (item.tmdbId) {
                               router.push(`/title/${mediaType}/${item.tmdbId}`);
                             } else {
-                              router.push(`/search?query=${encodeURIComponent(item.title)}`);
+                              router.push(
+                                `/search?query=${encodeURIComponent(
+                                  item.title
+                                )}`
+                              );
                             }
                           }}
                         >
                           <div className="saved-card-media">
                             {imageUrl ? (
-                              <img src={imageUrl} alt={item.title} loading="lazy" />
+                              <img
+                                src={imageUrl}
+                                alt={item.title}
+                                loading="lazy"
+                              />
                             ) : (
                               <div className="poster-card-fallback">
                                 {item.title.slice(0, 1)}
                               </div>
                             )}
                           </div>
-                          <div className="saved-card-overlay" aria-hidden="true">
+                          <div
+                            className="saved-card-overlay"
+                            aria-hidden="true"
+                          >
                             <span className="saved-card-status">
                               Наступний реліз
                             </span>
                             <h4>{item.title}</h4>
-                            <p>{new Date(item.nextRelease).toLocaleDateString("uk-UA")}</p>
+                            <p>
+                              {new Date(item.nextRelease).toLocaleDateString(
+                                "uk-UA"
+                              )}
+                            </p>
                           </div>
                         </button>
                       </div>
