@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import type { Suggestion } from "../../lib/release";
 import { Suggestions } from "./Suggestions";
 
@@ -81,7 +82,14 @@ export function Header({
     <header className="site-header">
       <div className="site-header-inner">
         <button type="button" className="header-brand" onClick={() => onChange("home")}>
-          <img src="/logo.png" alt="DropDate" className="brand-logo" />
+          <Image
+            src="/logo.png"
+            alt="DropDate"
+            className="brand-logo"
+            width={80}
+            height={80}
+            priority
+          />
           <div className="brand-text">
             <span className="brand-title">DropDate</span>
             <span className="brand-subtitle">Дата наступного релізу в один клік</span>
