@@ -1,154 +1,124 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
-import { ReleaseCard } from '../components/ReleaseCard';
-import { useNextRelease } from '../hooks/useNextRelease';
+import { PosterCard } from '../components/PosterCard';
 import { colors } from '../theme/colors';
-import type { Suggestion } from '../types/release';
+import type { Details, ReleaseInfo, Suggestion } from '../types/release';
 import { getBackendURL } from '../utils/config';
+import { buildFallbackRelease } from '../utils/release';
+import { useSaved } from '../state/SavedContext';
+
+type TrendingPayload = {
+  movies: Suggestion[];
+  series: Suggestion[];
+};
+
+type DetailsPayload = {
+  details: Details;
+  release?: ReleaseInfo;
+};
 
 export default function HomeScreen() {
-  const [title, setTitle] = useState('');
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
-  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
-
-  const { release, error, isLoading, search } = useNextRelease();
+  const router = useRouter();
   const backendURL = useMemo(() => getBackendURL(), []);
+  const { addRelease, isSuggestionSaved } = useSaved();
+
+  const [movies, setMovies] = useState<Suggestion[]>([]);
+  const [series, setSeries] = useState<Suggestion[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadTrending = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${backendURL}/trending?window=week&limit=16`, {
+        headers: { accept: 'application/json' },
+      });
+      const payload = (await response.json()) as TrendingPayload;
+      if (response.ok) {
+        setMovies(payload.movies ?? []);
+        setSeries(payload.series ?? []);
+      } else {
+        setMovies([]);
+        setSeries([]);
+      }
+    } catch {
+      setMovies([]);
+      setSeries([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backendURL]);
 
   useEffect(() => {
-    const trimmed = title.trim();
-    let isCancelled = false;
+    loadTrending();
+  }, [loadTrending]);
 
-    if (trimmed.length < 2) {
-      setSuggestions([]);
-      setSelectedSuggestion(null);
-      setIsFetchingSuggestions(false);
-      return;
-    }
-
-    if (
-      selectedSuggestion &&
-      selectedSuggestion.title.toLowerCase() === trimmed.toLowerCase()
-    ) {
-      setSuggestions([]);
-      setIsFetchingSuggestions(false);
-      return;
-    }
-
-    if (
-      selectedSuggestion &&
-      selectedSuggestion.title.toLowerCase() !== trimmed.toLowerCase()
-    ) {
-      setSelectedSuggestion(null);
-    }
-
-    setIsFetchingSuggestions(true);
-    const timer = setTimeout(async () => {
-      try {
-        const url = `${backendURL}/suggest?query=${encodeURIComponent(trimmed)}&limit=5`;
-        const response = await fetch(url, { headers: { accept: 'application/json' } });
-        const payload = await response.json();
-        if (!isCancelled) {
-          if (response.ok) {
-            setSuggestions((payload?.results as Suggestion[]) ?? []);
-          } else {
-            setSuggestions([]);
-          }
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          setSuggestions([]);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsFetchingSuggestions(false);
-        }
+  const handleAdd = useCallback(
+    async (item: Suggestion) => {
+      if (isSuggestionSaved(item)) {
+        return;
       }
-    }, 250);
+      try {
+        const response = await fetch(`${backendURL}/details?tmdbId=${item.id}&mediaType=${item.mediaType}`, {
+          headers: { accept: 'application/json' },
+        });
+        const payload = (await response.json()) as DetailsPayload;
+        if (!response.ok || !payload.details) {
+          return;
+        }
+        const release =
+          payload.release || buildFallbackRelease(payload.details as Details, item.mediaType);
+        if (!release) {
+          return;
+        }
+        addRelease(release, {
+          tmdbId: item.id,
+          mediaType: item.mediaType,
+          details: payload.details,
+        });
+      } catch {
+        // ignore network failures for now
+      }
+    },
+    [addRelease, backendURL, isSuggestionSaved]
+  );
 
-    return () => {
-      isCancelled = true;
-      clearTimeout(timer);
-    };
-  }, [backendURL, selectedSuggestion, title]);
-
-  const handleSearch = useCallback(() => {
-    search({
-      title,
-      tmdbId: selectedSuggestion?.id,
-      mediaType: selectedSuggestion?.mediaType,
-    });
-    setSuggestions([]);
-  }, [search, selectedSuggestion, title]);
-
-  const handleSuggestionPress = (suggestion: Suggestion) => {
-    setSelectedSuggestion(suggestion);
-    setTitle(suggestion.title);
-    setSuggestions([]);
-    search({
-      title: suggestion.title,
-      tmdbId: suggestion.id,
-      mediaType: suggestion.mediaType,
-    });
-  };
+  const renderRow = (items: Suggestion[]) => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+      {items.map((item) => (
+        <PosterCard
+          key={`${item.mediaType}-${item.id}`}
+          item={item}
+          onPress={(selected) => router.push(`/title/${selected.mediaType}/${selected.id}`)}
+          onAdd={handleAdd}
+          isSaved={isSuggestionSaved(item)}
+        />
+      ))}
+    </ScrollView>
+  );
 
   return (
     <View style={styles.wrapper}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <Text style={styles.eyebrow}>beta</Text>
-            <Text style={styles.title}>DropDate</Text>
-            <Text style={styles.lead}>
-              Вводиш назву — отримуєш дату наступного релізу. Простий спосіб не прогавити нову серію.
-            </Text>
-          </View>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>beta</Text>
+          <Text style={styles.title}>DropDate</Text>
+          <Text style={styles.lead}>
+            Стеж за фільмами й серіалами. Показуємо, коли буде наступний реліз або нова серія.
+          </Text>
+        </View>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Назва</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Наприклад, Dune"
-              placeholderTextColor={colors.textMuted}
-              value={title}
-              onChangeText={setTitle}
-              returnKeyType="search"
-              onSubmitEditing={handleSearch}
-            />
-            <TouchableOpacity style={styles.button} onPress={handleSearch} disabled={isLoading}>
-              {isLoading ? <ActivityIndicator color="#001b12" /> : <Text style={styles.buttonText}>Знайти</Text>}
-            </TouchableOpacity>
-            {isFetchingSuggestions ? <Text style={styles.hint}>Підбираємо варіанти…</Text> : null}
-            {suggestions.map((suggestion) => (
-              <TouchableOpacity
-                key={`${suggestion.mediaType}-${suggestion.id}`}
-                style={styles.suggestionItem}
-                onPress={() => handleSuggestionPress(suggestion)}
-              >
-                <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
-                <Text style={styles.suggestionMeta}>
-                  {suggestion.mediaType === 'movie' ? 'Фільм' : 'Серіал'}
-                  {suggestion.year ? ` · ${suggestion.year}` : ''}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Фільми в тренді</Text>
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(movies)}
+        </View>
 
-          {release ? <ReleaseCard release={release} /> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Серіали в тренді</Text>
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(series)}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -159,82 +129,40 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    paddingTop: 64,
-    paddingHorizontal: 24,
-    paddingBottom: 48,
-    gap: 28,
+    paddingTop: 48,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    gap: 24,
   },
   hero: {
-    gap: 12,
+    gap: 10,
   },
   eyebrow: {
     textTransform: 'uppercase',
     letterSpacing: 6,
     color: colors.eyebrow,
-    fontSize: 13,
+    fontSize: 12,
   },
   title: {
-    fontSize: 48,
+    fontSize: 40,
     fontWeight: '800',
     color: colors.text,
   },
   lead: {
     color: colors.lead,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
-  form: {
+  section: {
     gap: 12,
   },
-  label: {
-    textTransform: 'uppercase',
-    letterSpacing: 4,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  input: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  button: {
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: colors.accent,
-  },
-  buttonText: {
-    color: '#001b12',
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    fontSize: 16,
-  },
-  error: {
-    color: colors.error,
-  },
-  hint: {
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  suggestionItem: {
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  suggestionTitle: {
     color: colors.text,
-    fontWeight: '600',
-    fontSize: 16,
   },
-  suggestionMeta: {
-    color: colors.textMuted,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginTop: 2,
+  row: {
+    gap: 14,
+    paddingRight: 12,
   },
 });
