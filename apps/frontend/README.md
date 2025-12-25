@@ -1,6 +1,6 @@
 # DropDate Frontend
 
-Next.js 14 single-page UI that searches DropDate backend for the next release of a show/movie. The page features TMDB autosuggestions, a poster recommendation grid, and a saved list card (matching the mobile design). Responsive layout, Ukrainian copy.
+Next.js 14 UI for DropDate. The app includes trending rows, a full search page, title details, autosuggestions, and a saved list. Responsive layout, Ukrainian copy.
 
 ## Quick start
 
@@ -15,7 +15,16 @@ From repo root you can also run `yarn dev:frontend` (Nx target).
 
 ## API proxy
 
-Requests go through the Next.js routes `/api/next-release` and `/api/suggest`, which forward to the Go API and keep the browser free from CORS headaches. Adjust the backend URL via `.env.local`. Autosuggest shows up to 5 TMDB matches (title + year + poster). After hitting “Знайти” the UI renders a gallery of posters that can be clicked to open the full release card or saved to the personal list (persisted in `localStorage`).
+Requests go through the Next.js routes below (forwarding to the Go API and avoiding CORS issues):
+
+- `/api/suggest` – quick hints for autocomplete.
+- `/api/search` – full search results (paged).
+- `/api/next-release` – single title lookup.
+- `/api/bulk-refresh` – refresh saved items.
+- `/api/trending` – trending rows for the home page.
+- `/api/details` – full title details + recommendations.
+
+Adjust the backend URL via `.env.local`. Autosuggest shows up to 5 TMDB matches (title + year + poster). Search results are shown as a grid; clicking a card opens the details page, and the “+” action saves it to the list (persisted in `localStorage`).
 
 ## Scripts
 
@@ -26,6 +35,6 @@ Requests go through the Next.js routes `/api/next-release` and `/api/suggest`, w
 
 ## Roadmap
 
-- Add loading skeletons & optimistic UI.
+- Add authentication + server-side persistence.
 - Hook up testing (Playwright or React Testing Library).
-- Sync with upcoming mobile client once it’s ready.
+- Sync with the mobile client once it’s ready.

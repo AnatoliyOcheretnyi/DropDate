@@ -1,12 +1,12 @@
 # DropDate Mobile
 
-Expo Router (TypeScript) client that mirrors the DropDate web design: a hero intro, search field, and release card fed by the Go backend.
+Expo Router (TypeScript) client that mirrors the DropDate web design. This is a **super‑mock / draft** build and not ready for production use yet.
 
 ## Stack
 
 - Expo SDK 54 + React Native 0.81
-- Single screen rendered via Expo Router (`app/index.tsx`)
-- Custom UI in `src/` (hooks, components, theme)
+- Expo Router with tabs (`app/(tabs)`)
+- Screens + UI in `src/` (components, screens, theme, state)
 - Backend URL configured via `EXPO_PUBLIC_BACKEND_URL`
 
 ## Quick start
@@ -24,11 +24,11 @@ Expo CLI will give you QR codes and simulator options. The UI expects the backen
 
 ```
 apps/mobile
-├── app/            # Expo Router entry (`index.tsx` + layout)
+├── app/            # Expo Router entry (`(tabs)` + layout)
 ├── src/
 │   ├── components/ # UI blocks (ReleaseCard, etc.)
-│   ├── hooks/      # `useNextRelease`
-│   ├── screens/    # HomeScreen mirrors the web design
+│   ├── screens/    # Home/Search/Saved/Details
+│   ├── state/      # SavedContext (in‑memory for now)
 │   └── theme/      # shared colors/typography tokens
 └── assets/         # icons + splash art
 ```
@@ -39,5 +39,5 @@ After installing dependencies in repo root, you can run `yarn dev:mobile` (proxi
 
 ## Notes
 
-- Mobile is still work in progress; features will stay in sync with the web client.
+- Mobile is still work in progress and intentionally incomplete (mock UX + temporary state).
 - `EXPO_PUBLIC_BACKEND_URL` must be reachable from the emulator/device (use your LAN IP instead of `localhost` when running on physical hardware).

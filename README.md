@@ -1,12 +1,12 @@
 # DropDate Monorepo
 
-DropDate is a small playground for tracking the next release date of a show or movie. The repository now runs as an Nx-powered monorepo and ships a Go backend, a Next.js frontend, and an Expo-based mobile client (still evolving).
+DropDate is a small playground for tracking the next release date of a show or movie. The repository runs as an Nx-powered monorepo and ships a Go backend, a Next.js frontend, and an Expo-based mobile client (draft/mocked).
 
 ## Stack
 
-- **Backend (`apps/backend`)** — Go HTTP API that talks to TMDB for both series and movies, exposes `/health`, `/next-release`, `/suggest`, and caches popular titles in‑memory.
-- **Frontend (`apps/frontend`)** — Next.js 14 single page with autosuggest list (TMDB hints), poster grid recommendations, and saved list / release card states. All traffic goes through internal API routes (`/api/next-release`, `/api/suggest`).
-- **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`.
+- **Backend (`apps/backend`)** — Go HTTP API that talks to TMDB for both series and movies; exposes `/health`, `/next-release`, `/suggest`, `/trending`, `/details`, `/bulk-next-release`; caches popular titles in‑memory.
+- **Frontend (`apps/frontend`)** — Next.js 14 app with trending rows, full search, details page, and saved list. All traffic goes through internal API routes (`/api/*`).
+- **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`. Draft state only.
 
 ## Getting Started
 
@@ -16,6 +16,7 @@ yarn install
 
 Environment tweaks:
 - Backend requires `TMDB_ACCESS_TOKEN` (v4 read token). Copy `apps/backend/.env.example` → `.env` (or `.env.local`) and place your TMDB token there, or export it manually before running `yarn dev:backend`.
+- Backend migrations use `SUPABASE_CONNECTION_STRING` (`apps/backend/.env`) and run via `yarn db:migrate`.
 - Frontend reads `BACKEND_URL` from `apps/frontend/.env.local` (copy `.env.example`).
 - Mobile reads `EXPO_PUBLIC_BACKEND_URL` from `apps/mobile/.env` (copy `.env.example` and use a LAN IP for physical devices).
 
@@ -28,6 +29,7 @@ All commands execute from repo root and delegate to Nx targets.
 | `yarn dev:backend` | Run Go API via Air (`apps/backend`). |
 | `yarn dev:frontend` | Run Next.js dev server on port 3000. |
 | `yarn dev:mobile` | Start Expo with Metro bundler (`apps/mobile`). |
+| `yarn db:migrate` | Apply backend SQL migrations. |
 | `yarn build` | Build every project respecting Nx cache. |
 | `yarn lint` | Run `go vet` + `next lint` (ESLint auto-fix on save is configured via `.vscode/settings.json`). |
 | `yarn test` | Execute backend `go test` (extend when frontend tests arrive). |
