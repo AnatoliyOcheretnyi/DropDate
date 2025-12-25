@@ -53,7 +53,8 @@ export default function TitleDetailsPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { saved, addRelease, isReleaseSaved, isSuggestionSaved } = useSavedReleases();
+  const { saved, addRelease, isReleaseSaved, isSuggestionSaved } =
+    useSavedReleases();
 
   const handleClearSelection = useCallback(() => {
     setError(null);
@@ -138,13 +139,21 @@ export default function TitleDetailsPage() {
       return [];
     }
     return [
-      { label: "Тип", value: details.mediaType === "movie" ? "Фільм" : "Серіал" },
+      {
+        label: "Тип",
+        value: details.mediaType === "movie" ? "Фільм" : "Серіал",
+      },
       { label: "Статус", value: details.status || "—" },
       {
         label: "Реліз",
-        value: details.releaseDate ? formatDate(details.releaseDate) : formatDate(details.firstAirDate),
+        value: details.releaseDate
+          ? formatDate(details.releaseDate)
+          : formatDate(details.firstAirDate),
       },
-      { label: "Тривалість", value: details.runtime ? `${details.runtime} хв` : "—" },
+      {
+        label: "Тривалість",
+        value: details.runtime ? `${details.runtime} хв` : "—",
+      },
       {
         label: "Сезони / епізоди",
         value:
@@ -152,9 +161,18 @@ export default function TitleDetailsPage() {
             ? `${details.seasonCount || 0} / ${details.episodeCount || 0}`
             : "—",
       },
-      { label: "Рейтинг", value: details.voteAverage ? details.voteAverage.toFixed(1) : "—" },
-      { label: "Голосів", value: details.voteCount ? details.voteCount.toString() : "—" },
-      { label: "Популярність", value: details.popularity ? details.popularity.toFixed(1) : "—" },
+      {
+        label: "Рейтинг",
+        value: details.voteAverage ? details.voteAverage.toFixed(1) : "—",
+      },
+      {
+        label: "Голосів",
+        value: details.voteCount ? details.voteCount.toString() : "—",
+      },
+      {
+        label: "Популярність",
+        value: details.popularity ? details.popularity.toFixed(1) : "—",
+      },
     ];
   }, [details]);
 
@@ -214,10 +232,12 @@ export default function TitleDetailsPage() {
         </section>
       ) : (
         <section className="details-hero details-bleed">
-          {details?.backdropUrl && (
+          {details?.backdropUrl ? (
             <div className="details-backdrop">
               <img src={details.backdropUrl} alt="" aria-hidden="true" />
             </div>
+          ) : (
+            <div className="details-backdrop details-backdrop--empty" />
           )}
           <div className="details-inner">
             <div className="details-content">
@@ -225,25 +245,41 @@ export default function TitleDetailsPage() {
                 {details?.posterUrl ? (
                   <img src={details.posterUrl} alt={details.title} />
                 ) : (
-                  <div className="poster-card-fallback">{details?.title?.slice(0, 1) || "?"}</div>
+                  <div className="poster-card-fallback">
+                    {details?.title?.slice(0, 1) || "?"}
+                  </div>
                 )}
               </div>
               <div className="details-main">
-                <p className="eyebrow">{details?.mediaType === "movie" ? "movie" : "series"}</p>
+                <p className="eyebrow">
+                  {details?.mediaType === "movie" ? "movie" : "series"}
+                </p>
                 <h1>{details?.title || "Завантаження..."}</h1>
                 <div className="details-facts">
                   {details?.releaseDate || details?.firstAirDate ? (
-                    <span>{yearFromDate(details.releaseDate || details.firstAirDate)}</span>
+                    <span>
+                      {yearFromDate(
+                        details.releaseDate || details.firstAirDate
+                      )}
+                    </span>
                   ) : null}
                   {details?.runtime ? <span>{details.runtime} хв</span> : null}
-                  {details?.seasonCount ? <span>{details.seasonCount} сезонів</span> : null}
-                  {details?.episodeCount ? <span>{details.episodeCount} епізодів</span> : null}
+                  {details?.seasonCount ? (
+                    <span>{details.seasonCount} сезонів</span>
+                  ) : null}
+                  {details?.episodeCount ? (
+                    <span>{details.episodeCount} епізодів</span>
+                  ) : null}
                   {details?.networks && details.networks.length > 0 ? (
                     <span>{details.networks.join(", ")}</span>
                   ) : null}
                 </div>
-                {details?.tagline && <p className="details-tagline">{details.tagline}</p>}
-                <p className="details-overview">{details?.overview || "Опис поки відсутній."}</p>
+                {details?.tagline && (
+                  <p className="details-tagline">{details.tagline}</p>
+                )}
+                <p className="details-overview">
+                  {details?.overview || "Опис поки відсутній."}
+                </p>
                 <div className="details-actions">
                   {release && details ? (
                     <button
@@ -268,23 +304,41 @@ export default function TitleDetailsPage() {
                 <div className="details-side-card">
                   <div className="details-stat">
                     <span>Рейтинг TMDB</span>
-                    <strong>{details?.voteAverage ? details.voteAverage.toFixed(1) : "—"}</strong>
+                    <strong>
+                      {details?.voteAverage
+                        ? details.voteAverage.toFixed(1)
+                        : "—"}
+                    </strong>
                   </div>
                   <div className="details-stat">
                     <span>Голосів</span>
-                    <strong>{details?.voteCount ? details.voteCount.toLocaleString("uk-UA") : "—"}</strong>
+                    <strong>
+                      {details?.voteCount
+                        ? details.voteCount.toLocaleString("uk-UA")
+                        : "—"}
+                    </strong>
                   </div>
                   <div className="details-stat">
                     <span>Популярність</span>
-                    <strong>{details?.popularity ? details.popularity.toFixed(1) : "—"}</strong>
+                    <strong>
+                      {details?.popularity
+                        ? details.popularity.toFixed(1)
+                        : "—"}
+                    </strong>
                   </div>
                 </div>
                 <div className="details-side-card">
                   <h4>Деталі</h4>
                   <ul>
                     <li>Статус: {details?.status || "—"}</li>
-                    <li>Реліз: {formatDate(details?.releaseDate || details?.firstAirDate)}</li>
-                    {details?.originCountry && details.originCountry.length > 0 ? (
+                    <li>
+                      Реліз:{" "}
+                      {formatDate(
+                        details?.releaseDate || details?.firstAirDate
+                      )}
+                    </li>
+                    {details?.originCountry &&
+                    details.originCountry.length > 0 ? (
                       <li>Країна: {details.originCountry.join(", ")}</li>
                     ) : null}
                     {details?.genres && details.genres.length > 0 ? (
@@ -293,7 +347,11 @@ export default function TitleDetailsPage() {
                     {details?.homepage ? (
                       <li>
                         Сайт:{" "}
-                        <a href={details.homepage} target="_blank" rel="noreferrer">
+                        <a
+                          href={details.homepage}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           Перейти
                         </a>
                       </li>
@@ -323,7 +381,9 @@ export default function TitleDetailsPage() {
                   <span className="detail-label">Наступна серія</span>
                   <span className="detail-value">
                     {formatDate(details.nextAirDate)}
-                    {details.nextEpisodeName ? ` · ${details.nextEpisodeName}` : ""}
+                    {details.nextEpisodeName
+                      ? ` · ${details.nextEpisodeName}`
+                      : ""}
                   </span>
                 </div>
               )}
@@ -332,7 +392,9 @@ export default function TitleDetailsPage() {
                   <span className="detail-label">Остання серія</span>
                   <span className="detail-value">
                     {formatDate(details.lastAirDate)}
-                    {details.lastEpisodeName ? ` · ${details.lastEpisodeName}` : ""}
+                    {details.lastEpisodeName
+                      ? ` · ${details.lastEpisodeName}`
+                      : ""}
                   </span>
                 </div>
               )}
@@ -360,7 +422,9 @@ export default function TitleDetailsPage() {
                   <p className="details-release-date">
                     {formatDate(release.nextRelease)}
                   </p>
-                  <p className="details-release-source">джерело: {release.source}</p>
+                  <p className="details-release-source">
+                    джерело: {release.source}
+                  </p>
                   <button
                     type="button"
                     className="primary"
@@ -389,7 +453,9 @@ export default function TitleDetailsPage() {
           <SearchResultsGrid
             items={recommendations}
             isLoading={isLoading}
-            onSelect={(item) => router.push(`/title/${item.mediaType}/${item.id}`)}
+            onSelect={(item) =>
+              router.push(`/title/${item.mediaType}/${item.id}`)
+            }
             isSaved={isSuggestionSaved}
             isBusy={() => false}
             title="Схожі тайтли"
