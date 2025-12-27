@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   poster: {
     width: 140,
     height: 210,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: "hidden",
     backgroundColor: colors.card,
   },
