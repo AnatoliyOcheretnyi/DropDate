@@ -1,6 +1,7 @@
 "use client";
 
 import type { Suggestion } from "../../lib/release";
+import { copy } from "../../lib/strings";
 
 type Props = {
   items: Suggestion[];
@@ -23,8 +24,8 @@ export function SearchResultsGrid({
   isSaved,
   isBusy,
   isAdding = () => false,
-  title = "Рекомендації",
-  emptyLabel = "Нічого не знайдено.",
+  title = copy.sections.recommendations,
+  emptyLabel = copy.search.empty,
   showEmpty = false,
 }: Props) {
   if (!isLoading && items.length === 0 && !showEmpty) {
@@ -35,7 +36,7 @@ export function SearchResultsGrid({
     <section className="search-grid">
       <div className="grid-head">
         <h3>{title}</h3>
-        {isLoading && <p className="hint">Завантажуємо підбірку…</p>}
+        {isLoading && <p className="hint">{copy.hints.loadingCollection}</p>}
       </div>
       {!isLoading && items.length === 0 ? (
         <p className="hint">{emptyLabel}</p>
@@ -70,7 +71,7 @@ export function SearchResultsGrid({
                 )}
                 <div className="poster-overlay" aria-hidden="true">
                   {saved ? (
-                    <span className="poster-cta saved">Додано</span>
+                    <span className="poster-cta saved">{copy.actions.added}</span>
                   ) : canAdd ? (
                     <button
                       type="button"

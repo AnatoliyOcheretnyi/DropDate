@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { PosterCard } from "../components/PosterCard";
 import { colors } from "../theme/colors";
 import { useSaved } from "../state/SavedContext";
+import { copy } from "../../../../libs/shared/src/strings";
 
 type Section = {
   id: string;
@@ -24,11 +25,11 @@ export default function SavedScreen() {
     endMonth.setDate(endMonth.getDate() + 30);
 
     const buckets: Record<string, Section> = {
-      today: { id: "today", title: "Сьогодні", items: [] },
-      week: { id: "week", title: "Цього тижня", items: [] },
-      month: { id: "month", title: "Цього місяця", items: [] },
-      later: { id: "later", title: "Пізніше", items: [] },
-      ended: { id: "ended", title: "Завершені", items: [] },
+      today: { id: "today", title: copy.saved.sectionTitles.today, items: [] },
+      week: { id: "week", title: copy.saved.sectionTitles.week, items: [] },
+      month: { id: "month", title: copy.saved.sectionTitles.month, items: [] },
+      later: { id: "later", title: copy.saved.sectionTitles.later, items: [] },
+      ended: { id: "ended", title: copy.saved.sectionTitles.ended, items: [] },
     };
 
     saved.forEach((item) => {
@@ -62,10 +63,10 @@ export default function SavedScreen() {
   return (
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.header}>Мій список</Text>
+        <Text style={styles.header}>{copy.header.savedList}</Text>
         {saved.length === 0 ? (
           <Text style={styles.hint}>
-            Поки що порожньо. Додай перший тайтл з пошуку.
+            {copy.hints.listEmpty}
           </Text>
         ) : (
           sections.map((section) => (

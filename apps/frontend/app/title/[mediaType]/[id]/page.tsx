@@ -6,6 +6,7 @@ import type { Details, ReleaseInfo, Suggestion } from "../../../../lib/release";
 import { Header } from "../../../components/Header";
 import { getReleaseStatusLabel } from "../../../../lib/release";
 import { SearchResultsGrid } from "../../../components/SearchResultsGrid";
+import { copy } from "../../../../lib/strings";
 import { useSavedReleases } from "../../../hooks/useSavedReleases";
 import { useSuggestions } from "../../../hooks/useSuggestions";
 
@@ -17,7 +18,7 @@ type DetailsPayload = {
 
 const formatDate = (value?: string) => {
   if (!value) {
-    return "—";
+    return copy.misc.dash;
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -68,7 +69,7 @@ export default function TitleDetailsPage() {
 
   const loadDetails = useCallback(async () => {
     if (!id || (mediaType !== "movie" && mediaType !== "tv")) {
-      setError("Невірний запит.");
+      setError(copy.errors.invalidRequest);
       return;
     }
     setIsLoading(true);
@@ -80,14 +81,14 @@ export default function TitleDetailsPage() {
       );
       const payload = (await response.json()) as DetailsPayload;
       if (!response.ok) {
-        setError("Не вдалося завантажити деталі.");
+        setError(copy.errors.detailsLoad);
         return;
       }
       setDetails(payload.details);
       setRelease(payload.release || null);
       setRecommendations(payload.recommendations || []);
     } catch {
-      setError("Не вдалося завантажити деталі.");
+      setError(copy.errors.detailsLoad);
     } finally {
       setIsLoading(false);
     }
@@ -140,38 +141,43 @@ export default function TitleDetailsPage() {
     }
     return [
       {
-        label: "Тип",
-        value: details.mediaType === "movie" ? "Фільм" : "Серіал",
+        label: copy.details.labels.type,
+        value:
+          details.mediaType === "movie"
+            ? copy.mediaType.movie
+            : copy.mediaType.series,
       },
-      { label: "Статус", value: details.status || "—" },
+      { label: copy.details.labels.status, value: details.status || copy.misc.dash },
       {
-        label: "Реліз",
+        label: copy.details.labels.release,
         value: details.releaseDate
           ? formatDate(details.releaseDate)
           : formatDate(details.firstAirDate),
       },
       {
-        label: "Тривалість",
-        value: details.runtime ? `${details.runtime} хв` : "—",
+        label: copy.details.labels.runtime,
+        value: details.runtime
+          ? `${details.runtime} ${copy.details.facts.minutesSuffix}`
+          : copy.misc.dash,
       },
       {
-        label: "Сезони / епізоди",
+        label: copy.details.labels.seasonsEpisodes,
         value:
           details.seasonCount || details.episodeCount
             ? `${details.seasonCount || 0} / ${details.episodeCount || 0}`
-            : "—",
+            : copy.misc.dash,
       },
       {
-        label: "Рейтинг",
-        value: details.voteAverage ? details.voteAverage.toFixed(1) : "—",
+        label: copy.details.labels.rating,
+        value: details.voteAverage ? details.voteAverage.toFixed(1) : copy.misc.dash,
       },
       {
-        label: "Голосів",
-        value: details.voteCount ? details.voteCount.toString() : "—",
+        label: copy.details.labels.votes,
+        value: details.voteCount ? details.voteCount.toString() : copy.misc.dash,
       },
       {
-        label: "Популярність",
-        value: details.popularity ? details.popularity.toFixed(1) : "—",
+        label: copy.details.labels.popularity,
+        value: details.popularity ? details.popularity.toFixed(1) : copy.misc.dash,
       },
     ];
   }, [details]);
@@ -252,9 +258,11 @@ export default function TitleDetailsPage() {
               </div>
               <div className="details-main">
                 <p className="eyebrow">
-                  {details?.mediaType === "movie" ? "movie" : "series"}
+                  {details?.mediaType === "movie"
+                    ? copy.details.facts.movie
+                    : copy.details.facts.series}
                 </p>
-                <h1>{details?.title || "Завантаження..."}</h1>
+                <h1>{details?.title || copy.hints.loadingTitle}</h1>
                 <div className="details-facts">
                   {details?.releaseDate || details?.firstAirDate ? (
                     <span>
@@ -263,12 +271,20 @@ export default function TitleDetailsPage() {
                       )}
                     </span>
                   ) : null}
-                  {details?.runtime ? <span>{details.runtime} хв</span> : null}
+                  {details?.runtime ? (
+                    <span>
+                      {details.runtime} {copy.details.facts.minutesSuffix}
+                    </span>
+                  ) : null}
                   {details?.seasonCount ? (
-                    <span>{details.seasonCount} сезонів</span>
+                    <span>
+                      {details.seasonCount} {copy.details.facts.seasonsSuffix}
+                    </span>
                   ) : null}
                   {details?.episodeCount ? (
-                    <span>{details.episodeCount} епізодів</span>
+                    <span>
+                      {details.episodeCount} {copy.details.facts.episodesSuffix}
+                    </span>
                   ) : null}
                   {details?.networks && details.networks.length > 0 ? (
                     <span>{details.networks.join(", ")}</span>
@@ -278,7 +294,7 @@ export default function TitleDetailsPage() {
                   <p className="details-tagline">{details.tagline}</p>
                 )}
                 <p className="details-overview">
-                  {details?.overview || "Опис поки відсутній."}
+                  {details?.overview || copy.hints.noOverview}
                 </p>
                 <div className="details-actions">
                   {release && details ? (
@@ -293,66 +309,74 @@ export default function TitleDetailsPage() {
                       }
                       disabled={Boolean(isReleaseSaved(release))}
                     >
-                      {isReleaseSaved(release) ? "У списку" : "Додати у список"}
+                      {isReleaseSaved(release)
+                        ? copy.actions.inList
+                        : copy.actions.addToList}
                     </button>
                   ) : (
-                    <span className="hint">Немає даних про реліз</span>
+                    <span className="hint">{copy.hints.noReleaseData}</span>
                   )}
                 </div>
               </div>
               <aside className="details-side">
                 <div className="details-side-card">
                   <div className="details-stat">
-                    <span>Рейтинг TMDB</span>
+                    <span>{copy.details.labels.tmdbRating}</span>
                     <strong>
                       {details?.voteAverage
                         ? details.voteAverage.toFixed(1)
-                        : "—"}
+                        : copy.misc.dash}
                     </strong>
                   </div>
                   <div className="details-stat">
-                    <span>Голосів</span>
+                    <span>{copy.details.labels.votes}</span>
                     <strong>
                       {details?.voteCount
                         ? details.voteCount.toLocaleString("uk-UA")
-                        : "—"}
+                        : copy.misc.dash}
                     </strong>
                   </div>
                   <div className="details-stat">
-                    <span>Популярність</span>
+                    <span>{copy.details.labels.popularity}</span>
                     <strong>
                       {details?.popularity
                         ? details.popularity.toFixed(1)
-                        : "—"}
+                        : copy.misc.dash}
                     </strong>
                   </div>
                 </div>
                 <div className="details-side-card">
-                  <h4>Деталі</h4>
+                  <h4>{copy.details.labels.detailsTitle}</h4>
                   <ul>
-                    <li>Статус: {details?.status || "—"}</li>
                     <li>
-                      Реліз:{" "}
+                      {copy.details.labels.status}: {details?.status || copy.misc.dash}
+                    </li>
+                    <li>
+                      {copy.details.labels.release}:{" "}
                       {formatDate(
                         details?.releaseDate || details?.firstAirDate
                       )}
                     </li>
                     {details?.originCountry &&
                     details.originCountry.length > 0 ? (
-                      <li>Країна: {details.originCountry.join(", ")}</li>
+                      <li>
+                        {copy.details.labels.country}: {details.originCountry.join(", ")}
+                      </li>
                     ) : null}
                     {details?.genres && details.genres.length > 0 ? (
-                      <li>Жанри: {details.genres.join(", ")}</li>
+                      <li>
+                        {copy.details.labels.genres}: {details.genres.join(", ")}
+                      </li>
                     ) : null}
                     {details?.homepage ? (
                       <li>
-                        Сайт:{" "}
+                        {copy.details.labels.site}:{" "}
                         <a
                           href={details.homepage}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Перейти
+                          {copy.details.labels.siteLink}
                         </a>
                       </li>
                     ) : null}
@@ -378,7 +402,7 @@ export default function TitleDetailsPage() {
               ))}
               {details.nextAirDate && (
                 <div className="detail-row">
-                  <span className="detail-label">Наступна серія</span>
+                  <span className="detail-label">{copy.details.labels.nextEpisode}</span>
                   <span className="detail-value">
                     {formatDate(details.nextAirDate)}
                     {details.nextEpisodeName
@@ -389,7 +413,7 @@ export default function TitleDetailsPage() {
               )}
               {details.lastAirDate && (
                 <div className="detail-row">
-                  <span className="detail-label">Остання серія</span>
+                  <span className="detail-label">{copy.details.labels.lastEpisode}</span>
                   <span className="detail-value">
                     {formatDate(details.lastAirDate)}
                     {details.lastEpisodeName
@@ -412,7 +436,7 @@ export default function TitleDetailsPage() {
 
           {release && (
             <section className="details-release details-section">
-              <h2>Наступний реліз</h2>
+              <h2>{copy.sections.nextRelease}</h2>
               <div className="details-release-card">
                 <div className="details-release-info">
                   <span className="details-release-label">
@@ -423,7 +447,7 @@ export default function TitleDetailsPage() {
                     {formatDate(release.nextRelease)}
                   </p>
                   <p className="details-release-source">
-                    джерело: {release.source}
+                    {copy.details.labels.source}: {release.source}
                   </p>
                   <button
                     type="button"
@@ -431,7 +455,9 @@ export default function TitleDetailsPage() {
                     onClick={() => addRelease(release)}
                     disabled={Boolean(isReleaseSaved(release))}
                   >
-                    {isReleaseSaved(release) ? "У списку" : "Додати у список"}
+                    {isReleaseSaved(release)
+                      ? copy.actions.inList
+                      : copy.actions.addToList}
                   </button>
                 </div>
                 {release.backdropUrl || release.posterUrl ? (
@@ -458,7 +484,7 @@ export default function TitleDetailsPage() {
             }
             isSaved={isSuggestionSaved}
             isBusy={() => false}
-            title="Схожі тайтли"
+            title={copy.sections.similarTitles}
           />
         </section>
       )}

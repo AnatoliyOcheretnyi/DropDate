@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { copy } from '../../../../libs/shared/src/strings';
 import type { Suggestion } from '../types/release';
 
 type Props = {
@@ -33,7 +34,7 @@ export function PosterCard({ item, onPress, onAdd, isSaved = false, size }: Prop
       )}
       {isSaved ? (
         <View style={styles.savedBadge}>
-          <Text style={styles.savedText}>Додано</Text>
+          <Text style={styles.savedText}>{copy.actions.added}</Text>
         </View>
       ) : onAdd ? (
         <Pressable style={styles.addButton} onPress={handleAdd}>

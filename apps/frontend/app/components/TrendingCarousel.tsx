@@ -1,6 +1,7 @@
 "use client";
 
 import type { Suggestion } from "../../lib/release";
+import { copy } from "../../lib/strings";
 
 type Props = {
   title: string;
@@ -32,7 +33,7 @@ export function TrendingCarousel({
       <div className="trend-inner">
         <div className="grid-head">
           <h3>{title}</h3>
-          {isLoading && <p className="hint">Завантажуємо підбірку…</p>}
+          {isLoading && <p className="hint">{copy.hints.loadingCollection}</p>}
         </div>
         <div className="trend-carousel" aria-label={title}>
           <div className="trend-track">
@@ -64,8 +65,8 @@ export function TrendingCarousel({
                     </div>
                   )}
                   <div className="poster-overlay" aria-hidden="true">
-                    {saved ? (
-                      <span className="poster-cta saved">Додано</span>
+                  {saved ? (
+                      <span className="poster-cta saved">{copy.actions.added}</span>
                     ) : canAdd ? (
                       <button
                         type="button"

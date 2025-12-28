@@ -1,6 +1,7 @@
 "use client";
 
 import { getReleaseStatusLabel, type ReleaseInfo } from "../../lib/release";
+import { copy } from "../../lib/strings";
 import { ReleaseDetails } from "./ReleaseDetails";
 
 type Props = {
@@ -20,12 +21,12 @@ export function ResultCard({ release, onSave, isSaved, disableActions }: Props) 
         <p className="card-label">{getReleaseStatusLabel(release.status, release.type)}</p>
         <button
           type="button"
-          className="secondary"
-          onClick={onSave}
-          disabled={disableActions || isSaved}
-        >
-          {isSaved ? "У списку" : "Додати у список"}
-        </button>
+        className="secondary"
+        onClick={onSave}
+        disabled={disableActions || isSaved}
+      >
+        {isSaved ? copy.actions.inList : copy.actions.addToList}
+      </button>
       </div>
       <div className={`card-hero${heroImage ? "" : " placeholder"}`}>
         {heroImage ? (

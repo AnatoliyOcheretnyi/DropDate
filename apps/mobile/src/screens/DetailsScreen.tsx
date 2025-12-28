@@ -17,6 +17,7 @@ import { getReleaseStatusLabel } from "../types/release";
 import { getBackendURL } from "../utils/config";
 import { buildFallbackRelease } from "../utils/release";
 import { useSaved } from "../state/SavedContext";
+import { copy } from "../../../../libs/shared/src/strings";
 
 type DetailsPayload = {
   details: Details;
@@ -26,7 +27,7 @@ type DetailsPayload = {
 
 const formatDate = (value?: string) => {
   if (!value) {
-    return "—";
+    return copy.misc.dash;
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -56,7 +57,7 @@ export default function DetailsScreen() {
 
   const loadDetails = useCallback(async () => {
     if (!id || (mediaType !== "movie" && mediaType !== "tv")) {
-      setError("Невірний запит.");
+      setError(copy.errors.invalidRequest);
       return;
     }
     setIsLoading(true);
@@ -70,14 +71,14 @@ export default function DetailsScreen() {
       );
       const payload = (await response.json()) as DetailsPayload;
       if (!response.ok) {
-        setError("Не вдалося завантажити деталі.");
+        setError(copy.errors.detailsLoad);
         return;
       }
       setDetails(payload.details);
       setRelease(payload.release || null);
       setRecommendations(payload.recommendations || []);
     } catch {
-      setError("Не вдалося завантажити деталі.");
+      setError(copy.errors.detailsLoad);
     } finally {
       setIsLoading(false);
     }
@@ -143,12 +144,14 @@ export default function DetailsScreen() {
           </View>
           <View style={styles.heroInfo}>
             <Text style={styles.eyebrow}>
-              {details?.mediaType === "movie" ? "movie" : "series"}
+              {details?.mediaType === "movie"
+                ? copy.details.facts.movie
+                : copy.details.facts.series}
             </Text>
             <Text style={styles.title}>{details?.title}</Text>
             <Text style={styles.tagline}>{details?.tagline || " "}</Text>
             <Text style={styles.overview}>
-              {details?.overview || "Опис поки відсутній."}
+              {details?.overview || copy.hints.noOverview}
             </Text>
             <View style={styles.actionRow}>
               <Pressable style={styles.actionButton} onPress={handleAdd}>
@@ -159,8 +162,8 @@ export default function DetailsScreen() {
                     title: details.title,
                     mediaType: details.mediaType,
                   })
-                    ? "У списку"
-                    : "Додати у список"}
+                    ? copy.actions.inList
+                    : copy.actions.addToList}
                 </Text>
               </Pressable>
             </View>
@@ -172,18 +175,18 @@ export default function DetailsScreen() {
         {details && (
           <View style={styles.metaCard}>
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>Статус</Text>
-              <Text style={styles.metaValue}>{details.status || "—"}</Text>
+              <Text style={styles.metaLabel}>{copy.details.labels.status}</Text>
+              <Text style={styles.metaValue}>{details.status || copy.misc.dash}</Text>
             </View>
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>Реліз</Text>
+              <Text style={styles.metaLabel}>{copy.details.labels.release}</Text>
               <Text style={styles.metaValue}>
                 {formatDate(details.releaseDate || details.firstAirDate)}
               </Text>
             </View>
             {details.nextAirDate ? (
               <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Наступна серія</Text>
+                <Text style={styles.metaLabel}>{copy.details.labels.nextEpisode}</Text>
                 <Text style={styles.metaValue}>
                   {formatDate(details.nextAirDate)}
                 </Text>
@@ -191,7 +194,7 @@ export default function DetailsScreen() {
             ) : null}
             {details.lastAirDate ? (
               <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Остання серія</Text>
+                <Text style={styles.metaLabel}>{copy.details.labels.lastEpisode}</Text>
                 <Text style={styles.metaValue}>
                   {formatDate(details.lastAirDate)}
                 </Text>
@@ -199,7 +202,7 @@ export default function DetailsScreen() {
             ) : null}
             {details.genres?.length ? (
               <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Жанри</Text>
+                <Text style={styles.metaLabel}>{copy.details.labels.genres}</Text>
                 <Text style={styles.metaValue}>
                   {details.genres.join(", ")}
                 </Text>
@@ -210,7 +213,7 @@ export default function DetailsScreen() {
 
         {release ? (
           <View style={styles.releaseCard}>
-            <Text style={styles.sectionTitle}>Наступний реліз</Text>
+            <Text style={styles.sectionTitle}>{copy.sections.nextRelease}</Text>
             <Text style={styles.releaseLabel}>
               {getReleaseStatusLabel(release.status, release.type)}
             </Text>
@@ -222,7 +225,7 @@ export default function DetailsScreen() {
 
         {recommendations.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Схожі тайтли</Text>
+            <Text style={styles.sectionTitle}>{copy.sections.similarTitles}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}

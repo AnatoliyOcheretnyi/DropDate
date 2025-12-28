@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { copy } from "../../lib/strings";
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -13,7 +14,7 @@ export function Footer() {
           <span className="store-badge">
             <Image
               src="/app-store-badge.svg"
-              alt="Download on the App Store"
+              alt={copy.footer.appStoreAlt}
               width={140}
               height={42}
             />
@@ -21,7 +22,7 @@ export function Footer() {
           <span className="store-badge">
             <Image
               src="/play-market-badge.svg"
-              alt="Get it on Google Play"
+              alt={copy.footer.playStoreAlt}
               width={146}
               height={42}
             />

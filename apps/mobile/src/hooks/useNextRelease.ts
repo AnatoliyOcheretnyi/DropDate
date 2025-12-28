@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReleaseInfo } from '../types/release';
 import { getBackendURL } from '../utils/config';
+import { copy } from '../../../../libs/shared/src/strings';
 
 type SearchParams = {
   title: string;
@@ -19,7 +20,7 @@ export function useNextRelease() {
     async ({ title, tmdbId, mediaType }: SearchParams) => {
       const trimmed = title.trim();
       if (!trimmed) {
-        setError('Please enter a title first.');
+        setError(copy.errors.missingTitle);
         setRelease(null);
         return;
       }
@@ -43,16 +44,20 @@ export function useNextRelease() {
           headers: { accept: 'application/json' },
         });
 
-        const payload = await response.json().catch(() => ({ message: 'Invalid JSON received' }));
+        const payload = await response
+          .json()
+          .catch(() => ({ message: copy.errors.invalidJson }));
 
         if (!response.ok) {
-          throw new Error(payload?.message || 'Failed to fetch release info');
+          throw new Error(payload?.message || copy.errors.searchFailed);
         }
 
         setRelease(payload as ReleaseInfo);
       } catch (fetchError) {
         const message =
-          fetchError instanceof Error ? fetchError.message : 'Unable to reach DropDate backend';
+          fetchError instanceof Error
+            ? fetchError.message
+            : copy.errors.backendUnavailable;
         setRelease(null);
         setError(message);
       } finally {

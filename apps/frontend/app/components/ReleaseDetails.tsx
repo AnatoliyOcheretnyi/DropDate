@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReleaseInfo } from "../../lib/release";
+import { copy } from "../../lib/strings";
 
 type Props = {
   release: ReleaseInfo;
@@ -20,18 +21,18 @@ export function ReleaseDetails({ release }: Props) {
   return (
     <dl>
       <div>
-        <dt>Тип</dt>
+        <dt>{copy.details.labels.type}</dt>
         <dd>{release.type}</dd>
       </div>
       <div>
-        <dt>Дата</dt>
+        <dt>{copy.details.labels.date}</dt>
         <dd className="date">
           <span>{formattedDate}</span>
           <span>{formattedWeekday}</span>
         </dd>
       </div>
       <div>
-        <dt>Джерело</dt>
+        <dt>{copy.details.labels.source}</dt>
         <dd>{release.source}</dd>
       </div>
     </dl>

@@ -1,5 +1,7 @@
 "use client";
 
+import { copy } from "../../lib/strings";
+
 type TabKey = "search" | "saved";
 
 type Props = {
@@ -16,14 +18,14 @@ export function Tabs({ active, savedCount, onChange }: Props) {
         className={active === "search" ? "active" : ""}
         onClick={() => onChange("search")}
       >
-        Пошук
+        {copy.sections.search}
       </button>
       <button
         type="button"
         className={active === "saved" ? "active" : ""}
         onClick={() => onChange("saved")}
       >
-        Мій список ({savedCount})
+        {copy.header.savedList} ({savedCount})
       </button>
     </nav>
   );

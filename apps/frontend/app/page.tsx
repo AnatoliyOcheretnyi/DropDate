@@ -8,6 +8,7 @@ import type { Details, ReleaseInfo, Suggestion } from "../lib/release";
 import { Header } from "./components/Header";
 import { SavedList } from "./components/SavedList";
 import { TrendingCarousel } from "./components/TrendingCarousel";
+import { copy } from "../lib/strings";
 import { useSavedReleases } from "./hooks/useSavedReleases";
 import { useSuggestions } from "./hooks/useSuggestions";
 
@@ -209,18 +210,18 @@ function HomePageContent() {
     try {
       const result = await refreshAll();
       if (!result || result.results.length === 0) {
-        setRefreshMessage("Немає шоу для оновлення.");
+        setRefreshMessage(copy.hints.noRefresh);
         return;
       }
       const failed = result.results.filter((item) => item.error);
       if (failed.length > 0) {
-        setRefreshMessage(`Частину шоу не оновлено (${failed.length}).`);
+        setRefreshMessage(copy.hints.partialUpdate(failed.length));
       } else {
-        setRefreshMessage("Список оновлено.");
+        setRefreshMessage(copy.hints.listUpdated);
       }
     } catch (err) {
       setRefreshMessage(
-        err instanceof Error ? err.message : "Не вдалося оновити список."
+        err instanceof Error ? err.message : copy.errors.refreshFailed
       );
     }
   };
@@ -290,11 +291,10 @@ function HomePageContent() {
         <>
           <section className="hero hero-bleed">
             <div className="hero-inner">
-              <p className="eyebrow">beta</p>
-              <h1>DropDate</h1>
+              <p className="eyebrow">{copy.hero.eyebrow}</p>
+              <h1>{copy.appName}</h1>
               <p className="lead">
-                Вводиш назву — отримуєш дату наступного релізу. Простий спосіб
-                не прогавити нову серію.
+                {copy.hero.webLead}
               </p>
             </div>
           </section>
@@ -302,7 +302,7 @@ function HomePageContent() {
           {shouldShowTrending && (
             <>
               <TrendingCarousel
-                title="Фільми зараз в тренді"
+                title={copy.sections.trendingMovies}
                 items={trendingMovies}
                 isLoading={isTrendingLoading}
                 onSelect={handleGallerySelect}
@@ -310,7 +310,7 @@ function HomePageContent() {
                 isBusy={() => false}
               />
               <TrendingCarousel
-                title="Серіали зараз в тренді"
+                title={copy.sections.trendingSeries}
                 items={trendingSeries}
                 isLoading={isTrendingLoading}
                 onSelect={handleGallerySelect}
@@ -331,15 +331,15 @@ function HomePageContent() {
               onClick={handleRefreshAllClick}
               disabled={!isStorageReady || saved.length === 0 || isRefreshing}
             >
-              {isRefreshing ? "Оновлюємо…" : "Оновити всі"}
+              {isRefreshing ? copy.actions.updating : copy.actions.updateAll}
             </button>
             {refreshMessage && <p className="hint">{refreshMessage}</p>}
           </div>
           {!isStorageReady ? (
-            <p className="hint">Завантажуємо список…</p>
+            <p className="hint">{copy.hints.loadingList}</p>
           ) : saved.length === 0 ? (
             <p className="hint">
-              Поки що порожньо. Додай перший тайтл через вкладку “Пошук”.
+              {copy.hints.listEmpty}
             </p>
           ) : (
             <SavedList

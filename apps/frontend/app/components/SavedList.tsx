@@ -2,6 +2,7 @@
 
 import type { SavedRelease } from "../lib/releases";
 import { getReleaseStatusLabel, type Suggestion } from "../../lib/release";
+import { copy } from "../../lib/strings";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
 
 const formatDate = (value?: string) => {
   if (!value) {
-    return "—";
+    return copy.misc.dash;
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -58,14 +59,7 @@ const getBucketKey = (item: SavedRelease) => {
   return "later";
 };
 
-const SECTION_TITLES: Record<string, string> = {
-  today: "Сьогодні",
-  week: "Цього тижня",
-  month: "Цього місяця",
-  later: "Пізніше",
-  ended: "Завершені",
-  unknown: "Без дати",
-};
+const SECTION_TITLES: Record<string, string> = copy.saved.sectionTitles;
 
 const SECTION_ORDER = ["today", "week", "month", "later", "ended", "unknown"] as const;
 
@@ -104,7 +98,7 @@ export function SavedList({ items, onRemove, actionsDisabled }: Props) {
                         className="saved-remove"
                         onClick={() => onRemove(item.id)}
                         disabled={actionsDisabled}
-                        aria-label="Прибрати зі списку"
+                        aria-label={copy.saved.removeAria}
                       >
                         ✕
                       </button>

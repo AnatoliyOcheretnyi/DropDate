@@ -1,6 +1,7 @@
 "use client";
 
 import type { Suggestion } from "../../lib/release";
+import { copy } from "../../lib/strings";
 
 type Props = {
   suggestions: Suggestion[];
@@ -28,10 +29,14 @@ export function Suggestions({ suggestions, isSaved, onSelect }: Props) {
               <p className="suggestion-title">{suggestion.title}</p>
               <div className="suggestion-meta-row">
                 <p className="suggestion-meta">
-                  {suggestion.mediaType === "movie" ? "Фільм" : "Серіал"}
+                  {suggestion.mediaType === "movie"
+                    ? copy.mediaType.movie
+                    : copy.mediaType.series}
                   {suggestion.year ? ` · ${suggestion.year}` : ""}
                 </p>
-                {isSaved(suggestion) && <span className="saved-pill">У списку</span>}
+                {isSaved(suggestion) && (
+                  <span className="saved-pill">{copy.actions.inList}</span>
+                )}
               </div>
             </div>
           </button>

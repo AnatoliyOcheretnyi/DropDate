@@ -8,6 +8,7 @@ import type { Details, ReleaseInfo, Suggestion } from '../types/release';
 import { getBackendURL } from '../utils/config';
 import { buildFallbackRelease } from '../utils/release';
 import { useSaved } from '../state/SavedContext';
+import { copy } from '../../../../libs/shared/src/strings';
 
 type TrendingPayload = {
   movies: Suggestion[];
@@ -102,20 +103,20 @@ export default function HomeScreen() {
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>beta</Text>
-          <Text style={styles.title}>DropDate</Text>
+          <Text style={styles.eyebrow}>{copy.hero.eyebrow}</Text>
+          <Text style={styles.title}>{copy.appName}</Text>
           <Text style={styles.lead}>
-            Стеж за фільмами й серіалами. Показуємо, коли буде наступний реліз або нова серія.
+            {copy.hero.mobileLead}
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Фільми в тренді</Text>
+          <Text style={styles.sectionTitle}>{copy.sections.trendingMoviesShort}</Text>
           {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(movies)}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Серіали в тренді</Text>
+          <Text style={styles.sectionTitle}>{copy.sections.trendingSeriesShort}</Text>
           {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(series)}
         </View>
       </ScrollView>

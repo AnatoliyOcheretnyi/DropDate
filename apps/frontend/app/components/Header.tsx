@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import type { Suggestion } from "../../lib/release";
+import { copy } from "../../lib/strings";
 import { Suggestions } from "./Suggestions";
 
 type ViewKey = "home" | "saved";
@@ -84,15 +85,15 @@ export function Header({
         <button type="button" className="header-brand" onClick={() => onChange("home")}>
           <Image
             src="/logo.png"
-            alt="DropDate"
+            alt={copy.appName}
             className="brand-logo"
             width={80}
             height={80}
             priority
           />
           <div className="brand-text">
-            <span className="brand-title">DropDate</span>
-            <span className="brand-subtitle">Дата наступного релізу в один клік</span>
+            <span className="brand-title">{copy.appName}</span>
+            <span className="brand-subtitle">{copy.tagline}</span>
           </div>
         </button>
         <div className="header-actions">
@@ -104,7 +105,7 @@ export function Header({
             <input
               ref={inputRef}
               type="text"
-              placeholder="Пошук..."
+              placeholder={copy.header.searchPlaceholder}
               value={title}
               onChange={(event) => onSearchChange(event.target.value)}
               onFocus={onSearchFocus}
@@ -113,7 +114,9 @@ export function Header({
             <button
               type="button"
               className="header-icon"
-              aria-label={isSearchOpen ? "Закрити пошук" : "Пошук"}
+              aria-label={
+                isSearchOpen ? copy.header.searchCloseLabel : copy.header.searchOpenLabel
+              }
               onClick={isSearchOpen ? onSearchClose : onSearchToggle}
             >
               {isSearchOpen ? (
@@ -137,12 +140,12 @@ export function Header({
               className="header-submit"
               disabled={isLoading || title.trim().length === 0}
             >
-              {isLoading ? "..." : "Знайти"}
+              {isLoading ? copy.header.searchBusy : copy.header.searchSubmit}
             </button>
             {isSearchOpen && (
               <div className="header-autocomplete">
                 {isFetchingSuggestions && (
-                  <p className="hint">Підбираємо варіанти…</p>
+                  <p className="hint">{copy.header.suggestionsLoading}</p>
                 )}
                 {suggestions.length > 0 && (
                   <Suggestions
@@ -159,7 +162,7 @@ export function Header({
             className={`header-link${active === "saved" ? " active" : ""}`}
             onClick={() => onChange("saved")}
           >
-            Мій список ({savedCount})
+            {copy.header.savedList} ({savedCount})
           </button>
         </div>
       </div>

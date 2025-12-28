@@ -1,5 +1,6 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { copy } from '../../../../libs/shared/src/strings';
 import { getReleaseStatusLabel, type ReleaseInfo } from '../types/release';
 
 const formatter = new Intl.DateTimeFormat('uk-UA', {
@@ -29,9 +30,9 @@ export function ReleaseCard({ release }: Props) {
       <View style={styles.infoColumn}>
         <Text style={styles.title}>{release.title}</Text>
         <View style={styles.details}>
-          <Detail label="Тип" value={release.type} />
-          <Detail label="Дата" value={date} />
-          <Detail label="Джерело" value={release.source} />
+          <Detail label={copy.details.labels.type} value={release.type} />
+          <Detail label={copy.details.labels.date} value={date} />
+          <Detail label={copy.details.labels.source} value={release.source} />
         </View>
       </View>
     </View>

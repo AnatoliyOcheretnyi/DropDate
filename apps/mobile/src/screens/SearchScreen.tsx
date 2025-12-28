@@ -17,6 +17,7 @@ import type { Details, ReleaseInfo, Suggestion } from '../types/release';
 import { getBackendURL } from '../utils/config';
 import { buildFallbackRelease } from '../utils/release';
 import { useSaved } from '../state/SavedContext';
+import { copy } from '../../../../libs/shared/src/strings';
 
 type SearchPayload = {
   results: Suggestion[];
@@ -165,11 +166,11 @@ export default function SearchScreen() {
   return (
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.header}>Пошук</Text>
+        <Text style={styles.header}>{copy.sections.search}</Text>
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Наприклад, Dune"
+            placeholder={copy.search.placeholder}
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -177,11 +178,11 @@ export default function SearchScreen() {
             onSubmitEditing={handleSearch}
           />
           <Pressable style={styles.searchButton} onPress={handleSearch}>
-            <Text style={styles.searchButtonText}>Знайти</Text>
+            <Text style={styles.searchButtonText}>{copy.header.searchSubmit}</Text>
           </Pressable>
         </View>
 
-        {isSuggesting && <Text style={styles.hint}>Підбираємо варіанти…</Text>}
+        {isSuggesting && <Text style={styles.hint}>{copy.header.suggestionsLoading}</Text>}
         {suggestions.length > 0 && (
           <View style={styles.suggestionList}>
             {suggestions.map((item) => (
@@ -192,7 +193,7 @@ export default function SearchScreen() {
               >
                 <Text style={styles.suggestionTitle}>{item.title}</Text>
                 <Text style={styles.suggestionMeta}>
-                  {item.mediaType === 'movie' ? 'Фільм' : 'Серіал'}
+                  {item.mediaType === 'movie' ? copy.mediaType.movie : copy.mediaType.series}
                   {item.year ? ` · ${item.year}` : ''}
                 </Text>
               </Pressable>
@@ -208,7 +209,11 @@ export default function SearchScreen() {
               onPress={() => setFilter(value)}
             >
               <Text style={styles.filterText}>
-                {value === 'all' ? 'Усі' : value === 'movie' ? 'Фільми' : 'Серіали'}
+                {value === 'all'
+                  ? copy.filters.all
+                  : value === 'movie'
+                  ? copy.filters.movies
+                  : copy.filters.series}
               </Text>
             </Pressable>
           ))}
@@ -230,13 +235,19 @@ export default function SearchScreen() {
             />
           )}
           ListEmptyComponent={
-            isLoading ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.hint}>Нічого не знайдено.</Text>
+            isLoading ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <Text style={styles.hint}>{copy.search.empty}</Text>
+            )
           }
         />
 
         {page < totalPages && (
           <Pressable style={styles.loadMore} onPress={() => loadResults(page + 1, true)} disabled={isLoading}>
-            <Text style={styles.loadMoreText}>{isLoading ? 'Завантажуємо…' : 'Показати ще'}</Text>
+            <Text style={styles.loadMoreText}>
+              {isLoading ? copy.hints.loadingResults : copy.actions.loadMore}
+            </Text>
           </Pressable>
         )}
       </ScrollView>

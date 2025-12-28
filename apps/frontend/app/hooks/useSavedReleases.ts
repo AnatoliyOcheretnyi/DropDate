@@ -8,6 +8,7 @@ import {
   getReleaseId,
   getSuggestionId,
 } from "../lib/releases";
+import { copy } from "../../lib/strings";
 
 const readSavedFromStorage = (): SavedRelease[] => {
   if (typeof window === "undefined") {
@@ -110,10 +111,10 @@ export function useSavedReleases() {
 
       const payload = await response
         .json()
-        .catch(() => ({ message: "DropDate backend повернув не JSON" }));
+        .catch(() => ({ message: copy.errors.invalidJson }));
 
       if (!response.ok) {
-        throw new Error(payload?.message || "Не вдалося оновити список");
+        throw new Error(payload?.message || copy.errors.refreshFailed);
       }
 
       const results: BulkRefreshResult[] = Array.isArray(payload?.results)
@@ -137,7 +138,7 @@ export function useSavedReleases() {
 
       return { results };
     } catch (error) {
-      throw error instanceof Error ? error : new Error("Не вдалося оновити список");
+      throw error instanceof Error ? error : new Error(copy.errors.refreshFailed);
     } finally {
       setIsRefreshing(false);
     }

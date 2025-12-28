@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
 import { SearchResultsGrid } from "../components/SearchResultsGrid";
+import { copy } from "../../lib/strings";
 import { useSavedReleases } from "../hooks/useSavedReleases";
 import { useSuggestions } from "../hooks/useSuggestions";
 
@@ -74,7 +75,7 @@ function SearchPageContent() {
           setPage(1);
           setTotalPages(1);
           setTotalResults(0);
-          setError("Не вдалося отримати результати.");
+          setError(copy.errors.searchFailed);
           return;
         }
 
@@ -87,7 +88,7 @@ function SearchPageContent() {
         setPage(1);
         setTotalPages(1);
         setTotalResults(0);
-        setError("Не вдалося отримати результати.");
+        setError(copy.errors.searchFailed);
       } finally {
         setIsLoading(false);
       }
@@ -270,12 +271,12 @@ function SearchPageContent() {
       />
 
       <section className="search-title">
-        <h2>Результати пошуку</h2>
+        <h2>{copy.sections.searchResultsTitle}</h2>
         {currentQuery && (
           <p className="hint">
             {totalResults > 0
-              ? `Знайдено приблизно ${totalResults} тайтлів`
-              : "Зараз шукаємо підходящі варіанти"}
+              ? copy.search.resultsCount(totalResults)
+              : copy.search.searchingHint}
           </p>
         )}
       </section>
@@ -283,25 +284,25 @@ function SearchPageContent() {
       <div className="search-filters">
         <button
           type="button"
-          className={`filter-chip${filter === "all" ? " active" : ""}`}
-          onClick={() => setFilter("all")}
-        >
-          Усі
-        </button>
-        <button
-          type="button"
-          className={`filter-chip${filter === "movie" ? " active" : ""}`}
-          onClick={() => setFilter("movie")}
-        >
-          Лише фільми
-        </button>
-        <button
-          type="button"
-          className={`filter-chip${filter === "tv" ? " active" : ""}`}
-          onClick={() => setFilter("tv")}
-        >
-          Лише серіали
-        </button>
+        className={`filter-chip${filter === "all" ? " active" : ""}`}
+        onClick={() => setFilter("all")}
+      >
+        {copy.filters.all}
+      </button>
+      <button
+        type="button"
+        className={`filter-chip${filter === "movie" ? " active" : ""}`}
+        onClick={() => setFilter("movie")}
+      >
+        {copy.filters.onlyMovies}
+      </button>
+      <button
+        type="button"
+        className={`filter-chip${filter === "tv" ? " active" : ""}`}
+        onClick={() => setFilter("tv")}
+      >
+        {copy.filters.onlySeries}
+      </button>
       </div>
 
       {error && <p className="hint">{error}</p>}
@@ -314,8 +315,8 @@ function SearchPageContent() {
         isSaved={isSuggestionSaved}
         isBusy={() => false}
         isAdding={(item) => addingSuggestionId === item.id}
-        title="Усі результати"
-        emptyLabel="Нічого не знайдено. Спробуй іншу назву."
+        title={copy.sections.searchResults}
+        emptyLabel={copy.search.emptyFull}
         showEmpty
       />
 
@@ -326,7 +327,7 @@ function SearchPageContent() {
           onClick={handleLoadMore}
           disabled={isLoading}
         >
-          {isLoading ? "Завантажуємо…" : "Показати ще"}
+          {isLoading ? copy.hints.loadingResults : copy.actions.loadMore}
         </button>
       )}
     </main>
