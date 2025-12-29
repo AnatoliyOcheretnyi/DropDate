@@ -7,6 +7,7 @@ import (
 	"encoding/json" // стандартна бібліотека для кодування/декодування JSON.
 	"errors"        // помічник для роботи з помилками та errors.Is().
 	"fmt"
+	"io"
 	"log"      // вбудований логгер, щоб писати в stdout.
 	"net/http" // базовий HTTP-стек Go.
 	"os"       // читаємо конфіг з env.
@@ -528,8 +529,14 @@ func (app *application) bulkNextReleaseHandler(w http.ResponseWriter, r *http.Re
 }
 
 type authRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	Client         string `json:"client,omitempty"`
+	ReturnRefresh  bool   `json:"returnRefresh,omitempty"`
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
 }
 
 type authUserResponse struct {
@@ -538,9 +545,10 @@ type authUserResponse struct {
 }
 
 type authResponse struct {
-	AccessToken string           `json:"accessToken"`
-	ExpiresAt   time.Time        `json:"expiresAt"`
-	User        authUserResponse `json:"user"`
+	AccessToken  string           `json:"accessToken"`
+	ExpiresAt    time.Time        `json:"expiresAt"`
+	RefreshToken *string          `json:"refreshToken,omitempty"`
+	User         authUserResponse `json:"user"`
 }
 
 func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -576,7 +584,7 @@ func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	app.setRefreshCookie(w, result.RefreshToken, result.RefreshExpiresAt)
-	app.writeAuthResponse(w, result)
+	app.writeAuthResponse(w, result, shouldReturnRefresh(payload))
 }
 
 func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -607,7 +615,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.setRefreshCookie(w, result.RefreshToken, result.RefreshExpiresAt)
-	app.writeAuthResponse(w, result)
+	app.writeAuthResponse(w, result, shouldReturnRefresh(payload))
 }
 
 func (app *application) refreshHandler(w http.ResponseWriter, r *http.Request) {
@@ -621,13 +629,13 @@ func (app *application) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookieName := app.auth.Config().CookieName
-	cookie, err := r.Cookie(cookieName)
-	if err != nil || cookie.Value == "" {
+	refreshToken, fromBody := readRefreshToken(r, cookieName)
+	if refreshToken == "" {
 		http.Error(w, "missing refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	result, err := app.auth.Refresh(r.Context(), cookie.Value)
+	result, err := app.auth.Refresh(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidToken) {
 			http.Error(w, "invalid refresh token", http.StatusUnauthorized)
@@ -639,7 +647,7 @@ func (app *application) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.setRefreshCookie(w, result.RefreshToken, result.RefreshExpiresAt)
-	app.writeAuthResponse(w, result)
+	app.writeAuthResponse(w, result, fromBody)
 }
 
 func (app *application) logoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -653,9 +661,9 @@ func (app *application) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookieName := app.auth.Config().CookieName
-	cookie, err := r.Cookie(cookieName)
-	if err == nil && cookie.Value != "" {
-		if err := app.auth.Logout(r.Context(), cookie.Value); err != nil {
+	refreshToken, _ := readRefreshToken(r, cookieName)
+	if refreshToken != "" {
+		if err := app.auth.Logout(r.Context(), refreshToken); err != nil {
 			log.Printf("logout failed: %v", err)
 		}
 	}
@@ -691,11 +699,16 @@ func (app *application) clearRefreshCookie(w http.ResponseWriter) {
 	})
 }
 
-func (app *application) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair) {
+func (app *application) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair, includeRefresh bool) {
+	var refresh *string
+	if includeRefresh {
+		refresh = &result.RefreshToken
+	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(authResponse{
-		AccessToken: result.AccessToken,
-		ExpiresAt:   result.AccessExpiresAt,
+		AccessToken:  result.AccessToken,
+		ExpiresAt:    result.AccessExpiresAt,
+		RefreshToken: refresh,
 		User: authUserResponse{
 			ID:    result.User.ID,
 			Email: result.User.Email,
@@ -703,4 +716,30 @@ func (app *application) writeAuthResponse(w http.ResponseWriter, result auth.Tok
 	}); err != nil {
 		log.Printf("failed to encode auth response: %v", err)
 	}
+}
+
+func shouldReturnRefresh(payload authRequest) bool {
+	if payload.ReturnRefresh {
+		return true
+	}
+	return strings.EqualFold(payload.Client, "mobile")
+}
+
+func readRefreshToken(r *http.Request, cookieName string) (string, bool) {
+	if cookie, err := r.Cookie(cookieName); err == nil && cookie.Value != "" {
+		return cookie.Value, false
+	}
+
+	var payload refreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", false
+		}
+		return "", false
+	}
+	token := strings.TrimSpace(payload.RefreshToken)
+	if token == "" {
+		return "", false
+	}
+	return token, true
 }
