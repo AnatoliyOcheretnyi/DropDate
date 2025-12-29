@@ -49,6 +49,10 @@ The server listens on `http://localhost:8080`. Useful requests:
 - `curl "http://localhost:8080/trending?window=week&limit=18"` – trending movies + series bundle.
 - `curl "http://localhost:8080/details?tmdbId=603&mediaType=movie"` – full details (plus recommendations).
 - `curl -X POST http://localhost:8080/bulk-next-release -d '{"titles":[{"title":"Dune","tmdbId":603,"mediaType":"movie"}]}'` – batch next-release lookup.
+- `curl -X POST http://localhost:8080/auth/register -d '{"email":"test@dropdate.com","password":"StrongP@ss1"}'` – create account.
+- `curl -X POST http://localhost:8080/auth/login -d '{"email":"test@dropdate.com","password":"StrongP@ss1"}'` – login and receive tokens.
+- `curl -X POST http://localhost:8080/auth/refresh` – rotate refresh token cookie.
+- `curl -X POST http://localhost:8080/auth/logout` – revoke refresh token.
 
 ## Database & migrations
 
@@ -71,6 +75,7 @@ Migrations currently create tables for users, refresh tokens, and saved titles. 
 - `internal/release.Service` encapsulates business logic around fetching/sanitizing release data and keeps an in-memory cache (≈30 хв TTL) keyed by TMDB hints.
 - `internal/tmdb.Client` queries the [TMDB API](https://developer.themoviedb.org/reference/intro) for movies/series, search suggestions, and poster/backdrop images.
 - `cmd/migrate` applies SQL migrations using `SUPABASE_CONNECTION_STRING`.
+- `internal/auth` handles registration/login, password hashing, and JWT issuance (refresh token stored in DB).
 - All responses are JSON-encoded; errors use idiomatic HTTP status codes (400, 404, etc.).
 
 This service is intentionally small but production-friendly: future steps include more caching strategies, additional providers if needed, and richer error reporting.

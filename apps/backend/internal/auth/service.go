@@ -1,0 +1,250 @@
+package auth
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/base64"
+	"encoding/hex"
+	"errors"
+	"net/mail"
+	"strings"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	ErrEmailExists        = errors.New("email already registered")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrInvalidToken       = errors.New("invalid refresh token")
+	ErrWeakPassword       = errors.New("password does not meet policy")
+	ErrInvalidEmail       = errors.New("invalid email")
+)
+
+type Config struct {
+	JWTSecret    []byte
+	Issuer       string
+	AccessTTL    time.Duration
+	RefreshTTL   time.Duration
+	CookieName   string
+	CookieSecure bool
+}
+
+type Service struct {
+	users  *UserStore
+	tokens *TokenStore
+	cfg    Config
+}
+
+type User struct {
+	ID        string
+	Email     string
+	CreatedAt time.Time
+}
+
+type RefreshToken struct {
+	ID        string
+	UserID    string
+	TokenHash string
+	ExpiresAt time.Time
+	RevokedAt sql.NullTime
+	CreatedAt time.Time
+}
+
+type TokenPair struct {
+	AccessToken  string
+	RefreshToken string
+	User         User
+	AccessExpiresAt  time.Time
+	RefreshExpiresAt time.Time
+}
+
+func NewService(db *sql.DB, cfg Config) *Service {
+	return &Service{
+		users:  NewUserStore(db),
+		tokens: NewTokenStore(db),
+		cfg:    cfg,
+	}
+}
+
+func (s *Service) Config() Config {
+	return s.cfg
+}
+
+func (s *Service) Register(ctx context.Context, email, password string) (TokenPair, error) {
+	email = normalizeEmail(email)
+	if err := validateEmail(email); err != nil {
+		return TokenPair{}, err
+	}
+	if err := validatePassword(password); err != nil {
+		return TokenPair{}, err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	user, err := s.users.Create(ctx, email, string(hash))
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	return s.issueTokens(ctx, user)
+}
+
+func (s *Service) Login(ctx context.Context, email, password string) (TokenPair, error) {
+	email = normalizeEmail(email)
+	user, hash, err := s.users.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TokenPair{}, ErrInvalidCredentials
+		}
+		return TokenPair{}, err
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		return TokenPair{}, ErrInvalidCredentials
+	}
+
+	return s.issueTokens(ctx, user)
+}
+
+func (s *Service) Refresh(ctx context.Context, refreshToken string) (TokenPair, error) {
+	if refreshToken == "" {
+		return TokenPair{}, ErrInvalidToken
+	}
+
+	tokenHash := hashToken(refreshToken)
+	stored, err := s.tokens.FindByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TokenPair{}, ErrInvalidToken
+		}
+		return TokenPair{}, err
+	}
+
+	if stored.RevokedAt.Valid || time.Now().After(stored.ExpiresAt) {
+		return TokenPair{}, ErrInvalidToken
+	}
+
+	if err := s.tokens.Revoke(ctx, stored.ID); err != nil {
+		return TokenPair{}, err
+	}
+
+	user, err := s.users.GetByID(ctx, stored.UserID)
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	return s.issueTokens(ctx, user)
+}
+
+func (s *Service) Logout(ctx context.Context, refreshToken string) error {
+	if refreshToken == "" {
+		return nil
+	}
+	tokenHash := hashToken(refreshToken)
+	stored, err := s.tokens.FindByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	return s.tokens.Revoke(ctx, stored.ID)
+}
+
+func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error) {
+	accessToken, expiresAt, err := s.createAccessToken(user)
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	refreshToken, err := generateToken()
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	refreshExpires := time.Now().Add(s.cfg.RefreshTTL)
+	if err := s.tokens.Create(ctx, user.ID, hashToken(refreshToken), refreshExpires); err != nil {
+		return TokenPair{}, err
+	}
+
+	return TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         user,
+		AccessExpiresAt:  expiresAt,
+		RefreshExpiresAt: refreshExpires,
+	}, nil
+}
+
+func (s *Service) createAccessToken(user User) (string, time.Time, error) {
+	expiresAt := time.Now().Add(s.cfg.AccessTTL)
+	claims := jwt.RegisteredClaims{
+		Subject:   user.ID,
+		Issuer:    s.cfg.Issuer,
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(s.cfg.JWTSecret)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return signed, expiresAt, nil
+}
+
+func generateToken() (string, error) {
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buffer), nil
+}
+
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func normalizeEmail(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func validateEmail(value string) error {
+	if value == "" {
+		return ErrInvalidEmail
+	}
+	if _, err := mail.ParseAddress(value); err != nil {
+		return ErrInvalidEmail
+	}
+	return nil
+}
+
+func validatePassword(value string) error {
+	if len(value) < 8 {
+		return ErrWeakPassword
+	}
+	var hasUpper, hasLower, hasDigit, hasSpecial bool
+	for _, r := range value {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		default:
+			hasSpecial = true
+		}
+	}
+	if !hasUpper || !hasLower || !hasDigit || !hasSpecial {
+		return ErrWeakPassword
+	}
+	return nil
+}

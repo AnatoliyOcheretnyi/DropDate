@@ -2,26 +2,34 @@ package main
 
 import (
 	"bufio"
+	"context"
+	"database/sql"
 	"encoding/json" // стандартна бібліотека для кодування/декодування JSON.
 	"errors"        // помічник для роботи з помилками та errors.Is().
 	"fmt"
 	"log"      // вбудований логгер, щоб писати в stdout.
 	"net/http" // базовий HTTP-стек Go.
 	"os"       // читаємо конфіг з env.
+	"os/signal"
 	"strconv"
 	"strings" // утиліти рядків для обрізання пробілів.
-	"time"    // робота з часом та таймаутами.
+	"syscall"
+	"time" // робота з часом та таймаутами.
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release" // бізнес-логіка релізів.
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"    // клієнт до TMDB.
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // application зберігає всі залежності HTTP-шару.
 type application struct {
 	releases *release.Service
+	auth     *auth.Service
 }
 
 const tmdbTokenEnvVar = "TMDB_ACCESS_TOKEN"
+const supabaseConnEnvVar = "SUPABASE_CONNECTION_STRING"
 
 func main() {
 	loadEnvFiles(".env", ".env.local")
@@ -57,6 +65,14 @@ func main() {
 		releases: release.NewService(providers, suggester, log.Default()),
 	}
 
+	if db := openDatabase(); db != nil {
+		authService, err := buildAuthService(db)
+		if err != nil {
+			log.Fatalf("failed to init auth service: %v", err)
+		}
+		app.auth = authService
+	}
+
 	// http.NewServeMux() створює внутрішній роутер "шлях -> хендлер".
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", app.healthHandler)
@@ -66,6 +82,10 @@ func main() {
 	mux.HandleFunc("/search", app.searchHandler)
 	mux.HandleFunc("/details", app.detailsHandler)
 	mux.HandleFunc("/bulk-next-release", app.bulkNextReleaseHandler)
+	mux.HandleFunc("/auth/register", app.registerHandler)
+	mux.HandleFunc("/auth/login", app.loginHandler)
+	mux.HandleFunc("/auth/refresh", app.refreshHandler)
+	mux.HandleFunc("/auth/logout", app.logoutHandler)
 	// Через /swagger/ віддаємо статичну сторінку з документацією (Swagger UI).
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
 
@@ -78,9 +98,83 @@ func main() {
 
 	log.Printf("DropDate API listening on %s", server.Addr)
 
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server error: %v", err)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdown
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("server shutdown error: %v", err)
 	}
+}
+
+func openDatabase() *sql.DB {
+	dsn := strings.TrimSpace(os.Getenv(supabaseConnEnvVar))
+	if dsn == "" {
+		log.Printf("%s not set, auth endpoints are disabled", supabaseConnEnvVar)
+		return nil
+	}
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		log.Printf("failed to open database: %v", err)
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		log.Printf("db ping failed: %v", err)
+		_ = db.Close()
+		return nil
+	}
+
+	return db
+}
+
+func buildAuthService(db *sql.DB) (*auth.Service, error) {
+	secret := strings.TrimSpace(os.Getenv("AUTH_JWT_SECRET"))
+	if secret == "" {
+		return nil, fmt.Errorf("AUTH_JWT_SECRET is required")
+	}
+	issuer := strings.TrimSpace(os.Getenv("AUTH_JWT_ISSUER"))
+	if issuer == "" {
+		issuer = "dropdate"
+	}
+	accessTTL := parseDurationEnv("AUTH_ACCESS_TTL", 15*time.Minute)
+	refreshTTL := parseDurationEnv("AUTH_REFRESH_TTL", 30*24*time.Hour)
+	cookieName := strings.TrimSpace(os.Getenv("AUTH_COOKIE_NAME"))
+	if cookieName == "" {
+		cookieName = "dd_refresh"
+	}
+	cookieSecure := strings.EqualFold(strings.TrimSpace(os.Getenv("AUTH_COOKIE_SECURE")), "true")
+
+	return auth.NewService(db, auth.Config{
+		JWTSecret:    []byte(secret),
+		Issuer:       issuer,
+		AccessTTL:    accessTTL,
+		RefreshTTL:   refreshTTL,
+		CookieName:   cookieName,
+		CookieSecure: cookieSecure,
+	}), nil
+}
+
+func parseDurationEnv(key string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	if parsed, err := time.ParseDuration(raw); err == nil {
+		return parsed
+	}
+	return fallback
 }
 
 func loadEnvFiles(paths ...string) {
@@ -430,5 +524,183 @@ func (app *application) bulkNextReleaseHandler(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
 		log.Printf("failed to encode bulk response: %v", err)
+	}
+}
+
+type authRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type authUserResponse struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+}
+
+type authResponse struct {
+	AccessToken string           `json:"accessToken"`
+	ExpiresAt   time.Time        `json:"expiresAt"`
+	User        authUserResponse `json:"user"`
+}
+
+func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if app.auth == nil {
+		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	var payload authRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	result, err := app.auth.Register(r.Context(), payload.Email, payload.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrEmailExists):
+			http.Error(w, "email already registered", http.StatusConflict)
+		case errors.Is(err, auth.ErrWeakPassword):
+			http.Error(w, "password does not meet policy", http.StatusBadRequest)
+		case errors.Is(err, auth.ErrInvalidEmail):
+			http.Error(w, "invalid email", http.StatusBadRequest)
+		default:
+			log.Printf("register failed: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	app.setRefreshCookie(w, result.RefreshToken, result.RefreshExpiresAt)
+	app.writeAuthResponse(w, result)
+}
+
+func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if app.auth == nil {
+		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	var payload authRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	result, err := app.auth.Login(r.Context(), payload.Email, payload.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			return
+		}
+		log.Printf("login failed: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	app.setRefreshCookie(w, result.RefreshToken, result.RefreshExpiresAt)
+	app.writeAuthResponse(w, result)
+}
+
+func (app *application) refreshHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if app.auth == nil {
+		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	cookieName := app.auth.Config().CookieName
+	cookie, err := r.Cookie(cookieName)
+	if err != nil || cookie.Value == "" {
+		http.Error(w, "missing refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	result, err := app.auth.Refresh(r.Context(), cookie.Value)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidToken) {
+			http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+			return
+		}
+		log.Printf("refresh failed: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	app.setRefreshCookie(w, result.RefreshToken, result.RefreshExpiresAt)
+	app.writeAuthResponse(w, result)
+}
+
+func (app *application) logoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if app.auth == nil {
+		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	cookieName := app.auth.Config().CookieName
+	cookie, err := r.Cookie(cookieName)
+	if err == nil && cookie.Value != "" {
+		if err := app.auth.Logout(r.Context(), cookie.Value); err != nil {
+			log.Printf("logout failed: %v", err)
+		}
+	}
+
+	app.clearRefreshCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (app *application) setRefreshCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	cfg := app.auth.Config()
+	http.SetCookie(w, &http.Cookie{
+		Name:     cfg.CookieName,
+		Value:    token,
+		Path:     "/",
+		Expires:  expiresAt,
+		HttpOnly: true,
+		Secure:   cfg.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (app *application) clearRefreshCookie(w http.ResponseWriter) {
+	cfg := app.auth.Config()
+	http.SetCookie(w, &http.Cookie{
+		Name:     cfg.CookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   cfg.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (app *application) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(authResponse{
+		AccessToken: result.AccessToken,
+		ExpiresAt:   result.AccessExpiresAt,
+		User: authUserResponse{
+			ID:    result.User.ID,
+			Email: result.User.Email,
+		},
+	}); err != nil {
+		log.Printf("failed to encode auth response: %v", err)
 	}
 }
