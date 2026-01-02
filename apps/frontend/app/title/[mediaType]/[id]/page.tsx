@@ -307,9 +307,17 @@ export default function TitleDetailsPage() {
                           mediaType: details.mediaType,
                         })
                       }
-                      disabled={Boolean(isReleaseSaved(release))}
+                      disabled={Boolean(
+                        isReleaseSaved(release, {
+                          tmdbId: details.id,
+                          mediaType: details.mediaType,
+                        })
+                      )}
                     >
-                      {isReleaseSaved(release)
+                      {isReleaseSaved(release, {
+                        tmdbId: details.id,
+                        mediaType: details.mediaType,
+                      })
                         ? copy.actions.inList
                         : copy.actions.addToList}
                     </button>
@@ -453,9 +461,17 @@ export default function TitleDetailsPage() {
                     type="button"
                     className="primary"
                     onClick={() => addRelease(release)}
-                    disabled={Boolean(isReleaseSaved(release))}
+                    disabled={Boolean(
+                      isReleaseSaved(release, {
+                        tmdbId: details.id,
+                        mediaType: details.mediaType,
+                      })
+                    )}
                   >
-                    {isReleaseSaved(release)
+                    {isReleaseSaved(release, {
+                      tmdbId: details.id,
+                      mediaType: details.mediaType,
+                    })
                       ? copy.actions.inList
                       : copy.actions.addToList}
                   </button>

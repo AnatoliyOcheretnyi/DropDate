@@ -10,6 +10,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/search", s.searchHandler)
 	mux.HandleFunc("/details", s.detailsHandler)
 	mux.HandleFunc("/bulk-next-release", s.bulkNextReleaseHandler)
+	mux.HandleFunc("/saved", s.savedHandler)
+	mux.HandleFunc("/saved/items", s.savedItemHandler)
 	mux.HandleFunc("/auth/register", s.registerHandler)
 	mux.HandleFunc("/auth/login", s.loginHandler)
 	mux.HandleFunc("/auth/refresh", s.refreshHandler)

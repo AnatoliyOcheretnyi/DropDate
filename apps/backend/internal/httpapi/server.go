@@ -7,6 +7,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
 
 type AuthService interface {
@@ -14,22 +15,30 @@ type AuthService interface {
 	Login(ctx context.Context, email, password string) (auth.TokenPair, error)
 	Refresh(ctx context.Context, refreshToken string) (auth.TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
+	ParseAccessToken(token string) (string, error)
 	Config() auth.Config
 }
 
 type Server struct {
 	releases *release.Service
 	auth     AuthService
+	saved    *saved.Service
 	logger   *log.Logger
 }
 
-func NewServer(releases *release.Service, authSvc AuthService, logger *log.Logger) *Server {
+func NewServer(
+	releases *release.Service,
+	authSvc AuthService,
+	savedSvc *saved.Service,
+	logger *log.Logger,
+) *Server {
 	if logger == nil {
 		logger = log.Default()
 	}
 	return &Server{
 		releases: releases,
 		auth:     authSvc,
+		saved:    savedSvc,
 		logger:   logger,
 	}
 }

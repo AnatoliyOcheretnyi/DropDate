@@ -13,7 +13,25 @@ const normalizeTitle = (value: string) => value.trim().toLowerCase();
 export const releaseIdentifier = (title: string, type: ReleaseInfo["type"]) =>
   `${normalizeTitle(title)}::${type}`;
 
-export const getReleaseId = (release: ReleaseInfo) => releaseIdentifier(release.title, release.type);
+export const savedIdentifier = (data: {
+  title: string;
+  type: ReleaseInfo["type"];
+  tmdbId?: number;
+  mediaType?: Suggestion["mediaType"];
+}) => {
+  if (data.tmdbId && data.mediaType) {
+    return `tmdb:${data.tmdbId}:${data.mediaType}`;
+  }
+  return releaseIdentifier(data.title, data.type);
+};
+
+export const getReleaseId = (release: ReleaseInfo) =>
+  releaseIdentifier(release.title, release.type);
 
 export const getSuggestionId = (suggestion: Suggestion) =>
-  releaseIdentifier(suggestion.title, suggestion.mediaType === "movie" ? "movie" : "series");
+  savedIdentifier({
+    title: suggestion.title,
+    type: suggestion.mediaType === "movie" ? "movie" : "series",
+    tmdbId: suggestion.id,
+    mediaType: suggestion.mediaType,
+  });

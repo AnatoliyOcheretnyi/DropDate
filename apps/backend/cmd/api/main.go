@@ -12,6 +12,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/httpapi"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
 )
 
@@ -50,15 +51,17 @@ func main() {
 	releaseService := release.NewService(providers, suggester, log.Default())
 
 	var authService *auth.Service
+	var savedService *saved.Service
 	if db := openDatabase(); db != nil {
 		service, err := buildAuthService(db)
 		if err != nil {
 			log.Fatalf("failed to init auth service: %v", err)
 		}
 		authService = service
+		savedService = saved.NewService(saved.NewStore(db))
 	}
 
-	apiServer := httpapi.NewServer(releaseService, authService, log.Default())
+	apiServer := httpapi.NewServer(releaseService, authService, savedService, log.Default())
 
 	server := &http.Server{
 		Addr:              ":8080",

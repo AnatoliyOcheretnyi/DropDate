@@ -199,6 +199,28 @@ func (s *Service) createAccessToken(user User) (string, time.Time, error) {
 	return signed, expiresAt, nil
 }
 
+func (s *Service) ParseAccessToken(tokenStr string) (string, error) {
+	if tokenStr == "" {
+		return "", ErrInvalidToken
+	}
+
+	parser := jwt.NewParser(
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer(s.cfg.Issuer),
+	)
+	claims := jwt.RegisteredClaims{}
+	_, err := parser.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
+		return s.cfg.JWTSecret, nil
+	})
+	if err != nil {
+		return "", ErrInvalidToken
+	}
+	if claims.Subject == "" {
+		return "", ErrInvalidToken
+	}
+	return claims.Subject, nil
+}
+
 func generateToken() (string, error) {
 	buffer := make([]byte, 32)
 	if _, err := rand.Read(buffer); err != nil {
