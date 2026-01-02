@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Suggestion } from "../../lib/release";
 import { copy } from "../../lib/strings";
+import { useAuth } from "../state/auth";
+import { AuthModal } from "./AuthModal";
 import { Suggestions } from "./Suggestions";
 
 type ViewKey = "home" | "saved";
@@ -47,6 +49,9 @@ export function Header({
 }: Props) {
   const searchRef = useRef<HTMLFormElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { user, logout, isLoading: authLoading } = useAuth();
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!isSearchOpen) {
@@ -78,6 +83,23 @@ export function Header({
       document.removeEventListener("touchstart", handleClick);
     };
   }, [isSearchOpen, onSearchClose]);
+
+  useEffect(() => {
+    if (!isProfileOpen) {
+      return;
+    }
+
+    const handleOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const profileRoot = document.querySelector(".header-profile");
+      if (profileRoot && !profileRoot.contains(target)) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isProfileOpen]);
 
   return (
     <header className="site-header">
@@ -164,8 +186,44 @@ export function Header({
           >
             {copy.header.savedList} ({savedCount})
           </button>
+          {!user ? (
+            <button
+              type="button"
+              className="header-link header-auth"
+              onClick={() => setIsAuthOpen(true)}
+              disabled={authLoading}
+            >
+              {copy.auth.signIn}
+            </button>
+          ) : (
+            <div className="header-profile">
+              <button
+                type="button"
+                className="header-link header-auth"
+                onClick={() => setIsProfileOpen((prev) => !prev)}
+              >
+                {copy.auth.profile}
+              </button>
+              {isProfileOpen && (
+                <div className="header-profile-card">
+                  <span className="profile-email">{user.email}</span>
+                  <button
+                    type="button"
+                    className="profile-logout"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      logout();
+                    }}
+                  >
+                    {copy.auth.signOut}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </header>
   );
 }

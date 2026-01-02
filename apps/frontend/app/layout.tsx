@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Footer } from "./components/Footer";
+import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://drop-date.com";
@@ -72,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="uk">
       <body className={inter.className}>
-        {children}
+        <Providers>{children}</Providers>
         <Footer />
       </body>
     </html>
