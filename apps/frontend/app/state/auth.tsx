@@ -122,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } finally {
       clearAuth();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("saved:clear"));
+      }
     }
   }, [clearAuth]);
 

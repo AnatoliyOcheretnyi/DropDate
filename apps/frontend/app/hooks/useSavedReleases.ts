@@ -26,6 +26,19 @@ const readSavedFromStorage = (): SavedRelease[] => {
   return [];
 };
 
+const mergeSaved = (localItems: SavedRelease[], remoteItems: SavedRelease[]) => {
+  const map = new Map<string, SavedRelease>();
+  remoteItems.forEach((item) => {
+    map.set(item.id, item);
+  });
+  localItems.forEach((item) => {
+    if (!map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  });
+  return Array.from(map.values());
+};
+
 export function useSavedReleases() {
   const [saved, setSaved] = useState<SavedRelease[]>([]);
   const [isReady, setIsReady] = useState(false);
@@ -48,6 +61,7 @@ export function useSavedReleases() {
     }
     let isMounted = true;
     const loadRemote = async () => {
+      const localSnapshot = readSavedFromStorage();
       try {
         const response = await fetch("/api/saved", {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -60,21 +74,47 @@ export function useSavedReleases() {
           return;
         }
         const items = Array.isArray(payload?.items) ? payload.items : [];
+        const normalizedRemote = items.map((item: SavedRelease) => ({
+          ...item,
+          id: savedIdentifier({
+            title: item.title,
+            type: item.type,
+            tmdbId: item.tmdbId,
+            mediaType: item.mediaType,
+          }),
+        }));
+        const merged = mergeSaved(localSnapshot, normalizedRemote);
         if (isMounted) {
-          setSaved(
-            items.map((item: SavedRelease) => ({
-              ...item,
-              id: savedIdentifier({
-                title: item.title,
-                type: item.type,
-                tmdbId: item.tmdbId,
-                mediaType: item.mediaType,
-              }),
-            }))
-          );
+          setSaved(merged);
         }
         if (typeof window !== "undefined") {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        }
+
+        const localToSync = localSnapshot.filter(
+          (item) => item.tmdbId && item.mediaType
+        );
+        if (localToSync.length > 0) {
+          await Promise.all(
+            localToSync.map((item) =>
+              fetch("/api/saved", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  tmdbId: item.tmdbId,
+                  mediaType: item.mediaType,
+                  title: item.title,
+                  nextRelease: item.nextRelease,
+                  status: item.status,
+                  posterUrl: item.posterUrl,
+                  backdropUrl: item.backdropUrl,
+                }),
+              }).catch(() => null)
+            )
+          );
         }
       } catch {
         // ignore remote errors
@@ -102,6 +142,20 @@ export function useSavedReleases() {
       }
       return next;
     });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const clearHandler = () => {
+      setSaved([]);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    };
+    window.addEventListener("saved:clear", clearHandler);
+    return () => {
+      window.removeEventListener("saved:clear", clearHandler);
+    };
   }, []);
 
   const addRelease = useCallback(
