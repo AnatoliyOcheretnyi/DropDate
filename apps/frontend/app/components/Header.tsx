@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Suggestion } from "../../lib/release";
 import { copy } from "../../lib/strings";
 import { useAuth } from "../state/auth";
@@ -49,9 +51,9 @@ export function Header({
 }: Props) {
   const searchRef = useRef<HTMLFormElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const { user, logout, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!isSearchOpen) {
@@ -84,27 +86,10 @@ export function Header({
     };
   }, [isSearchOpen, onSearchClose]);
 
-  useEffect(() => {
-    if (!isProfileOpen) {
-      return;
-    }
-
-    const handleOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      const profileRoot = document.querySelector(".header-profile");
-      if (profileRoot && !profileRoot.contains(target)) {
-        setIsProfileOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [isProfileOpen]);
-
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <button type="button" className="header-brand" onClick={() => onChange("home")}>
+        <Link href="/" className="header-brand" aria-label={copy.appName}>
           <Image
             src="/logo.png"
             alt={copy.appName}
@@ -117,7 +102,7 @@ export function Header({
             <span className="brand-title">{copy.appName}</span>
             <span className="brand-subtitle">{copy.tagline}</span>
           </div>
-        </button>
+        </Link>
         <div className="header-actions">
           <form
             ref={searchRef}
@@ -179,13 +164,15 @@ export function Header({
               </div>
             )}
           </form>
-          <button
-            type="button"
-            className={`header-link${active === "saved" ? " active" : ""}`}
-            onClick={() => onChange("saved")}
-          >
-            {copy.header.savedList} ({savedCount})
-          </button>
+          {!user && (
+            <button
+              type="button"
+              className={`header-link${active === "saved" ? " active" : ""}`}
+              onClick={() => onChange("saved")}
+            >
+              {copy.header.savedList} ({savedCount})
+            </button>
+          )}
           {!user ? (
             <button
               type="button"
@@ -196,30 +183,13 @@ export function Header({
               {copy.auth.signIn}
             </button>
           ) : (
-            <div className="header-profile">
-              <button
-                type="button"
-                className="header-link header-auth"
-                onClick={() => setIsProfileOpen((prev) => !prev)}
-              >
-                {copy.auth.profile}
-              </button>
-              {isProfileOpen && (
-                <div className="header-profile-card">
-                  <span className="profile-email">{user.email}</span>
-                  <button
-                    type="button"
-                    className="profile-logout"
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      logout();
-                    }}
-                  >
-                    {copy.auth.signOut}
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              className="header-link header-auth"
+              onClick={() => router.push("/profile")}
+            >
+              {copy.auth.profile}
+            </button>
           )}
         </div>
       </div>

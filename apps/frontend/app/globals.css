@@ -91,6 +91,7 @@ main.page--details {
   color: var(--text);
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
 }
 
 .brand-logo {
@@ -1304,6 +1305,96 @@ dd.date span:last-child {
 .secondary.danger {
   border-color: rgba(255, 122, 133, 0.5);
   color: var(--error);
+}
+
+.profile-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+}
+
+.profile-id {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.profile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(84, 255, 182, 0.16);
+  color: rgba(245, 245, 245, 0.9);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.profile-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.profile-subtitle {
+  margin: 0.25rem 0 0;
+  color: rgba(245, 245, 245, 0.6);
+  font-size: 0.9rem;
+}
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.profile-tab {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(245, 245, 245, 0.75);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.profile-tab.active,
+.profile-tab:hover:not(:disabled) {
+  border-color: rgba(84, 255, 182, 0.6);
+  color: rgba(245, 245, 245, 0.95);
+  background: rgba(84, 255, 182, 0.08);
+}
+
+.profile-tab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.profile-empty {
+  padding: 1.75rem;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  text-align: center;
+  color: rgba(245, 245, 245, 0.7);
+}
+
+.profile-empty button {
+  margin-top: 0.85rem;
 }
 
 .saved-list {
