@@ -147,7 +147,10 @@ export default function TitleDetailsPage() {
             ? copy.mediaType.movie
             : copy.mediaType.series,
       },
-      { label: copy.details.labels.status, value: details.status || copy.misc.dash },
+      {
+        label: copy.details.labels.status,
+        value: details.status || copy.misc.dash,
+      },
       {
         label: copy.details.labels.release,
         value: details.releaseDate
@@ -169,15 +172,21 @@ export default function TitleDetailsPage() {
       },
       {
         label: copy.details.labels.rating,
-        value: details.voteAverage ? details.voteAverage.toFixed(1) : copy.misc.dash,
+        value: details.voteAverage
+          ? details.voteAverage.toFixed(1)
+          : copy.misc.dash,
       },
       {
         label: copy.details.labels.votes,
-        value: details.voteCount ? details.voteCount.toString() : copy.misc.dash,
+        value: details.voteCount
+          ? details.voteCount.toString()
+          : copy.misc.dash,
       },
       {
         label: copy.details.labels.popularity,
-        value: details.popularity ? details.popularity.toFixed(1) : copy.misc.dash,
+        value: details.popularity
+          ? details.popularity.toFixed(1)
+          : copy.misc.dash,
       },
     ];
   }, [details]);
@@ -210,32 +219,78 @@ export default function TitleDetailsPage() {
       />
 
       {isLoading && !details ? (
-        <section className="details-hero details-bleed">
-          <div className="details-backdrop skeleton-block" />
-          <div className="details-inner">
-            <div className="details-content">
-              <div className="details-poster">
-                <div className="details-poster-skeleton skeleton-block" />
-              </div>
-              <div className="details-main">
-                <div className="skeleton-line skeleton-line--tiny" />
-                <div className="skeleton-line skeleton-line--title" />
-                <div className="skeleton-line skeleton-line--subtitle" />
-                <div className="skeleton-line" />
-                <div className="skeleton-line" />
-                <div className="skeleton-line skeleton-line--short" />
-                <div className="skeleton-button skeleton-block" />
-              </div>
-              <div className="details-side">
-                <div className="skeleton-line skeleton-line--title" />
-                <div className="skeleton-line" />
-                <div className="skeleton-line skeleton-line--short" />
-                <div className="skeleton-line" />
-                <div className="skeleton-line skeleton-line--short" />
+        <>
+          <section className="details-hero details-bleed details-hero--skeleton">
+            <div className="details-inner">
+              <div className="details-content">
+                <div className="details-poster">
+                  <div className="details-poster-skeleton skeleton-block" />
+                </div>
+                <div className="details-main">
+                  <div className="skeleton-line skeleton-line--tiny skeleton-block" />
+                  <div className="skeleton-line skeleton-line--title skeleton-block" />
+                  <div className="skeleton-line skeleton-line--subtitle skeleton-block" />
+                  <div className="skeleton-line skeleton-block" />
+                  <div className="skeleton-line skeleton-block" />
+                  <div className="skeleton-line skeleton-line--short skeleton-block" />
+                  <div className="skeleton-button skeleton-block" />
+                </div>
+                <div className="details-side">
+                  <div className="details-side-card">
+                    <div className="skeleton-line skeleton-line--title skeleton-block" />
+                    <div className="skeleton-line skeleton-block" />
+                    <div className="skeleton-line skeleton-line--short skeleton-block" />
+                    <div className="skeleton-line skeleton-block" />
+                    <div className="skeleton-line skeleton-line--short skeleton-block" />
+                  </div>
+                  <div className="details-side-card">
+                    <div className="skeleton-line skeleton-line--short skeleton-block" />
+                    <div className="skeleton-line skeleton-block" />
+                    <div className="skeleton-line skeleton-line--short skeleton-block" />
+                    <div className="skeleton-line skeleton-block" />
+                    <div className="skeleton-line skeleton-line--short skeleton-block" />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+          <section className="details-meta details-section">
+            <div className="details-grid details-grid--skeleton">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="detail-row">
+                  <div className="skeleton-line skeleton-line--short skeleton-block" />
+                  <div className="skeleton-line skeleton-block" />
+                </div>
+              ))}
+            </div>
+            <div className="details-tags">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <span key={index} className="detail-chip skeleton-block" />
+              ))}
+            </div>
+          </section>
+          <section className="details-release details-section">
+            <div className="skeleton-line skeleton-line--title skeleton-block" />
+            <div className="details-release-card">
+              <div className="details-release-info">
+                <div className="skeleton-line skeleton-line--tiny skeleton-block" />
+                <div className="skeleton-line skeleton-line--subtitle skeleton-block" />
+                <div className="skeleton-line skeleton-block" />
+                <div className="skeleton-line skeleton-line--short skeleton-block" />
+                <div className="skeleton-button skeleton-block" />
+              </div>
+              <div className="details-release-media details-release-media--skeleton skeleton-block" />
+            </div>
+          </section>
+          <section className="details-recs details-section">
+            <div className="skeleton-line skeleton-line--title skeleton-block" />
+            <div className="skeleton-grid">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="skeleton-card skeleton-block" />
+              ))}
+            </div>
+          </section>
+        </>
       ) : (
         <section className="details-hero details-bleed">
           {details?.backdropUrl ? (
@@ -357,7 +412,8 @@ export default function TitleDetailsPage() {
                   <h4>{copy.details.labels.detailsTitle}</h4>
                   <ul>
                     <li>
-                      {copy.details.labels.status}: {details?.status || copy.misc.dash}
+                      {copy.details.labels.status}:{" "}
+                      {details?.status || copy.misc.dash}
                     </li>
                     <li>
                       {copy.details.labels.release}:{" "}
@@ -368,12 +424,14 @@ export default function TitleDetailsPage() {
                     {details?.originCountry &&
                     details.originCountry.length > 0 ? (
                       <li>
-                        {copy.details.labels.country}: {details.originCountry.join(", ")}
+                        {copy.details.labels.country}:{" "}
+                        {details.originCountry.join(", ")}
                       </li>
                     ) : null}
                     {details?.genres && details.genres.length > 0 ? (
                       <li>
-                        {copy.details.labels.genres}: {details.genres.join(", ")}
+                        {copy.details.labels.genres}:{" "}
+                        {details.genres.join(", ")}
                       </li>
                     ) : null}
                     {details?.homepage ? (
@@ -410,7 +468,9 @@ export default function TitleDetailsPage() {
               ))}
               {details.nextAirDate && (
                 <div className="detail-row">
-                  <span className="detail-label">{copy.details.labels.nextEpisode}</span>
+                  <span className="detail-label">
+                    {copy.details.labels.nextEpisode}
+                  </span>
                   <span className="detail-value">
                     {formatDate(details.nextAirDate)}
                     {details.nextEpisodeName
@@ -421,7 +481,9 @@ export default function TitleDetailsPage() {
               )}
               {details.lastAirDate && (
                 <div className="detail-row">
-                  <span className="detail-label">{copy.details.labels.lastEpisode}</span>
+                  <span className="detail-label">
+                    {copy.details.labels.lastEpisode}
+                  </span>
                   <span className="detail-value">
                     {formatDate(details.lastAirDate)}
                     {details.lastEpisodeName

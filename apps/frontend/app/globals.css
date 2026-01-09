@@ -681,6 +681,10 @@ body.modal-open {
   min-height: 520px;
 }
 
+.details-hero--skeleton {
+  min-height: 420px;
+}
+
 .details-hero::after {
   content: "";
   position: absolute;
@@ -1595,6 +1599,26 @@ dd.date span:last-child {
   object-fit: cover;
 }
 
+.details-release-media--skeleton {
+  min-height: 200px;
+}
+
+.details-grid--skeleton .detail-row {
+  gap: 0.6rem;
+}
+
+.skeleton-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.skeleton-card {
+  aspect-ratio: 2 / 3;
+  border-radius: 1rem;
+}
+
 .skeleton-block {
   position: relative;
   overflow: hidden;
@@ -1654,7 +1678,7 @@ dd.date span:last-child {
 }
 
 .details-backdrop.skeleton-block {
-  height: 520px;
+  height: 420px;
   border-radius: 0 0 24px 24px;
   opacity: 0.7;
 }
