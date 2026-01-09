@@ -11,6 +11,16 @@ import {
 import { copy } from "../../lib/strings";
 import { useAuth } from "../state/auth";
 
+const remoteState: {
+  token: string | null;
+  data: SavedRelease[] | null;
+  promise: Promise<SavedRelease[] | null> | null;
+} = {
+  token: null,
+  data: null,
+  promise: null,
+};
+
 const readSavedFromStorage = (): SavedRelease[] => {
   if (typeof window === "undefined") {
     return [];
@@ -60,7 +70,7 @@ export function useSavedReleases() {
       return;
     }
     let isMounted = true;
-    const loadRemote = async () => {
+    const loadRemote = async (): Promise<SavedRelease[] | null> => {
       const localSnapshot = readSavedFromStorage();
       try {
         const response = await fetch("/api/saved", {
@@ -90,6 +100,7 @@ export function useSavedReleases() {
         if (typeof window !== "undefined") {
           window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         }
+        remoteState.data = merged;
 
         const localToSync = localSnapshot.filter(
           (item) => item.tmdbId && item.mediaType
@@ -116,33 +127,71 @@ export function useSavedReleases() {
             )
           );
         }
+        return merged;
       } catch {
         // ignore remote errors
+        return localSnapshot;
       } finally {
         if (isMounted) {
           setIsReady(true);
         }
       }
     };
-    loadRemote();
+    if (accessToken) {
+      if (remoteState.token === accessToken && remoteState.data) {
+        setSaved(remoteState.data);
+        setIsReady(true);
+      } else if (remoteState.token === accessToken && remoteState.promise) {
+        remoteState.promise
+          .then((data) => {
+            if (isMounted && data) {
+              setSaved(data);
+              setIsReady(true);
+            }
+          })
+          .catch(() => null);
+      } else {
+        remoteState.token = accessToken;
+        remoteState.promise = loadRemote();
+        remoteState.promise
+          .then((data) => {
+            if (data) {
+              remoteState.data = data;
+            }
+            if (isMounted && data) {
+              setSaved(data);
+            }
+          })
+          .catch(() => null)
+          .finally(() => {
+            remoteState.promise = null;
+          });
+      }
+    }
     return () => {
       isMounted = false;
     };
   }, [accessToken, isAuthed]);
 
-  const persist = useCallback((updater: (list: SavedRelease[]) => SavedRelease[]) => {
-    setSaved((prev) => {
-      const next = updater(prev);
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore write errors
+  const persist = useCallback(
+    (updater: (list: SavedRelease[]) => SavedRelease[]) => {
+      setSaved((prev) => {
+        const next = updater(prev);
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          } catch {
+            // ignore write errors
+          }
         }
-      }
-      return next;
-    });
-  }, []);
+        if (isAuthed && accessToken && remoteState.token === accessToken) {
+          remoteState.data = next;
+        }
+        return next;
+      });
+    },
+    [accessToken, isAuthed]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
