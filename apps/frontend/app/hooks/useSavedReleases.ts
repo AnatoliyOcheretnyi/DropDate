@@ -117,7 +117,7 @@ export function useSavedReleases() {
           .json()
           .catch(() => ({ items: [] as SavedRelease[] }));
         if (!response.ok) {
-          return;
+          return null;
         }
         const items = Array.isArray(payload?.items) ? payload.items : [];
         const normalizedRemote = items.map((item: SavedRelease & { listType?: string }) => {
