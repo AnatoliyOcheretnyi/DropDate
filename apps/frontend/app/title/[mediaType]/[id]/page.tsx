@@ -56,7 +56,7 @@ export default function TitleDetailsPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { getListTypes, setSuggestionLists, isSuggestionSaved } =
+  const { savedCount, getListTypes, setSuggestionLists, isSuggestionSaved } =
     useSavedReleases();
   const [pendingListItem, setPendingListItem] = useState<{
     suggestion: Suggestion;
@@ -272,7 +272,7 @@ export default function TitleDetailsPage() {
     <main className="page page--details">
       <Header
         active="home"
-        savedCount={saved.length}
+        savedCount={savedCount}
         onChange={handleNav}
         title={title}
         isLoading={isLoading}
