@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../lib/release";
 import { Header } from "./Header";
+import { SearchOverlay } from "./SearchOverlay";
 import { SavedList } from "./SavedList";
 import { TrendingCarousel } from "./TrendingCarousel";
 import { copy } from "../../lib/strings";
@@ -20,7 +21,7 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
@@ -108,23 +109,7 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
     }
   };
 
-  const shouldShowSuggestions =
-    activeView === "home" &&
-    isSearchOpen &&
-    isInputFocused &&
-    suggestions.length > 0;
   const shouldShowTrending = activeView === "home" && !selectedSuggestion;
-
-  useEffect(() => {
-    if (shouldShowSuggestions) {
-      document.body.classList.add("no-scroll");
-      return () => {
-        document.body.classList.remove("no-scroll");
-      };
-    }
-    document.body.classList.remove("no-scroll");
-    return undefined;
-  }, [shouldShowSuggestions]);
 
   const handleSearchToggle = () => {
     setIsSearchOpen((prev) => !prev);
@@ -148,17 +133,21 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
         active={activeView}
         savedCount={saved.length}
         onChange={setActiveView}
-        title={title}
-        isLoading={isLoading}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
-        onSearchChange={(value) => {
+      />
+      <SearchOverlay
+        title={title}
+        isLoading={isLoading}
+        isOpen={isSearchOpen}
+        onClose={handleSearchClose}
+        onChange={(value) => {
           setTitle(value);
         }}
-        onSearchSubmit={handleSubmit}
-        onSearchFocus={() => setIsInputFocused(true)}
-        onSearchBlur={() => {
+        onSubmit={handleSubmit}
+        onFocus={() => setIsInputFocused(true)}
+        onBlur={() => {
           blurTimeoutRef.current = setTimeout(() => {
             setIsInputFocused(false);
           }, 150);

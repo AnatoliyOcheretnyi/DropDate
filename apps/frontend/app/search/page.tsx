@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
+import { SearchOverlay } from "../components/SearchOverlay";
 import { SearchResultsGrid } from "../components/SearchResultsGrid";
 import { copy } from "../../lib/strings";
 import { useSavedReleases } from "../hooks/useSavedReleases";
@@ -30,7 +31,7 @@ function SearchPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -174,17 +175,21 @@ function SearchPageContent() {
         active="home"
         savedCount={saved.length}
         onChange={handleNav}
-        title={title}
-        isLoading={isLoading}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
-        onSearchChange={(value) => {
+      />
+      <SearchOverlay
+        title={title}
+        isLoading={isLoading}
+        isOpen={isSearchOpen}
+        onClose={handleSearchClose}
+        onChange={(value) => {
           setTitle(value);
         }}
-        onSearchSubmit={handleSearchSubmit}
-        onSearchFocus={() => setIsInputFocused(true)}
-        onSearchBlur={() => {
+        onSubmit={handleSearchSubmit}
+        onFocus={() => setIsInputFocused(true)}
+        onBlur={() => {
           blurTimeoutRef.current = setTimeout(() => {
             setIsInputFocused(false);
           }, 150);

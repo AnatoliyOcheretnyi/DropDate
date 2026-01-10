@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReleaseInfo, Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
+import { SearchOverlay } from "../components/SearchOverlay";
 import { AuthModal } from "../components/AuthModal";
 import { SavedList } from "../components/SavedList";
 import { copy } from "../../lib/strings";
@@ -150,15 +151,19 @@ export default function ProfilePage() {
             router.push("/");
           }
         }}
-        title={title}
-        isLoading={false}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
-        onSearchChange={(value) => setTitle(value)}
-        onSearchSubmit={handleSubmit}
-        onSearchFocus={() => undefined}
-        onSearchBlur={() => {
+      />
+      <SearchOverlay
+        title={title}
+        isLoading={false}
+        isOpen={isSearchOpen}
+        onClose={handleSearchClose}
+        onChange={(value) => setTitle(value)}
+        onSubmit={handleSubmit}
+        onFocus={() => undefined}
+        onBlur={() => {
           blurTimeoutRef.current = setTimeout(() => {}, 150);
         }}
         suggestions={suggestions}

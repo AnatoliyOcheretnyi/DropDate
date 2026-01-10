@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Suggestion } from "../../lib/release";
 import { copy } from "../../lib/strings";
 import { useAuth } from "../state/auth";
 import { AuthModal } from "./AuthModal";
-import { Suggestions } from "./Suggestions";
 
 type ViewKey = "home" | "saved";
 
@@ -16,75 +14,22 @@ type Props = {
   active: ViewKey;
   savedCount: number;
   onChange: (view: ViewKey) => void;
-  title: string;
-  isLoading: boolean;
   isSearchOpen: boolean;
   onSearchToggle: () => void;
   onSearchClose: () => void;
-  onSearchChange: (value: string) => void;
-  onSearchSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  onSearchFocus: () => void;
-  onSearchBlur: () => void;
-  suggestions: Suggestion[];
-  isFetchingSuggestions: boolean;
-  onSuggestionSelect: (suggestion: Suggestion) => void;
-  isSuggestionSaved: (suggestion: Suggestion) => boolean;
 };
 
 export function Header({
   active,
   savedCount,
   onChange,
-  title,
-  isLoading,
   isSearchOpen,
   onSearchToggle,
   onSearchClose,
-  onSearchChange,
-  onSearchSubmit,
-  onSearchFocus,
-  onSearchBlur,
-  suggestions,
-  isFetchingSuggestions,
-  onSuggestionSelect,
-  isSuggestionSaved,
 }: Props) {
-  const searchRef = useRef<HTMLFormElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const { user, isLoading: authLoading } = useAuth();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    if (!isSearchOpen) {
-      return;
-    }
-    if (inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isSearchOpen]);
-
-  useEffect(() => {
-    if (!isSearchOpen) {
-      return;
-    }
-
-    const handleClick = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node;
-      if (searchRef.current && !searchRef.current.contains(target)) {
-        onSearchClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("touchstart", handleClick);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("touchstart", handleClick);
-    };
-  }, [isSearchOpen, onSearchClose]);
 
   return (
     <header className="site-header">
@@ -104,66 +49,30 @@ export function Header({
           </div>
         </Link>
         <div className="header-actions">
-          <form
-            ref={searchRef}
-            className={`header-search${isSearchOpen ? " open" : ""}`}
-            onSubmit={onSearchSubmit}
+          <button
+            type="button"
+            className="header-icon"
+            aria-label={
+              isSearchOpen ? copy.header.searchCloseLabel : copy.header.searchOpenLabel
+            }
+            onClick={isSearchOpen ? onSearchClose : onSearchToggle}
           >
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder={copy.header.searchPlaceholder}
-              value={title}
-              onChange={(event) => onSearchChange(event.target.value)}
-              onFocus={onSearchFocus}
-              onBlur={onSearchBlur}
-            />
-            <button
-              type="button"
-              className="header-icon"
-              aria-label={
-                isSearchOpen ? copy.header.searchCloseLabel : copy.header.searchOpenLabel
-              }
-              onClick={isSearchOpen ? onSearchClose : onSearchToggle}
-            >
-              {isSearchOpen ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0-2a9 9 0 1 0 5.66 15.99l4.68 4.68 1.41-1.41-4.68-4.68A9 9 0 0 0 11 2Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              )}
-            </button>
-            <button
-              type="submit"
-              className="header-submit"
-              disabled={isLoading || title.trim().length === 0}
-            >
-              {isLoading ? copy.header.searchBusy : copy.header.searchSubmit}
-            </button>
-            {isSearchOpen && (
-              <div className="header-autocomplete">
-                {isFetchingSuggestions && (
-                  <p className="hint">{copy.header.suggestionsLoading}</p>
-                )}
-                {suggestions.length > 0 && (
-                  <Suggestions
-                    suggestions={suggestions}
-                    isSaved={isSuggestionSaved}
-                    onSelect={onSuggestionSelect}
-                  />
-                )}
-              </div>
+            {isSearchOpen ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5Z"
+                  fill="currentColor"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0-2a9 9 0 1 0 5.66 15.99l4.68 4.68 1.41-1.41-4.68-4.68A9 9 0 0 0 11 2Z"
+                  fill="currentColor"
+                />
+              </svg>
             )}
-          </form>
+          </button>
           {!user && (
             <button
               type="button"
