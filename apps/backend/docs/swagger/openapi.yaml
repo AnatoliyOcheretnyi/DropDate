@@ -317,8 +317,151 @@ paths:
                           type: string
         '400':
           description: Некоректний payload
+  /saved:
+    get:
+      summary: Список збережених тайтлів користувача
+      parameters:
+        - in: query
+          name: listType
+          schema:
+            type: string
+            enum: [follow, watchlist, favorite]
+          required: false
+          description: Фільтр за типом списку (опційно)
+      responses:
+        '200':
+          description: Список збережених тайтлів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedItem'
+        '401':
+          description: Неавторизований
+        '500':
+          description: Помилка бекенду
+    post:
+      summary: Додати тайтл у список
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveRequest'
+      responses:
+        '200':
+          description: Збережений тайтл
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedItem'
+        '400':
+          description: Некоректні дані
+        '401':
+          description: Неавторизований
+        '500':
+          description: Помилка бекенду
+  /saved/items:
+    delete:
+      summary: Видалити тайтл зі списку
+      parameters:
+        - in: query
+          name: tmdbId
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: mediaType
+          schema:
+            type: string
+            enum: [movie, tv]
+          required: true
+        - in: query
+          name: listType
+          schema:
+            type: string
+            enum: [follow, watchlist, favorite]
+          required: false
+      responses:
+        '204':
+          description: Видалено
+        '400':
+          description: Некоректні дані
+        '401':
+          description: Неавторизований
+        '500':
+          description: Помилка бекенду
 components:
   schemas:
+    SavedItem:
+      type: object
+      properties:
+        tmdbId:
+          type: integer
+          example: 76479
+        mediaType:
+          type: string
+          enum: [movie, tv]
+        title:
+          type: string
+          example: "The Boys"
+        nextRelease:
+          type: string
+          format: date-time
+          example: 2026-04-08T12:00:00Z
+        status:
+          type: string
+          enum: [upcoming, released, ended]
+        posterUrl:
+          type: string
+          format: uri
+        backdropUrl:
+          type: string
+          format: uri
+        listTypes:
+          type: array
+          items:
+            type: string
+            enum: [follow, watchlist, favorite]
+        source:
+          type: string
+          example: tmdb
+        type:
+          type: string
+          enum: [movie, series]
+    SaveRequest:
+      type: object
+      required: [tmdbId, mediaType, title]
+      properties:
+        tmdbId:
+          type: integer
+          example: 76479
+        mediaType:
+          type: string
+          enum: [movie, tv]
+        title:
+          type: string
+          example: "The Boys"
+        nextRelease:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [upcoming, released, ended]
+        posterUrl:
+          type: string
+          format: uri
+        backdropUrl:
+          type: string
+          format: uri
+        listType:
+          type: string
+          enum: [follow, watchlist, favorite]
+          example: follow
     ReleaseInfo:
       type: object
       properties:

@@ -20,18 +20,20 @@ type savedItem struct {
 	Status      string `json:"status"`
 	PosterURL   string `json:"posterUrl,omitempty"`
 	BackdropURL string `json:"backdropUrl,omitempty"`
+	ListTypes   []string `json:"listTypes,omitempty"`
 	Source      string `json:"source"`
 	Type        string `json:"type"`
 }
 
 type saveRequest struct {
-	TMDBID      int    `json:"tmdbId"`
-	MediaType   string `json:"mediaType"`
-	Title       string `json:"title"`
-	NextRelease string `json:"nextRelease"`
-	Status      string `json:"status"`
-	PosterURL   string `json:"posterUrl"`
-	BackdropURL string `json:"backdropUrl"`
+ 	TMDBID      int    `json:"tmdbId"`
+ 	MediaType   string `json:"mediaType"`
+ 	Title       string `json:"title"`
+ 	NextRelease string `json:"nextRelease"`
+ 	Status      string `json:"status"`
+ 	PosterURL   string `json:"posterUrl"`
+ 	BackdropURL string `json:"backdropUrl"`
+ 	ListType    string `json:"listType"`
 }
 
 func (s *Server) savedHandler(w http.ResponseWriter, r *http.Request) {
@@ -63,9 +65,18 @@ func (s *Server) savedItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmdbIDStr := strings.TrimSpace(r.URL.Query().Get("tmdbId"))
 	mediaType := strings.TrimSpace(r.URL.Query().Get("mediaType"))
+	listType := strings.TrimSpace(r.URL.Query().Get("listType"))
 	if tmdbIDStr == "" || mediaType == "" {
 		http.Error(w, "tmdbId and mediaType are required", http.StatusBadRequest)
 		return
+	}
+	if listType != "" {
+		if normalized, ok := normalizeListType(listType); ok {
+			listType = normalized
+		} else {
+			http.Error(w, "invalid listType", http.StatusBadRequest)
+			return
+		}
 	}
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil || tmdbID <= 0 {
@@ -73,7 +84,7 @@ func (s *Server) savedItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.saved.Remove(r.Context(), userID, tmdbID, mediaType); err != nil {
+	if err := s.saved.Remove(r.Context(), userID, tmdbID, mediaType, listType); err != nil {
 		s.logger.Printf("saved delete failed: %v", err)
 		http.Error(w, "failed to delete saved title", http.StatusInternalServerError)
 		return
@@ -93,7 +104,16 @@ func (s *Server) handleSavedList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := s.saved.List(r.Context(), userID)
+	listType := strings.TrimSpace(r.URL.Query().Get("listType"))
+	if listType != "" {
+		if normalized, ok := normalizeListType(listType); ok {
+			listType = normalized
+		} else {
+			http.Error(w, "invalid listType", http.StatusBadRequest)
+			return
+		}
+	}
+	items, err := s.saved.List(r.Context(), userID, listType)
 	if err != nil {
 		s.logger.Printf("saved list failed: %v", err)
 		http.Error(w, "failed to fetch saved titles", http.StatusInternalServerError)
@@ -131,6 +151,14 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tmdbId, mediaType and title are required", http.StatusBadRequest)
 		return
 	}
+	if payload.ListType != "" {
+		if normalized, ok := normalizeListType(payload.ListType); ok {
+			payload.ListType = normalized
+		} else {
+			http.Error(w, "invalid listType", http.StatusBadRequest)
+			return
+		}
+	}
 
 	var nextRelease *time.Time
 	if strings.TrimSpace(payload.NextRelease) != "" {
@@ -148,6 +176,7 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 		Status:      payload.Status,
 		PosterURL:   strings.TrimSpace(payload.PosterURL),
 		BackdropURL: strings.TrimSpace(payload.BackdropURL),
+		ListType:    strings.TrimSpace(payload.ListType),
 	})
 	if err != nil {
 		if errors.Is(err, saved.ErrInvalidMediaType) {
@@ -198,7 +227,18 @@ func mapSavedItem(item saved.Title) savedItem {
 		Status:      item.Status,
 		PosterURL:   item.PosterURL,
 		BackdropURL: item.BackdropURL,
+		ListTypes:   item.ListTypes,
 		Source:      "tmdb",
 		Type:        releaseType,
+	}
+}
+
+func normalizeListType(value string) (string, bool) {
+	listType := strings.TrimSpace(strings.ToLower(value))
+	switch listType {
+	case "follow", "watchlist", "favorite":
+		return listType, true
+	default:
+		return "", false
 	}
 }

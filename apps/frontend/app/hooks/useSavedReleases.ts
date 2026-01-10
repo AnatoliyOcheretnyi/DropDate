@@ -23,10 +23,16 @@ const remoteState: {
 };
 
 const normalizeListTypes = (listTypes?: ListType[]) => {
-  if (listTypes && listTypes.length > 0) {
+  if (!listTypes) {
+    return ["follow"] as ListType[];
+  }
+  if (listTypes.length === 0) {
+    return [];
+  }
+  if (listTypes.length > 0) {
     return Array.from(new Set(listTypes));
   }
-  return ["follow"] as ListType[];
+  return [];
 };
 
 const readSavedFromStorage = (): SavedRelease[] => {
@@ -114,15 +120,21 @@ export function useSavedReleases() {
           return;
         }
         const items = Array.isArray(payload?.items) ? payload.items : [];
-        const normalizedRemote = items.map((item: SavedRelease) => ({
-          ...item,
-          id: savedIdentifier({
-            title: item.title,
-            type: item.type,
-            tmdbId: item.tmdbId,
-            mediaType: item.mediaType,
-          }),
-        }));
+        const normalizedRemote = items.map((item: SavedRelease & { listType?: string }) => {
+          const listTypes = normalizeListTypes(
+            item.listTypes ?? (item.listType ? [item.listType as ListType] : undefined)
+          );
+          return {
+            ...item,
+            listTypes,
+            id: savedIdentifier({
+              title: item.title,
+              type: item.type,
+              tmdbId: item.tmdbId,
+              mediaType: item.mediaType,
+            }),
+          };
+        });
         const merged = mergeSaved(localSnapshot, normalizedRemote);
         if (isMounted) {
           setSaved(merged);
@@ -138,22 +150,27 @@ export function useSavedReleases() {
         if (localToSync.length > 0) {
           await Promise.all(
             localToSync.map((item) =>
-              fetch("/api/saved", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify({
-                  tmdbId: item.tmdbId,
-                  mediaType: item.mediaType,
-                  title: item.title,
-                  nextRelease: item.nextRelease,
-                  status: item.status,
-                  posterUrl: item.posterUrl,
-                  backdropUrl: item.backdropUrl,
-                }),
-              }).catch(() => null)
+              Promise.all(
+                normalizeListTypes(item.listTypes).map((listType) =>
+                  fetch("/api/saved", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${accessToken}`,
+                    },
+                    body: JSON.stringify({
+                      tmdbId: item.tmdbId,
+                      mediaType: item.mediaType,
+                      title: item.title,
+                      nextRelease: item.nextRelease,
+                      status: item.status,
+                      posterUrl: item.posterUrl,
+                      backdropUrl: item.backdropUrl,
+                      listType,
+                    }),
+                  }).catch(() => null)
+                )
+              )
             )
           );
         }
@@ -263,22 +280,25 @@ export function useSavedReleases() {
         return [...prev, { ...release, id, ...meta, listTypes: nextListTypes }];
       });
       if (isAuthed && meta?.tmdbId && meta?.mediaType) {
-        fetch("/api/saved", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            tmdbId: meta.tmdbId,
-            mediaType: meta.mediaType,
-            title: release.title,
-            nextRelease: release.nextRelease,
-            status: release.status,
-            posterUrl: release.posterUrl,
-            backdropUrl: release.backdropUrl,
-          }),
-        }).catch(() => null);
+        normalizeListTypes(listTypes).forEach((listType) => {
+          fetch("/api/saved", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              tmdbId: meta.tmdbId,
+              mediaType: meta.mediaType,
+              title: release.title,
+              nextRelease: release.nextRelease,
+              status: release.status,
+              posterUrl: release.posterUrl,
+              backdropUrl: release.backdropUrl,
+              listType,
+            }),
+          }).catch(() => null);
+        });
       }
     },
     [accessToken, isAuthed, persist]
@@ -347,12 +367,14 @@ export function useSavedReleases() {
     ) => {
       const id = getSuggestionId(suggestion);
       const normalized = normalizeListTypes(listTypes);
+      const existing = saved.find((item) => item.id === id);
+      const previous = existing ? normalizeListTypes(existing.listTypes) : [];
       persist((prev) => {
-        const existing = prev.find((item) => item.id === id);
+        const current = prev.find((item) => item.id === id);
         if (normalized.length === 0) {
           return prev.filter((item) => item.id !== id);
         }
-        if (existing) {
+        if (current) {
           return prev.map((item) =>
             item.id === id
               ? { ...item, listTypes: normalized }
@@ -373,8 +395,66 @@ export function useSavedReleases() {
           },
         ];
       });
+
+      if (!isAuthed || !accessToken) {
+        return;
+      }
+      if (!suggestion.id || !suggestion.mediaType) {
+        return;
+      }
+      const payloadRelease =
+        release ||
+        (existing
+          ? {
+              title: existing.title,
+              type: existing.type,
+              nextRelease: existing.nextRelease,
+              source: existing.source,
+              posterUrl: existing.posterUrl,
+              backdropUrl: existing.backdropUrl,
+              status: existing.status,
+            }
+          : null);
+      const toAdd = normalized.filter((entry) => !previous.includes(entry));
+      const toRemove = previous.filter((entry) => !normalized.includes(entry));
+
+      if (payloadRelease) {
+        toAdd.forEach((listType) => {
+          fetch("/api/saved", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              tmdbId: suggestion.id,
+              mediaType: suggestion.mediaType,
+              title: payloadRelease.title,
+              nextRelease: payloadRelease.nextRelease,
+              status: payloadRelease.status,
+              posterUrl: payloadRelease.posterUrl,
+              backdropUrl: payloadRelease.backdropUrl,
+              listType,
+            }),
+          }).catch(() => null);
+        });
+      }
+
+      if (toRemove.length > 0) {
+        toRemove.forEach((listType) => {
+          const params = new URLSearchParams({
+            tmdbId: String(suggestion.id),
+            mediaType: suggestion.mediaType,
+            listType,
+          });
+          fetch(`/api/saved/items?${params.toString()}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }).catch(() => null);
+        });
+      }
     },
-    [persist]
+    [accessToken, isAuthed, persist, saved]
   );
 
   const toggleListType = useCallback(
