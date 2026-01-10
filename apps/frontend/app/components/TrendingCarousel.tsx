@@ -2,7 +2,6 @@
 
 import type { Suggestion } from "../../lib/release";
 import type { ListType } from "../lib/releases";
-import { copy } from "../../lib/strings";
 import { ListBadges } from "./ListBadges";
 
 type Props = {
@@ -10,10 +9,7 @@ type Props = {
   items: Suggestion[];
   isLoading: boolean;
   onSelect: (suggestion: Suggestion) => void;
-  onAdd?: (suggestion: Suggestion) => void;
   getListTypes: (suggestion: Suggestion) => ListType[];
-  isBusy: (suggestion: Suggestion) => boolean;
-  isAdding?: (suggestion: Suggestion) => boolean;
 };
 
 export function TrendingCarousel({
@@ -21,10 +17,7 @@ export function TrendingCarousel({
   items,
   isLoading,
   onSelect,
-  onAdd,
   getListTypes,
-  isBusy,
-  isAdding = () => false,
 }: Props) {
   if (!isLoading && items.length === 0) {
     return null;
@@ -42,8 +35,6 @@ export function TrendingCarousel({
             {items.map((item) => {
               const listTypes = getListTypes(item);
               const saved = listTypes.length > 0;
-              const isItemAdding = isAdding(item);
-              const canAdd = Boolean(onAdd);
 
               return (
                 <div
@@ -52,7 +43,6 @@ export function TrendingCarousel({
                   onClick={() => onSelect(item)}
                   role="button"
                   tabIndex={0}
-                  aria-disabled={isBusy(item)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -68,24 +58,6 @@ export function TrendingCarousel({
                     </div>
                   )}
                   <ListBadges listTypes={listTypes} />
-                  <div className="poster-overlay" aria-hidden="true">
-                    {canAdd ? (
-                      <button
-                        type="button"
-                        className="poster-cta"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onAdd?.(item);
-                        }}
-                        disabled={isItemAdding}
-                      >
-                        +
-                      </button>
-                    ) : null}
-                    {saved && (
-                      <span className="poster-cta saved">{copy.actions.added}</span>
-                    )}
-                  </div>
                 </div>
             );
             })}

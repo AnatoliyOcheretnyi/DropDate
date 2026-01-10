@@ -9,10 +9,7 @@ type Props = {
   items: Suggestion[];
   isLoading: boolean;
   onSelect: (suggestion: Suggestion) => void;
-  onAdd?: (suggestion: Suggestion) => void;
   getListTypes: (suggestion: Suggestion) => ListType[];
-  isBusy: (suggestion: Suggestion) => boolean;
-  isAdding?: (suggestion: Suggestion) => boolean;
   title?: string;
   emptyLabel?: string;
   showEmpty?: boolean;
@@ -22,10 +19,7 @@ export function SearchResultsGrid({
   items,
   isLoading,
   onSelect,
-  onAdd,
   getListTypes,
-  isBusy,
-  isAdding = () => false,
   title = copy.sections.recommendations,
   emptyLabel = copy.search.empty,
   showEmpty = false,
@@ -47,8 +41,6 @@ export function SearchResultsGrid({
           {items.map((item) => {
             const listTypes = getListTypes(item);
             const saved = listTypes.length > 0;
-            const isItemAdding = isAdding(item);
-            const canAdd = Boolean(onAdd);
 
             return (
               <div
@@ -57,7 +49,6 @@ export function SearchResultsGrid({
                 onClick={() => onSelect(item)}
                 role="button"
                 tabIndex={0}
-                aria-disabled={isBusy(item)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -73,24 +64,6 @@ export function SearchResultsGrid({
                   </div>
                 )}
                 <ListBadges listTypes={listTypes} />
-                <div className="poster-overlay" aria-hidden="true">
-                  {canAdd ? (
-                    <button
-                      type="button"
-                      className="poster-cta"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onAdd?.(item);
-                      }}
-                      disabled={isItemAdding}
-                    >
-                      +
-                    </button>
-                  ) : null}
-                  {saved && (
-                    <span className="poster-cta saved">{copy.actions.added}</span>
-                  )}
-                </div>
               </div>
             );
           })}

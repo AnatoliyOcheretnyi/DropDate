@@ -4,10 +4,9 @@ export const dynamic = "force-dynamic";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Details, ReleaseInfo, Suggestion } from "../../lib/release";
+import type { Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
 import { SearchResultsGrid } from "../components/SearchResultsGrid";
-import { ListPickerModal } from "../components/ListPickerModal";
 import { copy } from "../../lib/strings";
 import { useSavedReleases } from "../hooks/useSavedReleases";
 import { useSuggestions } from "../hooks/useSuggestions";
@@ -35,12 +34,7 @@ function SearchPageContent() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { saved, isSuggestionSaved, getListTypes, setSuggestionLists } = useSavedReleases();
-  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
-  const [pendingListItem, setPendingListItem] = useState<{
-    suggestion: Suggestion;
-    release: ReleaseInfo;
-  } | null>(null);
+  const { saved, isSuggestionSaved, getListTypes } = useSavedReleases();
 
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
@@ -119,48 +113,6 @@ function SearchPageContent() {
     return results.filter((item) => item.mediaType === filter);
   }, [filter, results]);
 
-  const buildFallbackRelease = useCallback(
-    (details: Details, mediaType: Suggestion["mediaType"]): ReleaseInfo | null => {
-      const dateSource =
-        details.nextAirDate ||
-        details.releaseDate ||
-        details.lastAirDate ||
-        details.firstAirDate;
-      if (!dateSource) {
-        return null;
-      }
-      const parsed = new Date(dateSource);
-      const isValid = !Number.isNaN(parsed.getTime());
-      const dateValue = isValid ? parsed.toISOString() : dateSource;
-      const isFuture = isValid ? parsed.getTime() > Date.now() : false;
-      const status =
-        mediaType === "movie"
-          ? isFuture
-            ? "upcoming"
-            : "released"
-          : details.status?.toLowerCase().includes("ended")
-          ? "ended"
-          : details.status?.toLowerCase().includes("canceled")
-          ? "ended"
-          : details.nextAirDate && isFuture
-          ? "upcoming"
-          : details.lastAirDate
-          ? "ended"
-          : "upcoming";
-
-      return {
-        title: details.title,
-        type: mediaType === "movie" ? "movie" : "series",
-        nextRelease: dateValue,
-        source: "tmdb",
-        posterUrl: details.posterUrl,
-        backdropUrl: details.backdropUrl,
-        status,
-      };
-    },
-    []
-  );
-
   const handleSelect = useCallback(
     async (suggestion: Suggestion) => {
       setSelectedSuggestion(suggestion);
@@ -170,51 +122,6 @@ function SearchPageContent() {
       router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
     [router]
-  );
-
-  const handleAddSuggestion = useCallback(
-    async (suggestion: Suggestion) => {
-      setAddingSuggestionId(suggestion.id);
-      try {
-        const existing = saved.find(
-          (item) =>
-            item.tmdbId === suggestion.id && item.mediaType === suggestion.mediaType
-        );
-        const existingRelease = existing
-          ? {
-              title: existing.title,
-              type: existing.type,
-              nextRelease: existing.nextRelease,
-              source: existing.source,
-              posterUrl: existing.posterUrl,
-              backdropUrl: existing.backdropUrl,
-              status: existing.status,
-            }
-          : null;
-
-        let release = existingRelease;
-        if (!release) {
-          const response = await fetch(
-            `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
-            { cache: "no-store" }
-          );
-          const payload = await response.json();
-          if (!response.ok || !payload?.details) {
-            return;
-          }
-          release =
-            payload.release ||
-            buildFallbackRelease(payload.details as Details, suggestion.mediaType);
-          if (!release) {
-            return;
-          }
-        }
-        setPendingListItem({ suggestion, release });
-      } finally {
-        setAddingSuggestionId(null);
-      }
-    },
-    [buildFallbackRelease, saved]
   );
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -329,32 +236,10 @@ function SearchPageContent() {
         items={filteredResults}
         isLoading={isLoading}
         onSelect={handleSelect}
-        onAdd={handleAddSuggestion}
         getListTypes={getListTypes}
-        isBusy={() => false}
-        isAdding={(item) => addingSuggestionId === item.id}
         title={copy.sections.searchResults}
         emptyLabel={copy.search.emptyFull}
         showEmpty
-      />
-
-      <ListPickerModal
-        isOpen={Boolean(pendingListItem)}
-        selected={
-          pendingListItem ? getListTypes(pendingListItem.suggestion) : []
-        }
-        onClose={() => setPendingListItem(null)}
-        onSave={(next) => {
-          if (!pendingListItem) {
-            return;
-          }
-          setSuggestionLists(
-            pendingListItem.suggestion,
-            next,
-            pendingListItem.release
-          );
-          setPendingListItem(null);
-        }}
       />
 
       {page < totalPages && (

@@ -56,9 +56,8 @@ export default function TitleDetailsPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { saved, getListTypes, setSuggestionLists, isSuggestionSaved } =
+  const { getListTypes, setSuggestionLists, isSuggestionSaved } =
     useSavedReleases();
-  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
   const [pendingListItem, setPendingListItem] = useState<{
     suggestion: Suggestion;
     release: ReleaseInfo;
@@ -212,51 +211,6 @@ export default function TitleDetailsPage() {
     }
     setPendingListItem({ suggestion: currentSuggestion, release: nextReleaseInfo });
   }, [buildFallbackRelease, currentSuggestion, details, release]);
-
-  const handleAddSuggestion = useCallback(
-    async (suggestion: Suggestion) => {
-      setAddingSuggestionId(suggestion.id);
-      try {
-        const existing = saved.find(
-          (item) =>
-            item.tmdbId === suggestion.id && item.mediaType === suggestion.mediaType
-        );
-        const existingRelease = existing
-          ? {
-              title: existing.title,
-              type: existing.type,
-              nextRelease: existing.nextRelease,
-              source: existing.source,
-              posterUrl: existing.posterUrl,
-              backdropUrl: existing.backdropUrl,
-              status: existing.status,
-            }
-          : null;
-
-        let nextReleaseInfo = existingRelease;
-        if (!nextReleaseInfo) {
-          const response = await fetch(
-            `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
-            { cache: "no-store" }
-          );
-          const payload = await response.json();
-          if (!response.ok || !payload?.details) {
-            return;
-          }
-          nextReleaseInfo =
-            payload.release ||
-            buildFallbackRelease(payload.details as Details, suggestion.mediaType);
-          if (!nextReleaseInfo) {
-            return;
-          }
-        }
-        setPendingListItem({ suggestion, release: nextReleaseInfo });
-      } finally {
-        setAddingSuggestionId(null);
-      }
-    },
-    [buildFallbackRelease, saved]
-  );
 
   const metaRows = useMemo(() => {
     if (!details) {
@@ -661,10 +615,7 @@ export default function TitleDetailsPage() {
             onSelect={(item) =>
               router.push(`/title/${item.mediaType}/${item.id}`)
             }
-            onAdd={handleAddSuggestion}
             getListTypes={getListTypes}
-            isBusy={() => false}
-            isAdding={(item) => addingSuggestionId === item.id}
             title={copy.sections.similarTitles}
           />
         </section>
