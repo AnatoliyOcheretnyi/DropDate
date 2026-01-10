@@ -2,6 +2,7 @@
 
 import type { Suggestion } from "../../lib/release";
 import type { ListType } from "../lib/releases";
+import { copy } from "../../lib/strings";
 import { ListBadges } from "./ListBadges";
 
 type Props = {
