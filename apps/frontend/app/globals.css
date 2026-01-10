@@ -386,6 +386,83 @@ main.page--details {
   cursor: wait;
 }
 
+.list-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+}
+
+.list-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 8, 0.7);
+  backdrop-filter: blur(6px);
+  border: none;
+}
+
+.list-modal__card {
+  position: relative;
+  width: min(420px, 92vw);
+  background: rgba(9, 16, 19, 0.95);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  padding: 1.5rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.list-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.list-modal__head h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.list-modal__close {
+  border: none;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.7);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.list-modal__options {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.list-modal__option {
+  border-radius: 999px;
+  padding: 0.6rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(245, 245, 245, 0.75);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.list-modal__option.active {
+  border-color: rgba(84, 255, 182, 0.6);
+  background: rgba(84, 255, 182, 0.15);
+  color: rgba(245, 245, 245, 0.95);
+}
+
+.list-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
 body.modal-open {
   overflow: hidden;
 }
@@ -708,6 +785,7 @@ body.modal-open {
 }
 
 .details-poster {
+  position: relative;
   border-radius: 1.2rem;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
@@ -1081,6 +1159,39 @@ body.modal-open {
 .poster-card.saved .poster-overlay {
   opacity: 1;
   background: rgba(0, 0, 0, 0.75);
+}
+
+.list-badges {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: flex;
+  gap: 0.35rem;
+  z-index: 2;
+}
+
+.list-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(245, 245, 245, 0.85);
+}
+
+.list-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.poster-overlay {
+  pointer-events: none;
+}
+
+.poster-cta {
+  pointer-events: auto;
 }
 
 .poster-card:disabled {

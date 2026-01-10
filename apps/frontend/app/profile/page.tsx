@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Suggestion } from "../../lib/release";
+import type { ReleaseInfo, Suggestion } from "../../lib/release";
 import { Header } from "../components/Header";
 import { AuthModal } from "../components/AuthModal";
 import { SavedList } from "../components/SavedList";
@@ -10,14 +10,20 @@ import { copy } from "../../lib/strings";
 import { useSavedReleases } from "../hooks/useSavedReleases";
 import { useSuggestions } from "../hooks/useSuggestions";
 import { useAuth } from "../state/auth";
+import type { SavedRelease } from "../lib/releases";
 
 type TabKey = "follow" | "watchlist" | "favorite";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, isLoading: authLoading } = useAuth();
-  const { saved, savedCount, isSuggestionSaved, removeRelease } =
-    useSavedReleases();
+  const {
+    saved,
+    savedCount,
+    isSuggestionSaved,
+    removeRelease,
+    setSuggestionLists,
+  } = useSavedReleases();
   const [title, setTitle] = useState("");
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
@@ -37,6 +43,13 @@ export default function ProfilePage() {
     { key: "watchlist", label: listCopy.watchlist },
     { key: "favorite", label: listCopy.favorite },
   ] satisfies { key: TabKey; label: string }[];
+
+  const normalizeItemLists = useCallback((item: SavedRelease): TabKey[] => {
+    if (item.listTypes && item.listTypes.length > 0) {
+      return item.listTypes;
+    }
+    return ["follow"];
+  }, []);
 
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
@@ -77,12 +90,45 @@ export default function ProfilePage() {
     [router]
   );
 
-  const tabItems = useMemo(() => {
-    if (activeTab === "follow") {
-      return saved;
-    }
-    return [];
-  }, [activeTab, saved]);
+  const tabItems = useMemo(
+    () =>
+      saved.filter((item) =>
+        normalizeItemLists(item).includes(activeTab)
+      ),
+    [activeTab, normalizeItemLists, saved]
+  );
+
+  const handleRemoveFromTab = useCallback(
+    (item: SavedRelease) => {
+      const currentLists = normalizeItemLists(item);
+      const nextLists = currentLists.filter((entry) => entry !== activeTab);
+      if (!item.tmdbId || !item.mediaType) {
+        removeRelease(item.id);
+        return;
+      }
+      const suggestion: Suggestion = {
+        id: item.tmdbId,
+        title: item.title,
+        mediaType: item.mediaType,
+        posterUrl: item.posterUrl,
+      };
+      const release: ReleaseInfo = {
+        title: item.title,
+        type: item.type,
+        nextRelease: item.nextRelease,
+        source: item.source,
+        posterUrl: item.posterUrl,
+        backdropUrl: item.backdropUrl,
+        status: item.status,
+      };
+      if (nextLists.length === 0) {
+        removeRelease(item.id);
+        return;
+      }
+      setSuggestionLists(suggestion, nextLists, release);
+    },
+    [activeTab, normalizeItemLists, removeRelease, setSuggestionLists]
+  );
 
   useEffect(() => {
     if (!user) {
@@ -167,7 +213,7 @@ export default function ProfilePage() {
             <p>{listCopy.empty}</p>
           </div>
         ) : (
-          <SavedList items={tabItems} onRemove={removeRelease} />
+          <SavedList items={tabItems} onRemove={handleRemoveFromTab} />
         )}
       </section>
 

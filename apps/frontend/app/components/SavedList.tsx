@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 type Props = {
   items: SavedRelease[];
-  onRemove: (id: string) => void;
+  onRemove: (item: SavedRelease) => void;
   actionsDisabled?: boolean;
 };
 
@@ -96,7 +96,7 @@ export function SavedList({ items, onRemove, actionsDisabled }: Props) {
                       <button
                         type="button"
                         className="saved-remove"
-                        onClick={() => onRemove(item.id)}
+                        onClick={() => onRemove(item)}
                         disabled={actionsDisabled}
                         aria-label={copy.saved.removeAria}
                       >

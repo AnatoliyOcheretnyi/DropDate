@@ -5,6 +5,7 @@ import type { ReleaseInfo, Suggestion } from "../../lib/release";
 import {
   STORAGE_KEY,
   type SavedRelease,
+  type ListType,
   getSuggestionId,
   savedIdentifier,
 } from "../lib/releases";
@@ -21,6 +22,13 @@ const remoteState: {
   promise: null,
 };
 
+const normalizeListTypes = (listTypes?: ListType[]) => {
+  if (listTypes && listTypes.length > 0) {
+    return Array.from(new Set(listTypes));
+  }
+  return ["follow"] as ListType[];
+};
+
 const readSavedFromStorage = (): SavedRelease[] => {
   if (typeof window === "undefined") {
     return [];
@@ -28,7 +36,11 @@ const readSavedFromStorage = (): SavedRelease[] => {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw) as SavedRelease[];
+      const parsed = JSON.parse(raw) as SavedRelease[];
+      return parsed.map((item) => ({
+        ...item,
+        listTypes: normalizeListTypes(item.listTypes),
+      }));
     }
   } catch {
     // ignore malformed storage
@@ -39,12 +51,30 @@ const readSavedFromStorage = (): SavedRelease[] => {
 const mergeSaved = (localItems: SavedRelease[], remoteItems: SavedRelease[]) => {
   const map = new Map<string, SavedRelease>();
   remoteItems.forEach((item) => {
-    map.set(item.id, item);
+    map.set(item.id, {
+      ...item,
+      listTypes: normalizeListTypes(item.listTypes),
+    });
   });
   localItems.forEach((item) => {
     if (!map.has(item.id)) {
-      map.set(item.id, item);
+      map.set(item.id, {
+        ...item,
+        listTypes: normalizeListTypes(item.listTypes),
+      });
+      return;
     }
+    const existing = map.get(item.id);
+    if (!existing) {
+      return;
+    }
+    const combined = Array.from(
+      new Set([
+        ...normalizeListTypes(existing.listTypes),
+        ...normalizeListTypes(item.listTypes),
+      ])
+    );
+    map.set(item.id, { ...existing, listTypes: combined });
   });
   return Array.from(map.values());
 };
@@ -208,18 +238,29 @@ export function useSavedReleases() {
   }, []);
 
   const addRelease = useCallback(
-    (release: ReleaseInfo, meta?: { tmdbId?: number; mediaType?: Suggestion["mediaType"] }) => {
+    (
+      release: ReleaseInfo,
+      meta?: { tmdbId?: number; mediaType?: Suggestion["mediaType"] },
+      listTypes: ListType[] = ["follow"]
+    ) => {
       const id = savedIdentifier({
         title: release.title,
         type: release.type,
         tmdbId: meta?.tmdbId,
         mediaType: meta?.mediaType,
       });
+      const nextListTypes = normalizeListTypes(listTypes);
       persist((prev) => {
-        if (prev.some((item) => item.id === id)) {
-          return prev;
+        const existing = prev.find((item) => item.id === id);
+        if (existing) {
+          const combined = Array.from(
+            new Set([...normalizeListTypes(existing.listTypes), ...nextListTypes])
+          );
+          return prev.map((item) =>
+            item.id === id ? { ...item, ...meta, listTypes: combined } : item
+          );
         }
-        return [...prev, { ...release, id, ...meta }];
+        return [...prev, { ...release, id, ...meta, listTypes: nextListTypes }];
       });
       if (isAuthed && meta?.tmdbId && meta?.mediaType) {
         fetch("/api/saved", {
@@ -283,9 +324,96 @@ export function useSavedReleases() {
   const isSuggestionSaved = useCallback(
     (suggestion: Suggestion) => {
       const id = getSuggestionId(suggestion);
-      return saved.some((item) => item.id === id);
+      const match = saved.find((item) => item.id === id);
+      return Boolean(match && normalizeListTypes(match.listTypes).length > 0);
     },
     [saved]
+  );
+
+  const getListTypes = useCallback(
+    (suggestion: Suggestion) => {
+      const id = getSuggestionId(suggestion);
+      const match = saved.find((item) => item.id === id);
+      return match ? normalizeListTypes(match.listTypes) : [];
+    },
+    [saved]
+  );
+
+  const setSuggestionLists = useCallback(
+    (
+      suggestion: Suggestion,
+      listTypes: ListType[],
+      release?: ReleaseInfo | null
+    ) => {
+      const id = getSuggestionId(suggestion);
+      const normalized = normalizeListTypes(listTypes);
+      persist((prev) => {
+        const existing = prev.find((item) => item.id === id);
+        if (normalized.length === 0) {
+          return prev.filter((item) => item.id !== id);
+        }
+        if (existing) {
+          return prev.map((item) =>
+            item.id === id
+              ? { ...item, listTypes: normalized }
+              : item
+          );
+        }
+        if (!release) {
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            ...release,
+            id,
+            tmdbId: suggestion.id,
+            mediaType: suggestion.mediaType,
+            listTypes: normalized,
+          },
+        ];
+      });
+    },
+    [persist]
+  );
+
+  const toggleListType = useCallback(
+    (
+      suggestion: Suggestion,
+      listType: ListType,
+      release?: ReleaseInfo | null
+    ) => {
+      const id = getSuggestionId(suggestion);
+      persist((prev) => {
+        const existing = prev.find((item) => item.id === id);
+        if (!existing) {
+          if (!release) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              ...release,
+              id,
+              tmdbId: suggestion.id,
+              mediaType: suggestion.mediaType,
+              listTypes: [listType],
+            },
+          ];
+        }
+        const current = normalizeListTypes(existing.listTypes);
+        const next = current.includes(listType)
+          ? current.filter((entry) => entry !== listType)
+          : [...current, listType];
+        if (next.length === 0) {
+          return prev.filter((item) => item.id !== id);
+        }
+        return prev.map((item) =>
+          item.id === id ? { ...item, listTypes: next } : item
+        );
+      });
+    },
+    [persist]
   );
 
   const refreshAll = useCallback(async () => {
@@ -328,7 +456,15 @@ export function useSavedReleases() {
         persist((prev) =>
           prev.map((item) => {
             const nextInfo = updates.get(item.id);
-            return nextInfo ? { ...nextInfo, id: item.id } : item;
+            return nextInfo
+              ? {
+                  ...nextInfo,
+                  id: item.id,
+                  tmdbId: item.tmdbId,
+                  mediaType: item.mediaType,
+                  listTypes: item.listTypes,
+                }
+              : item;
           })
         );
       }
@@ -351,6 +487,9 @@ export function useSavedReleases() {
     removeRelease,
     isReleaseSaved,
     isSuggestionSaved,
+    getListTypes,
+    setSuggestionLists,
+    toggleListType,
     refreshAll,
     isRefreshing,
   };

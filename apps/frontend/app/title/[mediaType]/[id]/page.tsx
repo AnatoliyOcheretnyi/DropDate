@@ -6,6 +6,8 @@ import type { Details, ReleaseInfo, Suggestion } from "../../../../lib/release";
 import { Header } from "../../../components/Header";
 import { getReleaseStatusLabel } from "../../../../lib/release";
 import { SearchResultsGrid } from "../../../components/SearchResultsGrid";
+import { ListBadges } from "../../../components/ListBadges";
+import { ListPickerModal } from "../../../components/ListPickerModal";
 import { copy } from "../../../../lib/strings";
 import { useSavedReleases } from "../../../hooks/useSavedReleases";
 import { useSuggestions } from "../../../hooks/useSuggestions";
@@ -54,8 +56,13 @@ export default function TitleDetailsPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { saved, addRelease, isReleaseSaved, isSuggestionSaved } =
+  const { saved, getListTypes, setSuggestionLists, isSuggestionSaved } =
     useSavedReleases();
+  const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
+  const [pendingListItem, setPendingListItem] = useState<{
+    suggestion: Suggestion;
+    release: ReleaseInfo;
+  } | null>(null);
 
   const handleClearSelection = useCallback(() => {
     setError(null);
@@ -93,6 +100,48 @@ export default function TitleDetailsPage() {
       setIsLoading(false);
     }
   }, [id, mediaType]);
+
+  const buildFallbackRelease = useCallback(
+    (payload: Details, media: Suggestion["mediaType"]): ReleaseInfo | null => {
+      const dateSource =
+        payload.nextAirDate ||
+        payload.releaseDate ||
+        payload.lastAirDate ||
+        payload.firstAirDate;
+      if (!dateSource) {
+        return null;
+      }
+      const parsed = new Date(dateSource);
+      const isValid = !Number.isNaN(parsed.getTime());
+      const dateValue = isValid ? parsed.toISOString() : dateSource;
+      const isFuture = isValid ? parsed.getTime() > Date.now() : false;
+      const status =
+        media === "movie"
+          ? isFuture
+            ? "upcoming"
+            : "released"
+          : payload.status?.toLowerCase().includes("ended")
+          ? "ended"
+          : payload.status?.toLowerCase().includes("canceled")
+          ? "ended"
+          : payload.nextAirDate && isFuture
+          ? "upcoming"
+          : payload.lastAirDate
+          ? "ended"
+          : "upcoming";
+
+      return {
+        title: payload.title,
+        type: media === "movie" ? "movie" : "series",
+        nextRelease: dateValue,
+        source: "tmdb",
+        posterUrl: payload.posterUrl,
+        backdropUrl: payload.backdropUrl,
+        status,
+      };
+    },
+    []
+  );
 
   useEffect(() => {
     void loadDetails();
@@ -134,6 +183,80 @@ export default function TitleDetailsPage() {
     }
     router.push("/");
   };
+
+  const currentSuggestion = useMemo(() => {
+    if (!details) {
+      return null;
+    }
+    return {
+      id: details.id,
+      title: details.title,
+      mediaType: details.mediaType,
+      year: yearFromDate(details.releaseDate || details.firstAirDate),
+      posterUrl: details.posterUrl,
+    } satisfies Suggestion;
+  }, [details]);
+
+  const currentListTypes = currentSuggestion
+    ? getListTypes(currentSuggestion)
+    : [];
+
+  const handleAddCurrent = useCallback(() => {
+    if (!details || !currentSuggestion) {
+      return;
+    }
+    const fallback = buildFallbackRelease(details, details.mediaType);
+    const nextReleaseInfo = release || fallback;
+    if (!nextReleaseInfo) {
+      return;
+    }
+    setPendingListItem({ suggestion: currentSuggestion, release: nextReleaseInfo });
+  }, [buildFallbackRelease, currentSuggestion, details, release]);
+
+  const handleAddSuggestion = useCallback(
+    async (suggestion: Suggestion) => {
+      setAddingSuggestionId(suggestion.id);
+      try {
+        const existing = saved.find(
+          (item) =>
+            item.tmdbId === suggestion.id && item.mediaType === suggestion.mediaType
+        );
+        const existingRelease = existing
+          ? {
+              title: existing.title,
+              type: existing.type,
+              nextRelease: existing.nextRelease,
+              source: existing.source,
+              posterUrl: existing.posterUrl,
+              backdropUrl: existing.backdropUrl,
+              status: existing.status,
+            }
+          : null;
+
+        let nextReleaseInfo = existingRelease;
+        if (!nextReleaseInfo) {
+          const response = await fetch(
+            `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
+            { cache: "no-store" }
+          );
+          const payload = await response.json();
+          if (!response.ok || !payload?.details) {
+            return;
+          }
+          nextReleaseInfo =
+            payload.release ||
+            buildFallbackRelease(payload.details as Details, suggestion.mediaType);
+          if (!nextReleaseInfo) {
+            return;
+          }
+        }
+        setPendingListItem({ suggestion, release: nextReleaseInfo });
+      } finally {
+        setAddingSuggestionId(null);
+      }
+    },
+    [buildFallbackRelease, saved]
+  );
 
   const metaRows = useMemo(() => {
     if (!details) {
@@ -303,6 +426,7 @@ export default function TitleDetailsPage() {
           <div className="details-inner">
             <div className="details-content">
               <div className="details-poster">
+                <ListBadges listTypes={currentListTypes} />
                 {details?.posterUrl ? (
                   <img src={details.posterUrl} alt={details.title} />
                 ) : (
@@ -352,27 +476,13 @@ export default function TitleDetailsPage() {
                   {details?.overview || copy.hints.noOverview}
                 </p>
                 <div className="details-actions">
-                  {release && details ? (
+                  {details ? (
                     <button
                       type="button"
                       className="primary"
-                      onClick={() =>
-                        addRelease(release, {
-                          tmdbId: details.id,
-                          mediaType: details.mediaType,
-                        })
-                      }
-                      disabled={Boolean(
-                        isReleaseSaved(release, {
-                          tmdbId: details.id,
-                          mediaType: details.mediaType,
-                        })
-                      )}
+                      onClick={handleAddCurrent}
                     >
-                      {isReleaseSaved(release, {
-                        tmdbId: details.id,
-                        mediaType: details.mediaType,
-                      })
+                      {currentListTypes.length > 0
                         ? copy.actions.inList
                         : copy.actions.addToList}
                     </button>
@@ -522,18 +632,9 @@ export default function TitleDetailsPage() {
                   <button
                     type="button"
                     className="primary"
-                    onClick={() => addRelease(release)}
-                    disabled={Boolean(
-                      isReleaseSaved(release, {
-                        tmdbId: details.id,
-                        mediaType: details.mediaType,
-                      })
-                    )}
+                    onClick={handleAddCurrent}
                   >
-                    {isReleaseSaved(release, {
-                      tmdbId: details.id,
-                      mediaType: details.mediaType,
-                    })
+                    {currentListTypes.length > 0
                       ? copy.actions.inList
                       : copy.actions.addToList}
                   </button>
@@ -560,12 +661,33 @@ export default function TitleDetailsPage() {
             onSelect={(item) =>
               router.push(`/title/${item.mediaType}/${item.id}`)
             }
-            isSaved={isSuggestionSaved}
+            onAdd={handleAddSuggestion}
+            getListTypes={getListTypes}
             isBusy={() => false}
+            isAdding={(item) => addingSuggestionId === item.id}
             title={copy.sections.similarTitles}
           />
         </section>
       )}
+
+      <ListPickerModal
+        isOpen={Boolean(pendingListItem)}
+        selected={
+          pendingListItem ? getListTypes(pendingListItem.suggestion) : []
+        }
+        onClose={() => setPendingListItem(null)}
+        onSave={(next) => {
+          if (!pendingListItem) {
+            return;
+          }
+          setSuggestionLists(
+            pendingListItem.suggestion,
+            next,
+            pendingListItem.release
+          );
+          setPendingListItem(null);
+        }}
+      />
     </main>
   );
 }

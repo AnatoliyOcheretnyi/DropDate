@@ -8,6 +8,7 @@ import type { Details, ReleaseInfo, Suggestion } from "../lib/release";
 import { Header } from "./components/Header";
 import { SavedList } from "./components/SavedList";
 import { TrendingCarousel } from "./components/TrendingCarousel";
+import { ListPickerModal } from "./components/ListPickerModal";
 import { copy } from "../lib/strings";
 import { useSavedReleases } from "./hooks/useSavedReleases";
 import { useSuggestions } from "./hooks/useSuggestions";
@@ -32,14 +33,19 @@ function HomePageContent() {
   const {
     saved,
     isReady: isStorageReady,
-    addRelease,
     removeRelease,
     isSuggestionSaved,
+    getListTypes,
+    setSuggestionLists,
     refreshAll,
     isRefreshing,
   } = useSavedReleases();
   const [addingSuggestionId, setAddingSuggestionId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"home" | "saved">("home");
+  const [pendingListItem, setPendingListItem] = useState<{
+    suggestion: Suggestion;
+    release: ReleaseInfo;
+  } | null>(null);
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
@@ -175,34 +181,47 @@ function HomePageContent() {
 
   const handleAddSuggestion = useCallback(
     async (suggestion: Suggestion) => {
-      if (isSuggestionSaved(suggestion)) {
-        return;
-      }
       setAddingSuggestionId(suggestion.id);
       try {
-        const response = await fetch(
-          `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
-          { cache: "no-store" }
+        const existing = saved.find(
+          (item) =>
+            item.tmdbId === suggestion.id && item.mediaType === suggestion.mediaType
         );
-        const payload = await response.json();
-        if (!response.ok || !payload?.details) {
-          return;
-        }
-        const release: ReleaseInfo | null =
-          payload.release ||
-          buildFallbackRelease(payload.details as Details, suggestion.mediaType);
+        const existingRelease = existing
+          ? {
+              title: existing.title,
+              type: existing.type,
+              nextRelease: existing.nextRelease,
+              source: existing.source,
+              posterUrl: existing.posterUrl,
+              backdropUrl: existing.backdropUrl,
+              status: existing.status,
+            }
+          : null;
+
+        let release = existingRelease;
         if (!release) {
-          return;
+          const response = await fetch(
+            `/api/details?tmdbId=${suggestion.id}&mediaType=${suggestion.mediaType}`,
+            { cache: "no-store" }
+          );
+          const payload = await response.json();
+          if (!response.ok || !payload?.details) {
+            return;
+          }
+          release =
+            payload.release ||
+            buildFallbackRelease(payload.details as Details, suggestion.mediaType);
+          if (!release) {
+            return;
+          }
         }
-        addRelease(release, {
-          tmdbId: suggestion.id,
-          mediaType: suggestion.mediaType,
-        });
+        setPendingListItem({ suggestion, release });
       } finally {
         setAddingSuggestionId(null);
       }
     },
-    [addRelease, buildFallbackRelease, isSuggestionSaved]
+    [buildFallbackRelease, saved]
   );
 
   const handleRefreshAllClick = async () => {
@@ -306,16 +325,20 @@ function HomePageContent() {
                 items={trendingMovies}
                 isLoading={isTrendingLoading}
                 onSelect={handleGallerySelect}
-                isSaved={isSuggestionSaved}
+                onAdd={handleAddSuggestion}
+                getListTypes={getListTypes}
                 isBusy={() => false}
+                isAdding={(item) => addingSuggestionId === item.id}
               />
               <TrendingCarousel
                 title={copy.sections.trendingSeries}
                 items={trendingSeries}
                 isLoading={isTrendingLoading}
                 onSelect={handleGallerySelect}
-                isSaved={isSuggestionSaved}
+                onAdd={handleAddSuggestion}
+                getListTypes={getListTypes}
                 isBusy={() => false}
+                isAdding={(item) => addingSuggestionId === item.id}
               />
             </>
           )}
@@ -344,12 +367,31 @@ function HomePageContent() {
           ) : (
             <SavedList
               items={saved}
-              onRemove={removeRelease}
+              onRemove={(item) => removeRelease(item.id)}
               actionsDisabled={!isStorageReady}
             />
           )}
         </section>
       )}
+
+      <ListPickerModal
+        isOpen={Boolean(pendingListItem)}
+        selected={
+          pendingListItem ? getListTypes(pendingListItem.suggestion) : []
+        }
+        onClose={() => setPendingListItem(null)}
+        onSave={(next) => {
+          if (!pendingListItem) {
+            return;
+          }
+          setSuggestionLists(
+            pendingListItem.suggestion,
+            next,
+            pendingListItem.release
+          );
+          setPendingListItem(null);
+        }}
+      />
     </main>
   );
 }

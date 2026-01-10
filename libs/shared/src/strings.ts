@@ -44,6 +44,13 @@ export const copy = {
     updating: "Оновлюємо…",
     loadMore: "Показати ще",
   },
+  lists: {
+    follow: "Підписка",
+    watchlist: "Want to watch",
+    favorite: "Favorites",
+    empty: "Поки порожньо — додай зі сторінки пошуку/трендів",
+    loginPrompt: "Увійди, щоб зберігати більше та мати кілька списків.",
+  },
   hints: {
     loadingCollection: "Завантажуємо підбірку…",
     loadingResults: "Завантажуємо…",

@@ -1,7 +1,9 @@
 "use client";
 
 import type { Suggestion } from "../../lib/release";
+import type { ListType } from "../lib/releases";
 import { copy } from "../../lib/strings";
+import { ListBadges } from "./ListBadges";
 
 type Props = {
   title: string;
@@ -9,7 +11,7 @@ type Props = {
   isLoading: boolean;
   onSelect: (suggestion: Suggestion) => void;
   onAdd?: (suggestion: Suggestion) => void;
-  isSaved: (suggestion: Suggestion) => boolean;
+  getListTypes: (suggestion: Suggestion) => ListType[];
   isBusy: (suggestion: Suggestion) => boolean;
   isAdding?: (suggestion: Suggestion) => boolean;
 };
@@ -20,7 +22,7 @@ export function TrendingCarousel({
   isLoading,
   onSelect,
   onAdd,
-  isSaved,
+  getListTypes,
   isBusy,
   isAdding = () => false,
 }: Props) {
@@ -38,9 +40,10 @@ export function TrendingCarousel({
         <div className="trend-carousel" aria-label={title}>
           <div className="trend-track">
             {items.map((item) => {
-              const saved = isSaved(item);
+              const listTypes = getListTypes(item);
+              const saved = listTypes.length > 0;
               const isItemAdding = isAdding(item);
-              const canAdd = Boolean(onAdd) && !saved;
+              const canAdd = Boolean(onAdd);
 
               return (
                 <div
@@ -64,10 +67,9 @@ export function TrendingCarousel({
                       {item.title.slice(0, 1)}
                     </div>
                   )}
+                  <ListBadges listTypes={listTypes} />
                   <div className="poster-overlay" aria-hidden="true">
-                  {saved ? (
-                      <span className="poster-cta saved">{copy.actions.added}</span>
-                    ) : canAdd ? (
+                    {canAdd ? (
                       <button
                         type="button"
                         className="poster-cta"
@@ -80,6 +82,9 @@ export function TrendingCarousel({
                         +
                       </button>
                     ) : null}
+                    {saved && (
+                      <span className="poster-cta saved">{copy.actions.added}</span>
+                    )}
                   </div>
                 </div>
             );
