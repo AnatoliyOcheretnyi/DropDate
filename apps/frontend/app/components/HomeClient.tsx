@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../lib/release";
 import { Header } from "./Header";
 import { SearchOverlay } from "./SearchOverlay";
-import { SavedList } from "./SavedList";
 import { TrendingCarousel } from "./TrendingCarousel";
 import { copy } from "../../lib/strings";
 import { useSavedReleases } from "../hooks/useSavedReleases";
@@ -30,29 +29,12 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
     setSelectedSuggestion(null);
   }, []);
 
-  const {
-    saved,
-    isReady: isStorageReady,
-    removeRelease,
-    isSuggestionSaved,
-    getListTypes,
-    refreshAll,
-    isRefreshing,
-  } = useSavedReleases();
-  const [activeView, setActiveView] = useState<"home" | "saved">("home");
+  const { saved, isSuggestionSaved, getListTypes } = useSavedReleases();
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
     handleClearSelection
   );
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (activeView !== "home") {
-      setIsInputFocused(false);
-      setIsSearchOpen(false);
-    }
-  }, [activeView]);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: Suggestion) => {
@@ -88,32 +70,16 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
     [router]
   );
 
-  const handleRefreshAllClick = async () => {
-    setRefreshMessage(null);
-    try {
-      const result = await refreshAll();
-      if (!result || result.results.length === 0) {
-        setRefreshMessage(copy.hints.noRefresh);
-        return;
-      }
-      const failed = result.results.filter((item) => item.error);
-      if (failed.length > 0) {
-        setRefreshMessage(copy.hints.partialUpdate(failed.length));
-      } else {
-        setRefreshMessage(copy.hints.listUpdated);
-      }
-    } catch (err) {
-      setRefreshMessage(
-        err instanceof Error ? err.message : copy.errors.refreshFailed
-      );
-    }
-  };
+  const shouldShowTrending = !selectedSuggestion;
 
-  const shouldShowTrending = activeView === "home" && !selectedSuggestion;
+  useEffect(() => {
+    if (searchParams.get("view") === "saved") {
+      router.push("/saved");
+    }
+  }, [searchParams, router]);
 
   const handleSearchToggle = () => {
     setIsSearchOpen((prev) => !prev);
-    setActiveView("home");
   };
 
   const handleSearchClose = useCallback(() => {
@@ -121,18 +87,14 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
     setIsInputFocused(false);
   }, []);
 
-  useEffect(() => {
-    if (searchParams.get("view") === "saved") {
-      setActiveView("saved");
-    }
-  }, [searchParams]);
-
   return (
     <main className="page">
       <Header
-        active={activeView}
+        active="home"
         savedCount={saved.length}
-        onChange={setActiveView}
+        onChange={(view) => {
+          router.push(view === "saved" ? "/saved" : "/");
+        }}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
@@ -158,63 +120,34 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
         isSuggestionSaved={isSuggestionSaved}
       />
 
-      {activeView === "home" && (
-        <>
-          <section className="hero hero-bleed">
-            <div className="hero-inner">
-              <p className="eyebrow">{copy.hero.eyebrow}</p>
-              <h1>{copy.appName}</h1>
-              <p className="lead">{copy.hero.webLead}</p>
-            </div>
-          </section>
-
-          {shouldShowTrending && (
-            <>
-              <TrendingCarousel
-                title={copy.sections.trendingMovies}
-                items={trendingMovies}
-                isLoading={false}
-                onSelect={handleGallerySelect}
-                getListTypes={getListTypes}
-              />
-              <TrendingCarousel
-                title={copy.sections.trendingSeries}
-                items={trendingSeries}
-                isLoading={false}
-                onSelect={handleGallerySelect}
-                getListTypes={getListTypes}
-              />
-            </>
-          )}
-        </>
-      )}
-
-      {activeView === "saved" && (
-        <section className="saved">
-          <div className="saved-actions">
-            <button
-              type="button"
-              className="secondary"
-              onClick={handleRefreshAllClick}
-              disabled={!isStorageReady || saved.length === 0 || isRefreshing}
-            >
-              {isRefreshing ? copy.actions.updating : copy.actions.updateAll}
-            </button>
-            {refreshMessage && <p className="hint">{refreshMessage}</p>}
+      <>
+        <section className="hero hero-bleed">
+          <div className="hero-inner">
+            <p className="eyebrow">{copy.hero.eyebrow}</p>
+            <h1>{copy.appName}</h1>
+            <p className="lead">{copy.hero.webLead}</p>
           </div>
-          {!isStorageReady ? (
-            <p className="hint">{copy.hints.loadingList}</p>
-          ) : saved.length === 0 ? (
-            <p className="hint">{copy.hints.listEmpty}</p>
-          ) : (
-            <SavedList
-              items={saved}
-              onRemove={(item) => removeRelease(item.id)}
-              actionsDisabled={!isStorageReady}
-            />
-          )}
         </section>
-      )}
+
+        {shouldShowTrending && (
+          <>
+            <TrendingCarousel
+              title={copy.sections.trendingMovies}
+              items={trendingMovies}
+              isLoading={false}
+              onSelect={handleGallerySelect}
+              getListTypes={getListTypes}
+            />
+            <TrendingCarousel
+              title={copy.sections.trendingSeries}
+              items={trendingSeries}
+              isLoading={false}
+              onSelect={handleGallerySelect}
+              getListTypes={getListTypes}
+            />
+          </>
+        )}
+      </>
     </main>
   );
 }

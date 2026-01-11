@@ -178,7 +178,7 @@ export default function TitleDetailsPage() {
 
   const handleNav = (view: "home" | "saved") => {
     if (view === "saved") {
-      router.push("/?view=saved");
+      router.push("/saved");
       return;
     }
     router.push("/");

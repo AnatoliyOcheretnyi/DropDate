@@ -137,6 +137,11 @@ export default function ProfilePage() {
     }
   }, [user]);
 
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "DD";
 
   return (
@@ -145,11 +150,11 @@ export default function ProfilePage() {
         active="home"
         savedCount={savedCount}
         onChange={(view) => {
-          if (view === "home") {
-            router.push("/");
-          } else {
-            router.push("/");
+          if (view === "saved") {
+            router.push("/saved");
+            return;
           }
+          router.push("/");
         }}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
@@ -184,7 +189,7 @@ export default function ProfilePage() {
             </div>
           </div>
           {user ? (
-            <button type="button" className="secondary danger" onClick={logout}>
+            <button type="button" className="secondary danger" onClick={handleLogout}>
               {copy.auth.signOut}
             </button>
           ) : (
