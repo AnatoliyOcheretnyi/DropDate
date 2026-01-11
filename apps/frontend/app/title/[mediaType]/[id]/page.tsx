@@ -12,6 +12,7 @@ import { ListPickerModal } from "../../../components/ListPickerModal";
 import { copy } from "../../../../lib/strings";
 import { useSavedReleases } from "../../../hooks/useSavedReleases";
 import { useSuggestions } from "../../../hooks/useSuggestions";
+import type { ListType } from "../../../lib/releases";
 
 type DetailsPayload = {
   details: Details;
@@ -59,10 +60,12 @@ export default function TitleDetailsPage() {
 
   const { savedCount, getListTypes, setSuggestionLists, isSuggestionSaved } =
     useSavedReleases();
-  const [pendingListItem, setPendingListItem] = useState<{
-    suggestion: Suggestion;
-    release: ReleaseInfo;
-  } | null>(null);
+  const [listPickerAnchor, setListPickerAnchor] = useState<
+    "main" | "release" | null
+  >(null);
+  const [toasts, setToasts] = useState<
+    { id: string; message: string; tone?: "success" | "warning" }[]
+  >([]);
 
   const handleClearSelection = useCallback(() => {
     setError(null);
@@ -201,17 +204,70 @@ export default function TitleDetailsPage() {
     ? getListTypes(currentSuggestion)
     : [];
 
-  const handleAddCurrent = useCallback(() => {
-    if (!details || !currentSuggestion) {
-      return;
+  const currentRelease = useMemo(() => {
+    if (!details) {
+      return null;
     }
-    const fallback = buildFallbackRelease(details, details.mediaType);
-    const nextReleaseInfo = release || fallback;
-    if (!nextReleaseInfo) {
-      return;
-    }
-    setPendingListItem({ suggestion: currentSuggestion, release: nextReleaseInfo });
-  }, [buildFallbackRelease, currentSuggestion, details, release]);
+    return release || buildFallbackRelease(details, details.mediaType);
+  }, [buildFallbackRelease, details, release]);
+
+  const listLabelMap = useMemo<Record<ListType, string>>(
+    () => ({
+      follow: copy.lists?.follow ?? "Підписка",
+      watchlist: copy.lists?.watchlist ?? "Want to watch",
+      favorite: copy.lists?.favorite ?? "Favorites",
+    }),
+    []
+  );
+
+  const pushToast = useCallback(
+    (message: string, tone: "success" | "warning" = "success") => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setToasts((prev) => [...prev, { id, message, tone }]);
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+      }, 2600);
+    },
+    []
+  );
+
+  const handleListChange = useCallback(
+    (next: ListType[]) => {
+      if (!currentSuggestion || !currentRelease) {
+        return;
+      }
+      const prev = currentListTypes;
+      const added = next.filter((entry) => !prev.includes(entry));
+      const removed = prev.filter((entry) => !next.includes(entry));
+
+      setSuggestionLists(currentSuggestion, next, currentRelease);
+
+      added.forEach((type) => {
+        pushToast(`Додано до списку "${listLabelMap[type]}"`, "success");
+      });
+      removed.forEach((type) => {
+        pushToast(`Видалено зі списку "${listLabelMap[type]}"`, "warning");
+      });
+    },
+    [
+      currentListTypes,
+      currentRelease,
+      currentSuggestion,
+      listLabelMap,
+      pushToast,
+      setSuggestionLists,
+    ]
+  );
+
+  const handleAddCurrent = useCallback(
+    (anchor: "main" | "release") => {
+      if (!details || !currentSuggestion || !currentRelease) {
+        return;
+      }
+      setListPickerAnchor(anchor);
+    },
+    [currentRelease, currentSuggestion, details]
+  );
 
   const metaRows = useMemo(() => {
     if (!details) {
@@ -436,15 +492,35 @@ export default function TitleDetailsPage() {
                 </p>
                 <div className="details-actions">
                   {details ? (
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={handleAddCurrent}
-                    >
-                      {currentListTypes.length > 0
-                        ? copy.actions.inList
-                        : copy.actions.addToList}
-                    </button>
+                    <div className="list-picker">
+                      <button
+                        type="button"
+                        className={`list-picker__button${
+                          currentListTypes.length > 0 ? " is-active" : ""
+                        }`}
+                        onClick={() => handleAddCurrent("main")}
+                      >
+                        {currentListTypes.length > 0 ? (
+                          <>
+                            <span className="list-picker__check">✓</span>
+                            <span>
+                              У {currentListTypes.length}{" "}
+                              {currentListTypes.length === 1
+                                ? "списку"
+                                : "списках"}
+                            </span>
+                          </>
+                        ) : (
+                          copy.actions.addToList
+                        )}
+                      </button>
+                      <ListPickerModal
+                        isOpen={listPickerAnchor === "main"}
+                        selected={currentListTypes}
+                        onClose={() => setListPickerAnchor(null)}
+                        onChange={handleListChange}
+                      />
+                    </div>
                   ) : (
                     <span className="hint">{copy.hints.noReleaseData}</span>
                   )}
@@ -588,15 +664,35 @@ export default function TitleDetailsPage() {
                   <p className="details-release-source">
                     {copy.details.labels.source}: {release.source}
                   </p>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={handleAddCurrent}
-                  >
-                    {currentListTypes.length > 0
-                      ? copy.actions.inList
-                      : copy.actions.addToList}
-                  </button>
+                  <div className="list-picker">
+                    <button
+                      type="button"
+                      className={`list-picker__button${
+                        currentListTypes.length > 0 ? " is-active" : ""
+                      }`}
+                      onClick={() => handleAddCurrent("release")}
+                    >
+                      {currentListTypes.length > 0 ? (
+                        <>
+                          <span className="list-picker__check">✓</span>
+                          <span>
+                            У {currentListTypes.length}{" "}
+                            {currentListTypes.length === 1
+                              ? "списку"
+                              : "списках"}
+                          </span>
+                        </>
+                      ) : (
+                        copy.actions.addToList
+                      )}
+                    </button>
+                    <ListPickerModal
+                      isOpen={listPickerAnchor === "release"}
+                      selected={currentListTypes}
+                      onClose={() => setListPickerAnchor(null)}
+                      onChange={handleListChange}
+                    />
+                  </div>
                 </div>
                 {release.backdropUrl || release.posterUrl ? (
                   <div className="details-release-media">
@@ -625,25 +721,18 @@ export default function TitleDetailsPage() {
           />
         </section>
       )}
-
-      <ListPickerModal
-        isOpen={Boolean(pendingListItem)}
-        selected={
-          pendingListItem ? getListTypes(pendingListItem.suggestion) : []
-        }
-        onClose={() => setPendingListItem(null)}
-        onSave={(next) => {
-          if (!pendingListItem) {
-            return;
-          }
-          setSuggestionLists(
-            pendingListItem.suggestion,
-            next,
-            pendingListItem.release
-          );
-          setPendingListItem(null);
-        }}
-      />
+      {toasts.length > 0 && (
+        <div className="toast-stack" role="status" aria-live="polite">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`toast${toast.tone ? ` toast--${toast.tone}` : ""}`}
+            >
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

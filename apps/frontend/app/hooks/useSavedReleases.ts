@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReleaseInfo, Suggestion } from "../../lib/release";
 import {
   STORAGE_KEY,
@@ -90,6 +90,19 @@ export function useSavedReleases() {
   const [isReady, setIsReady] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { user, accessToken } = useAuth();
+  const pendingRemoteRef = useRef<
+    Map<
+      string,
+      {
+        action: "add" | "remove";
+        tmdbId: number;
+        mediaType: Suggestion["mediaType"];
+        listType: ListType;
+        release?: ReleaseInfo | null;
+      }
+    >
+  >(new Map());
+  const flushTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -100,6 +113,63 @@ export function useSavedReleases() {
   }, []);
 
   const isAuthed = Boolean(user && accessToken);
+
+  const queueRemoteAction = useCallback(
+    (entry: {
+      action: "add" | "remove";
+      tmdbId: number;
+      mediaType: Suggestion["mediaType"];
+      listType: ListType;
+      release?: ReleaseInfo | null;
+    }) => {
+      if (!isAuthed || !accessToken) {
+        return;
+      }
+      const key = `${entry.tmdbId}:${entry.mediaType}:${entry.listType}`;
+      pendingRemoteRef.current.set(key, entry);
+      if (flushTimeoutRef.current) {
+        window.clearTimeout(flushTimeoutRef.current);
+      }
+      flushTimeoutRef.current = window.setTimeout(() => {
+        const batch = Array.from(pendingRemoteRef.current.values());
+        pendingRemoteRef.current.clear();
+        batch.forEach((item) => {
+          if (item.action === "add" && item.release) {
+            fetch("/api/saved", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                tmdbId: item.tmdbId,
+                mediaType: item.mediaType,
+                title: item.release.title,
+                nextRelease: item.release.nextRelease,
+                status: item.release.status,
+                posterUrl: item.release.posterUrl,
+                backdropUrl: item.release.backdropUrl,
+                listType: item.listType,
+              }),
+            }).catch(() => null);
+            return;
+          }
+          if (item.action === "remove") {
+            const params = new URLSearchParams({
+              tmdbId: String(item.tmdbId),
+              mediaType: item.mediaType,
+              listType: item.listType,
+            });
+            fetch(`/api/saved/items?${params.toString()}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }).catch(() => null);
+          }
+        });
+      }, 420);
+    },
+    [accessToken, isAuthed]
+  );
 
   useEffect(() => {
     if (!isAuthed) {
@@ -435,41 +505,28 @@ export function useSavedReleases() {
 
       if (payloadRelease) {
         toAdd.forEach((listType) => {
-          fetch("/api/saved", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              tmdbId: suggestion.id,
-              mediaType: suggestion.mediaType,
-              title: payloadRelease.title,
-              nextRelease: payloadRelease.nextRelease,
-              status: payloadRelease.status,
-              posterUrl: payloadRelease.posterUrl,
-              backdropUrl: payloadRelease.backdropUrl,
-              listType,
-            }),
-          }).catch(() => null);
+          queueRemoteAction({
+            action: "add",
+            tmdbId: suggestion.id,
+            mediaType: suggestion.mediaType,
+            listType,
+            release: payloadRelease,
+          });
         });
       }
 
       if (toRemove.length > 0) {
         toRemove.forEach((listType) => {
-          const params = new URLSearchParams({
-            tmdbId: String(suggestion.id),
+          queueRemoteAction({
+            action: "remove",
+            tmdbId: suggestion.id,
             mediaType: suggestion.mediaType,
             listType,
           });
-          fetch(`/api/saved/items?${params.toString()}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }).catch(() => null);
         });
       }
     },
-    [accessToken, isAuthed, persist, saved]
+    [accessToken, isAuthed, persist, queueRemoteAction, saved]
   );
 
   const toggleListType = useCallback(
