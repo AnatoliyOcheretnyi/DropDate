@@ -140,7 +140,7 @@ export default function ProfilePage() {
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "DD";
 
   return (
-    <main className="page">
+    <main className="page page--profile">
       <Header
         active="home"
         savedCount={savedCount}
@@ -198,17 +198,43 @@ export default function ProfilePage() {
             </button>
           )}
         </div>
-
         <div className="profile-tabs">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               className={`profile-tab${activeTab === tab.key ? " active" : ""}`}
+              aria-label={tab.label}
               onClick={() => setActiveTab(tab.key)}
               disabled={!user && tab.key !== "follow"}
             >
-              {tab.label}
+              <span className={`tab-icon tab-icon--${tab.key}`} aria-hidden="true">
+                {tab.key === "follow" && (
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M12 3a6 6 0 0 1 6 6v3.1l1.6 2.7a1 1 0 0 1-.86 1.5H5.26a1 1 0 0 1-.86-1.5l1.6-2.7V9a6 6 0 0 1 6-6Zm0 18a2.5 2.5 0 0 1-2.45-2h4.9A2.5 2.5 0 0 1 12 21Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
+                {tab.key === "watchlist" && (
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M6 3h12a2 2 0 0 1 2 2v16l-8-4-8 4V5a2 2 0 0 1 2-2Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
+                {tab.key === "favorite" && (
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M12 20.6 4.6 13.3a4.5 4.5 0 0 1 6.4-6.4L12 7.9l1-1a4.5 4.5 0 1 1 6.4 6.4L12 20.6Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
+              </span>
+              <span className="tab-label">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -217,9 +243,12 @@ export default function ProfilePage() {
           <div className="profile-empty">
             <p>{listCopy.empty}</p>
           </div>
-        ) : (
-          <SavedList items={tabItems} onRemove={handleRemoveFromTab} />
-        )}
+        ) : null}
+        <SavedList
+          items={tabItems}
+          onRemove={handleRemoveFromTab}
+          groupByDate={activeTab === "follow"}
+        />
       </section>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

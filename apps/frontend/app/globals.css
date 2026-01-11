@@ -47,6 +47,17 @@ main.page--details {
   gap: 0;
 }
 
+main.page--profile {
+  max-width: none;
+  padding: 0 3rem 4rem;
+}
+
+.profile-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 .details-section {
   padding: 2rem 4.5rem 0;
 }
@@ -1018,6 +1029,33 @@ body.modal-open {
 }
 
 @media (max-width: 1100px) {
+  main.page--profile {
+    max-width: none;
+    padding: 0 1.5rem 3rem;
+  }
+
+  .profile-tabs {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    align-items: center;
+  }
+
+  .profile-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .profile-tab {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+  }
+
   .details-content {
     grid-template-columns: minmax(180px, 240px) 1fr;
   }
@@ -1031,9 +1069,149 @@ body.modal-open {
   .details-side-card {
     flex: 1 1 240px;
   }
+
 }
 
 @media (max-width: 800px) {
+  main.page--profile {
+    padding: 0 0.75rem 3rem;
+  }
+
+  .site-header-inner {
+    padding: 0.4rem 1.5rem 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .header-actions {
+    flex-wrap: nowrap;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+
+  .header-brand {
+    width: auto;
+    gap: 0.6rem;
+  }
+
+  .brand-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    padding: 3px;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .header-link {
+    width: auto;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .header-link:not(.header-auth) {
+    display: none;
+  }
+
+  .profile-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem 1.1rem;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .profile-card .secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .profile-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+  }
+
+  .profile-title {
+    font-size: 1rem;
+  }
+
+  .profile-subtitle {
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+  }
+
+  .profile-tabs {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .profile-tab {
+    width: auto;
+    flex: 0 0 auto;
+    text-align: center;
+    white-space: nowrap;
+    padding: 0.7rem 1.4rem;
+    font-size: 0.9rem;
+    min-width: 84px;
+  }
+
+  .profile-tab .tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .profile-tab .tab-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .profile-tab .tab-label {
+    display: none;
+  }
+
+  .profile-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .profile-shell {
+    width: 100%;
+    padding: 0;
+    margin: 0 auto;
+    align-items: stretch;
+    box-sizing: border-box;
+  }
+
+  .saved-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .saved-card {
+    min-height: 180px;
+  }
+
   .details-section {
     padding: 1.5rem 2.5rem 0;
   }
@@ -1513,6 +1691,21 @@ dd.date span:last-child {
   transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
 }
 
+.profile-tab .tab-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (min-width: 801px) {
+  .profile-tab .tab-icon {
+    display: none;
+  }
+
+  .profile-tab .tab-label {
+    display: inline;
+  }
+}
+
 .profile-tab.active,
 .profile-tab:hover:not(:disabled) {
   border-color: rgba(84, 255, 182, 0.6);
@@ -1547,6 +1740,17 @@ dd.date span:last-child {
   gap: 1.5rem;
 }
 
+.saved-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.saved-grid--single {
+  grid-template-columns: minmax(160px, 240px);
+  justify-content: start;
+}
+
 .card.compact .card-hero {
   margin-bottom: 0.8rem;
 }
@@ -1569,18 +1773,8 @@ dd.date span:last-child {
   font-size: 1.15rem;
 }
 
-.saved-carousel {
+.saved-section .saved-grid {
   margin-top: 1rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-}
-
-.saved-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 160px;
-  gap: 1rem;
-  width: max-content;
 }
 
 .saved-card {
@@ -1588,7 +1782,7 @@ dd.date span:last-child {
   border-radius: 1rem;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
-  min-height: 240px;
+  min-height: 200px;
 }
 
 .saved-card-link {
@@ -1857,38 +2051,40 @@ dd.date span:last-child {
   }
 
   .site-header-inner {
-    padding: 0.25rem 1.5rem 0.75rem;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.85rem;
+    padding: 0.35rem 1.25rem 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 
   .header-actions {
-    flex-wrap: wrap;
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
   }
 
   .header-brand {
-    width: 100%;
+    width: auto;
     gap: 0.6rem;
   }
 
   .brand-logo {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    padding: 4px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    padding: 3px;
   }
 
   .brand-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .brand-subtitle {
-    font-size: 0.7rem;
+    display: none;
   }
 
   .search-overlay {
@@ -1908,10 +2104,13 @@ dd.date span:last-child {
   }
 
   .header-link {
-    width: 100%;
+    width: auto;
     justify-content: center;
-    order: 2;
     white-space: nowrap;
+  }
+
+  .header-link:not(.header-auth) {
+    display: none;
   }
 
   .poster-grid {
