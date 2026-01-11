@@ -51,6 +51,13 @@ export const copy = {
     empty: "Поки порожньо — додай зі сторінки пошуку/трендів",
     loginPrompt: "Увійди, щоб зберігати більше та мати кілька списків.",
   },
+  listStats: {
+    total: "Всього у списку",
+    thisWeek: "Цього тижня",
+    watched: "Переглянуто",
+    rewatches: "Повторні перегляди",
+    series: "Серіалів",
+  },
   hints: {
     loadingCollection: "Завантажуємо підбірку…",
     loadingResults: "Завантажуємо…",

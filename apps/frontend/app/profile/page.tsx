@@ -39,6 +39,13 @@ export default function ProfilePage() {
     empty: "Поки порожньо — додай зі сторінки пошуку/трендів",
     loginPrompt: "Увійди, щоб зберігати більше та мати кілька списків.",
   };
+  const statsCopy = copy.listStats ?? {
+    total: "Всього у списку",
+    thisWeek: "Цього тижня",
+    watched: "Переглянуто",
+    rewatches: "Повторні перегляди",
+    series: "Серіалів",
+  };
   const tabs = [
     { key: "follow", label: listCopy.follow },
     { key: "watchlist", label: listCopy.watchlist },
@@ -98,6 +105,70 @@ export default function ProfilePage() {
       ),
     [activeTab, normalizeItemLists, saved]
   );
+
+  const weekCount = useMemo(() => {
+    if (activeTab !== "follow") {
+      return 0;
+    }
+    const now = new Date();
+    const start = new Date(now);
+    const day = start.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    start.setDate(start.getDate() + diff);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return tabItems.filter((item) => {
+      if (!item.nextRelease) {
+        return false;
+      }
+      const parsed = new Date(item.nextRelease);
+      if (Number.isNaN(parsed.getTime())) {
+        return false;
+      }
+      return parsed >= start && parsed < end;
+    }).length;
+  }, [activeTab, tabItems]);
+
+  const seriesCount = useMemo(
+    () =>
+      tabItems.filter(
+        (item) => item.mediaType === "tv" || item.type === "series"
+      ).length,
+    [tabItems]
+  );
+
+  const watchedCount = useMemo(() => {
+    if (activeTab !== "watchlist") {
+      return 0;
+    }
+    return tabItems.reduce((sum, item) => {
+      const count = (item as SavedRelease & { watchedCount?: number })
+        .watchedCount;
+      return sum + (count || 0);
+    }, 0);
+  }, [activeTab, tabItems]);
+
+  const rewatchCount = useMemo(() => {
+    if (activeTab !== "favorite") {
+      return 0;
+    }
+    return tabItems.reduce((sum, item) => {
+      const count = (item as SavedRelease & { rewatchCount?: number })
+        .rewatchCount;
+      return sum + (count || 0);
+    }, 0);
+  }, [activeTab, tabItems]);
+
+  const middleStat = useMemo(() => {
+    if (activeTab === "follow") {
+      return { value: weekCount, label: statsCopy.thisWeek, tone: "amber" };
+    }
+    if (activeTab === "watchlist") {
+      return { value: watchedCount, label: statsCopy.watched, tone: "amber" };
+    }
+    return { value: rewatchCount, label: statsCopy.rewatches, tone: "amber" };
+  }, [activeTab, statsCopy, weekCount, watchedCount, rewatchCount]);
 
   const handleRemoveFromTab = useCallback(
     (item: SavedRelease) => {
@@ -249,6 +320,20 @@ export default function ProfilePage() {
             <p>{listCopy.empty}</p>
           </div>
         ) : null}
+        <div className="profile-stats">
+          <div className="profile-stat-card tone-green">
+            <strong>{tabItems.length}</strong>
+            <span>{statsCopy.total}</span>
+          </div>
+          <div className={`profile-stat-card tone-${middleStat.tone}`}>
+            <strong>{middleStat.value}</strong>
+            <span>{middleStat.label}</span>
+          </div>
+          <div className="profile-stat-card tone-blue">
+            <strong>{seriesCount}</strong>
+            <span>{statsCopy.series}</span>
+          </div>
+        </div>
         <SavedList
           items={tabItems}
           onRemove={handleRemoveFromTab}
