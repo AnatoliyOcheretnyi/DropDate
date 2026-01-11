@@ -309,6 +309,21 @@ export function useSavedReleases() {
       const target = saved.find((item) => item.id === id);
       persist((prev) => prev.filter((item) => item.id !== id));
       if (isAuthed && target?.tmdbId && target.mediaType) {
+        const listTypes = target.listTypes ?? [];
+        if (listTypes.length > 0) {
+          listTypes.forEach((listType) => {
+            const params = new URLSearchParams({
+              tmdbId: String(target.tmdbId),
+              mediaType: target.mediaType,
+              listType,
+            });
+            fetch(`/api/saved/items?${params.toString()}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }).catch(() => null);
+          });
+          return;
+        }
         const params = new URLSearchParams({
           tmdbId: String(target.tmdbId),
           mediaType: target.mediaType,
