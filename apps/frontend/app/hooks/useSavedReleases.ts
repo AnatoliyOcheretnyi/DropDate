@@ -90,7 +90,21 @@ const mergeSaved = (localItems: SavedRelease[], remoteItems: SavedRelease[]) => 
         ...normalizeListTypes(item.listTypes),
       ])
     );
-    map.set(item.id, { ...existing, listTypes: combined });
+    const mergedRating =
+      typeof existing.userRating === "number"
+        ? existing.userRating
+        : item.userRating;
+    const mergedWatchCount =
+      (existing.watchCount || 0) > 0 ? existing.watchCount : item.watchCount;
+    const mergedLastWatchedAt =
+      existing.lastWatchedAt || item.lastWatchedAt;
+    map.set(item.id, {
+      ...existing,
+      listTypes: combined,
+      userRating: mergedRating,
+      watchCount: mergedWatchCount,
+      lastWatchedAt: mergedLastWatchedAt,
+    });
   });
   return Array.from(map.values());
 };
@@ -287,25 +301,48 @@ export function useSavedReleases() {
           await Promise.all(
             localToSync.map((item) =>
               Promise.all(
-                normalizeListTypes(item.listTypes).map((listType) =>
-                  fetch("/api/saved", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${accessToken}`,
-                    },
-                    body: JSON.stringify({
-                      tmdbId: item.tmdbId,
-                      mediaType: item.mediaType,
-                      title: item.title,
-                      nextRelease: item.nextRelease,
-                      status: item.status,
-                      posterUrl: item.posterUrl,
-                      backdropUrl: item.backdropUrl,
-                      listType,
-                    }),
-                  }).catch(() => null)
-                )
+                normalizeListTypes(item.listTypes).map((listType) => {
+                  const hasStats =
+                    typeof item.userRating === "number" ||
+                    typeof item.watchCount === "number" ||
+                    Boolean(item.lastWatchedAt);
+                  return Promise.all([
+                    fetch("/api/saved", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken}`,
+                      },
+                      body: JSON.stringify({
+                        tmdbId: item.tmdbId,
+                        mediaType: item.mediaType,
+                        title: item.title,
+                        nextRelease: item.nextRelease,
+                        status: item.status,
+                        posterUrl: item.posterUrl,
+                        backdropUrl: item.backdropUrl,
+                        listType,
+                      }),
+                    }).catch(() => null),
+                    hasStats
+                      ? fetch("/api/saved/items", {
+                          method: "PATCH",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${accessToken}`,
+                          },
+                          body: JSON.stringify({
+                            tmdbId: item.tmdbId,
+                            mediaType: item.mediaType,
+                            listType,
+                            userRating: item.userRating,
+                            watchCount: item.watchCount,
+                            lastWatchedAt: item.lastWatchedAt,
+                          }),
+                        }).catch(() => null)
+                      : Promise.resolve(null),
+                  ]);
+                })
               )
             )
           );

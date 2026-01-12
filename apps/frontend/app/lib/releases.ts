@@ -19,6 +19,7 @@ export type SavedRelease = ReleaseInfo & {
   lastWatchedAt?: string;
   runtimeMinutes?: number;
   episodeCount?: number;
+  tmdbRating?: number;
 };
 
 const normalizeTitle = (value: string) => value.trim().toLowerCase();

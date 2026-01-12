@@ -26,6 +26,7 @@ type savedItem struct {
 	LastWatchedAt  string   `json:"lastWatchedAt,omitempty"`
 	RuntimeMinutes *int     `json:"runtimeMinutes,omitempty"`
 	EpisodeCount   *int     `json:"episodeCount,omitempty"`
+	TMDBRating     *float64 `json:"tmdbRating,omitempty"`
 	Source         string   `json:"source"`
 	Type           string   `json:"type"`
 }
@@ -248,6 +249,7 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 	}
 	var runtimeMinutes *int
 	var episodeCount *int
+	var tmdbRating *float64
 	if s.releases != nil && payload.TMDBID > 0 && payload.MediaType != "" {
 		if details, err := s.releases.Details(r.Context(), payload.TMDBID, payload.MediaType); err == nil {
 			if details.Runtime > 0 {
@@ -257,6 +259,10 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 			if details.EpisodeCount > 0 {
 				value := details.EpisodeCount
 				episodeCount = &value
+			}
+			if details.VoteAverage > 0 {
+				value := details.VoteAverage
+				tmdbRating = &value
 			}
 		}
 	}
@@ -276,6 +282,7 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 		LastWatched:    lastWatched,
 		RuntimeMinutes: runtimeMinutes,
 		EpisodeCount:   episodeCount,
+		TMDBRating:     tmdbRating,
 	})
 	if err != nil {
 		if errors.Is(err, saved.ErrInvalidMediaType) {
@@ -336,6 +343,7 @@ func mapSavedItem(item saved.Title) savedItem {
 		LastWatchedAt:  lastWatched,
 		RuntimeMinutes: item.RuntimeMinutes,
 		EpisodeCount:   item.EpisodeCount,
+		TMDBRating:     item.TMDBRating,
 		Source:         "tmdb",
 		Type:           releaseType,
 	}

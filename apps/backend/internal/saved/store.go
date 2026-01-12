@@ -35,6 +35,7 @@ type Title struct {
 	LastWatched    *time.Time
 	RuntimeMinutes *int
 	EpisodeCount   *int
+	TMDBRating     *float64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -63,6 +64,7 @@ type UpsertInput struct {
 	LastWatched    *time.Time
 	RuntimeMinutes *int
 	EpisodeCount   *int
+	TMDBRating     *float64
 }
 
 func (s *Store) ListByUser(ctx context.Context, userID string, listType string) ([]Title, error) {
@@ -70,7 +72,7 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 	query := `
 		select id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
 		       poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-		       runtime_minutes, episode_count, created_at, updated_at
+		       runtime_minutes, episode_count, tmdb_rating, created_at, updated_at
 		from saved_titles
 		where user_id = $1`
 	args := []any{userID}
@@ -98,6 +100,7 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 		var lastWatched sql.NullTime
 		var runtime sql.NullInt32
 		var episodeCount sql.NullInt32
+		var tmdbRating sql.NullFloat64
 		if err := rows.Scan(
 			&item.ID,
 			&item.UserID,
@@ -114,6 +117,7 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 			&lastWatched,
 			&runtime,
 			&episodeCount,
+			&tmdbRating,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
@@ -142,6 +146,10 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 		if episodeCount.Valid {
 			value := int(episodeCount.Int32)
 			item.EpisodeCount = &value
+		}
+		if tmdbRating.Valid {
+			value := tmdbRating.Float64
+			item.TMDBRating = &value
 		}
 
 		if rowListType.Valid {
@@ -245,6 +253,10 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	if input.EpisodeCount != nil {
 		episodeCount = sql.NullInt32{Int32: int32(*input.EpisodeCount), Valid: true}
 	}
+	var tmdbRating sql.NullFloat64
+	if input.TMDBRating != nil {
+		tmdbRating = sql.NullFloat64{Float64: *input.TMDBRating, Valid: true}
+	}
 	watchCountValue := 0
 	watchCountProvided := false
 	if input.WatchCount != nil {
@@ -261,9 +273,9 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		insert into saved_titles (
 			user_id, tmdb_id, media_type, list_type, title, next_release, status,
 			poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-			runtime_minutes, episode_count
+			runtime_minutes, episode_count, tmdb_rating
 		)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		on conflict (user_id, tmdb_id, media_type, list_type)
 		do update set
 			title = excluded.title,
@@ -272,14 +284,15 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 			poster_url = excluded.poster_url,
 			backdrop_url = excluded.backdrop_url,
 			user_rating = coalesce(excluded.user_rating, saved_titles.user_rating),
-			watch_count = case when $15 then excluded.watch_count else saved_titles.watch_count end,
+			watch_count = case when $16 then excluded.watch_count else saved_titles.watch_count end,
 			last_watched_at = coalesce(excluded.last_watched_at, saved_titles.last_watched_at),
 			runtime_minutes = coalesce(excluded.runtime_minutes, saved_titles.runtime_minutes),
 			episode_count = coalesce(excluded.episode_count, saved_titles.episode_count),
+			tmdb_rating = coalesce(excluded.tmdb_rating, saved_titles.tmdb_rating),
 			updated_at = now()
 		returning id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
 		          poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-		          runtime_minutes, episode_count, created_at, updated_at
+		          runtime_minutes, episode_count, tmdb_rating, created_at, updated_at
 	`,
 		input.UserID,
 		input.TMDBID,
@@ -295,6 +308,7 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		lastWatched,
 		runtime,
 		episodeCount,
+		tmdbRating,
 		watchCountProvided,
 	).Scan(
 		&item.ID,
@@ -312,6 +326,7 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		&lastWatched,
 		&runtime,
 		&episodeCount,
+		&tmdbRating,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
@@ -342,6 +357,10 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	if episodeCount.Valid {
 		value := int(episodeCount.Int32)
 		item.EpisodeCount = &value
+	}
+	if tmdbRating.Valid {
+		value := tmdbRating.Float64
+		item.TMDBRating = &value
 	}
 	if rowListType.Valid {
 		item.ListTypes = []string{rowListType.String}

@@ -145,27 +145,18 @@ export default function ProfilePage() {
     [tabItems]
   );
 
-  const watchHours = useMemo(() => {
+  const watchlistAvgRating = useMemo(() => {
     if (activeTab !== "watchlist") {
-      return "0";
+      return 0;
     }
-    const totalMinutes = tabItems.reduce((sum, item) => {
-      const runtime = item.runtimeMinutes || 0;
-      if (!runtime) {
-        return sum;
-      }
-      if (item.mediaType === "tv") {
-        const episodes = item.episodeCount || 0;
-        if (!episodes) {
-          return sum;
-        }
-        return sum + runtime * episodes;
-      }
-      return sum + runtime;
-    }, 0);
-    const hours = totalMinutes / 60;
-    const rounded = Math.round(hours * 10) / 10;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    const ratings = tabItems
+      .map((item) => item.tmdbRating)
+      .filter((value): value is number => typeof value === "number");
+    if (ratings.length === 0) {
+      return 0;
+    }
+    const total = ratings.reduce((sum, value) => sum + value, 0);
+    return Math.round((total / ratings.length) * 10) / 10;
   }, [activeTab, tabItems]);
 
   const rewatchCount = useMemo(() => {
@@ -205,8 +196,8 @@ export default function ProfilePage() {
     }
     if (activeTab === "watchlist") {
       return {
-        value: watchHours,
-        label: statsCopy.watchHours ?? "Годин у списку",
+        value: `${watchlistAvgRating}/10`,
+        label: statsCopy.avgRating,
         tone: "amber",
       };
     }
@@ -222,7 +213,7 @@ export default function ProfilePage() {
     averageRating,
     rewatchCount,
     statsCopy,
-    watchHours,
+    watchlistAvgRating,
     watchedViews,
     weekCount,
   ]);

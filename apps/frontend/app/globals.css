@@ -2111,6 +2111,11 @@ dd.date span:last-child {
   justify-content: start;
 }
 
+.saved-grid--double {
+  grid-template-columns: repeat(2, minmax(160px, 240px));
+  justify-content: start;
+}
+
 .card.compact .card-hero {
   margin-bottom: 0.8rem;
 }

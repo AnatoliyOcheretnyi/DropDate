@@ -120,7 +120,9 @@ export function SavedList({ items, onRemove, actionsDisabled, groupByDate = true
   };
 
   if (!groupByDate) {
-    const gridClass = `saved-grid${items.length === 1 ? " saved-grid--single" : ""}`;
+    const gridClass = `saved-grid${
+      items.length === 1 ? " saved-grid--single" : items.length === 2 ? " saved-grid--double" : ""
+    }`;
     return <div className={gridClass}>{items.map(renderCard)}</div>;
   }
 
@@ -133,7 +135,11 @@ export function SavedList({ items, onRemove, actionsDisabled, groupByDate = true
         }
 
         const gridClass = `saved-grid${
-          sectionItems.length === 1 ? " saved-grid--single" : ""
+          sectionItems.length === 1
+            ? " saved-grid--single"
+            : sectionItems.length === 2
+              ? " saved-grid--double"
+              : ""
         }`;
         return (
           <section key={key} className="saved-section">
