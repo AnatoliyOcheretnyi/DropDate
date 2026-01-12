@@ -15,7 +15,11 @@ const DEFAULT_LISTS: { type: ListType; label: string }[] = [
   { type: "follow", label: copy.lists?.follow ?? "Підписка" },
   { type: "watchlist", label: copy.lists?.watchlist ?? "Want to watch" },
   { type: "favorite", label: copy.lists?.favorite ?? "Favorites" },
+  { type: "watched", label: copy.lists?.watched ?? "Переглянуто" },
+  { type: "disliked", label: copy.lists?.disliked ?? "Не сподобалось" },
 ];
+
+const STATUS_LISTS: ListType[] = ["favorite", "watched", "disliked"];
 
 export function ListPickerModal({
   isOpen,
@@ -79,7 +83,14 @@ export function ListPickerModal({
                 onClick={() => {
                   const next = active
                     ? draft.filter((entry) => entry !== item.type)
-                    : [...draft, item.type];
+                    : [
+                        ...draft.filter(
+                          (entry) =>
+                            !STATUS_LISTS.includes(item.type) ||
+                            !STATUS_LISTS.includes(entry)
+                        ),
+                        item.type,
+                      ];
                   setDraft(next);
                   onChange(next);
                 }}

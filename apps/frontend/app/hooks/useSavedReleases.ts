@@ -22,6 +22,8 @@ const remoteState: {
   promise: null,
 };
 
+const STATUS_LISTS: ListType[] = ["favorite", "watched", "disliked"];
+
 const normalizeListTypes = (listTypes?: ListType[]) => {
   if (!listTypes) {
     return ["follow"] as ListType[];
@@ -29,10 +31,18 @@ const normalizeListTypes = (listTypes?: ListType[]) => {
   if (listTypes.length === 0) {
     return [];
   }
-  if (listTypes.length > 0) {
-    return Array.from(new Set(listTypes));
+  const unique = Array.from(new Set(listTypes));
+  const statuses = unique.filter((entry) => STATUS_LISTS.includes(entry));
+  if (statuses.length > 1) {
+    const preferred =
+      statuses.find((entry) => entry === "favorite") ||
+      statuses.find((entry) => entry === "watched") ||
+      statuses[0];
+    return unique.filter(
+      (entry) => !STATUS_LISTS.includes(entry) || entry === preferred
+    );
   }
-  return [];
+  return unique;
 };
 
 const readSavedFromStorage = (): SavedRelease[] => {
@@ -103,6 +113,20 @@ export function useSavedReleases() {
     >
   >(new Map());
   const flushTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingStatsRef = useRef<
+    Map<
+      string,
+      {
+        tmdbId: number;
+        mediaType: Suggestion["mediaType"];
+        listType: ListType;
+        userRating?: number;
+        watchCount?: number;
+        lastWatchedAt?: string;
+      }
+    >
+  >(new Map());
+  const flushStatsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -167,6 +191,48 @@ export function useSavedReleases() {
           }
         });
       }, 420);
+    },
+    [accessToken, isAuthed]
+  );
+
+  const queueStatsUpdate = useCallback(
+    (entry: {
+      tmdbId: number;
+      mediaType: Suggestion["mediaType"];
+      listType: ListType;
+      userRating?: number;
+      watchCount?: number;
+      lastWatchedAt?: string;
+    }) => {
+      if (!isAuthed || !accessToken) {
+        return;
+      }
+      const key = `${entry.tmdbId}:${entry.mediaType}:${entry.listType}:stats`;
+      pendingStatsRef.current.set(key, entry);
+      if (flushStatsTimeoutRef.current) {
+        window.clearTimeout(flushStatsTimeoutRef.current);
+      }
+      flushStatsTimeoutRef.current = window.setTimeout(() => {
+        const batch = Array.from(pendingStatsRef.current.values());
+        pendingStatsRef.current.clear();
+        batch.forEach((item) => {
+          fetch("/api/saved/items", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              tmdbId: item.tmdbId,
+              mediaType: item.mediaType,
+              listType: item.listType,
+              userRating: item.userRating,
+              watchCount: item.watchCount,
+              lastWatchedAt: item.lastWatchedAt,
+            }),
+          }).catch(() => null);
+        });
+      }, 520);
     },
     [accessToken, isAuthed]
   );
@@ -444,6 +510,58 @@ export function useSavedReleases() {
     [saved]
   );
 
+  const getSavedItem = useCallback(
+    (suggestion: Suggestion) => {
+      const id = getSuggestionId(suggestion);
+      return saved.find((item) => item.id === id);
+    },
+    [saved]
+  );
+
+  const updateListStats = useCallback(
+    (
+      suggestion: Suggestion,
+      listType: ListType,
+      stats: {
+        userRating?: number;
+        watchCount?: number;
+        lastWatchedAt?: string;
+      }
+    ) => {
+      const id = getSuggestionId(suggestion);
+      persist((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                userRating:
+                  typeof stats.userRating === "number"
+                    ? stats.userRating
+                    : item.userRating,
+                watchCount:
+                  typeof stats.watchCount === "number"
+                    ? stats.watchCount
+                    : item.watchCount,
+                lastWatchedAt: stats.lastWatchedAt || item.lastWatchedAt,
+              }
+            : item
+        )
+      );
+      if (!suggestion.id || !suggestion.mediaType) {
+        return;
+      }
+      queueStatsUpdate({
+        tmdbId: suggestion.id,
+        mediaType: suggestion.mediaType,
+        listType,
+        userRating: stats.userRating,
+        watchCount: stats.watchCount,
+        lastWatchedAt: stats.lastWatchedAt,
+      });
+    },
+    [persist, queueStatsUpdate]
+  );
+
   const setSuggestionLists = useCallback(
     (
       suggestion: Suggestion,
@@ -640,8 +758,10 @@ export function useSavedReleases() {
     isReleaseSaved,
     isSuggestionSaved,
     getListTypes,
+    getSavedItem,
     setSuggestionLists,
     toggleListType,
+    updateListStats,
     refreshAll,
     isRefreshing,
   };

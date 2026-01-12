@@ -45,6 +45,26 @@ export function ListBadges({ listTypes }: Props) {
           </svg>
         </span>
       )}
+      {listTypes.includes("watched") && (
+        <span className="list-badge" title="Переглянуто">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm4.2-12.6-5.2 5.2-2.4-2.4-1.4 1.4 3.8 3.8 6.6-6.6-1.4-1.4Z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
+      )}
+      {listTypes.includes("disliked") && (
+        <span className="list-badge" title="Не сподобалось">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M3 10h4v10H3V10Zm6.2 0h6.1c.9 0 1.7.4 2.2 1.1l2.2 3.3c.3.5.5 1 .5 1.6V20a2 2 0 0 1-2 2h-5c-.8 0-1.5-.4-1.9-1l-2.1-3.1v-7.9Z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
+      )}
     </div>
   );
 }

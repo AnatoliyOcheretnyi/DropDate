@@ -26,3 +26,28 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message }, { status: 502 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  const backendBase = process.env.BACKEND_URL || DEFAULT_BACKEND_URL;
+  const backendURL = new URL("/saved/items", backendBase);
+  const authHeader = request.headers.get("authorization");
+
+  try {
+    const body = await request.text();
+    const backendResponse = await fetch(backendURL, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authHeader ? { authorization: authHeader } : {}),
+      },
+      body,
+      cache: "no-store",
+    });
+
+    return new NextResponse(null, { status: backendResponse.status });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Не вдалося зʼєднатись із бекендом";
+    return NextResponse.json({ message }, { status: 502 });
+  }
+}

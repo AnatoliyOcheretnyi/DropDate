@@ -48,6 +48,8 @@ export const copy = {
     follow: "Підписка",
     watchlist: "Want to watch",
     favorite: "Favorites",
+    watched: "Переглянуто",
+    disliked: "Не сподобалось",
     empty: "Поки порожньо — додай зі сторінки пошуку/трендів",
     loginPrompt: "Увійди, щоб зберігати більше та мати кілька списків.",
   },
@@ -111,6 +113,9 @@ export const copy = {
       nextEpisode: "Наступна серія",
       lastEpisode: "Остання серія",
       source: "Джерело",
+      personalTitle: "Мій прогрес",
+      yourRating: "Моя оцінка",
+      watchCount: "Переглядів",
     },
     facts: {
       movie: "movie",

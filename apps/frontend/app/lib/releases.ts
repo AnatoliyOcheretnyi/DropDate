@@ -2,13 +2,21 @@ import type { ReleaseInfo, Suggestion } from "../../lib/release";
 
 export const STORAGE_KEY = "dropdate:saved-releases";
 
-export type ListType = "follow" | "watchlist" | "favorite";
+export type ListType =
+  | "follow"
+  | "watchlist"
+  | "favorite"
+  | "watched"
+  | "disliked";
 
 export type SavedRelease = ReleaseInfo & {
   id: string;
   tmdbId?: number;
   mediaType?: Suggestion["mediaType"];
   listTypes?: ListType[];
+  userRating?: number;
+  watchCount?: number;
+  lastWatchedAt?: string;
 };
 
 const normalizeTitle = (value: string) => value.trim().toLowerCase();

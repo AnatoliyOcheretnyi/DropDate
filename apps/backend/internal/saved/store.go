@@ -30,6 +30,9 @@ type Title struct {
 	PosterURL   string
 	BackdropURL string
 	ListTypes   []string
+	UserRating  *int
+	WatchCount  int
+	LastWatched *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -44,13 +47,16 @@ type UpsertInput struct {
 	PosterURL   string
 	BackdropURL string
 	ListType    string
+	UserRating  *int
+	WatchCount  *int
+	LastWatched *time.Time
 }
 
 func (s *Store) ListByUser(ctx context.Context, userID string, listType string) ([]Title, error) {
 	listType = normalizeListType(listType)
 	query := `
 		select id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
-		       poster_url, backdrop_url, created_at, updated_at
+		       poster_url, backdrop_url, user_rating, watch_count, last_watched_at, created_at, updated_at
 		from saved_titles
 		where user_id = $1`
 	args := []any{userID}
@@ -74,6 +80,8 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 		var poster sql.NullString
 		var backdrop sql.NullString
 		var rowListType sql.NullString
+		var userRating sql.NullInt32
+		var lastWatched sql.NullTime
 		if err := rows.Scan(
 			&item.ID,
 			&item.UserID,
@@ -85,6 +93,9 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 			&item.Status,
 			&poster,
 			&backdrop,
+			&userRating,
+			&item.WatchCount,
+			&lastWatched,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
@@ -98,6 +109,13 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 		}
 		if backdrop.Valid {
 			item.BackdropURL = backdrop.String
+		}
+		if userRating.Valid {
+			rating := int(userRating.Int32)
+			item.UserRating = &rating
+		}
+		if lastWatched.Valid {
+			item.LastWatched = &lastWatched.Time
 		}
 
 		if rowListType.Valid {
@@ -149,11 +167,25 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	if input.BackdropURL != "" {
 		backdrop = sql.NullString{String: input.BackdropURL, Valid: true}
 	}
+	var userRating sql.NullInt32
+	if input.UserRating != nil {
+		userRating = sql.NullInt32{Int32: int32(*input.UserRating), Valid: true}
+	}
+	watchCountValue := 0
+	watchCountProvided := false
+	if input.WatchCount != nil {
+		watchCountValue = *input.WatchCount
+		watchCountProvided = true
+	}
+	var lastWatched sql.NullTime
+	if input.LastWatched != nil {
+		lastWatched = sql.NullTime{Time: *input.LastWatched, Valid: true}
+	}
 
 	var rowListType sql.NullString
 	err := s.db.QueryRowContext(ctx, `
-		insert into saved_titles (user_id, tmdb_id, media_type, list_type, title, next_release, status, poster_url, backdrop_url)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		insert into saved_titles (user_id, tmdb_id, media_type, list_type, title, next_release, status, poster_url, backdrop_url, user_rating, watch_count, last_watched_at)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		on conflict (user_id, tmdb_id, media_type, list_type)
 		do update set
 			title = excluded.title,
@@ -161,8 +193,11 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 			status = excluded.status,
 			poster_url = excluded.poster_url,
 			backdrop_url = excluded.backdrop_url,
+			user_rating = coalesce(excluded.user_rating, saved_titles.user_rating),
+			watch_count = case when $13 then excluded.watch_count else saved_titles.watch_count end,
+			last_watched_at = coalesce(excluded.last_watched_at, saved_titles.last_watched_at),
 			updated_at = now()
-		returning id, user_id, tmdb_id, media_type, list_type, title, next_release, status, poster_url, backdrop_url, created_at, updated_at
+		returning id, user_id, tmdb_id, media_type, list_type, title, next_release, status, poster_url, backdrop_url, user_rating, watch_count, last_watched_at, created_at, updated_at
 	`,
 		input.UserID,
 		input.TMDBID,
@@ -173,6 +208,10 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		status,
 		poster,
 		backdrop,
+		userRating,
+		watchCountValue,
+		lastWatched,
+		watchCountProvided,
 	).Scan(
 		&item.ID,
 		&item.UserID,
@@ -184,6 +223,9 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		&item.Status,
 		&poster,
 		&backdrop,
+		&userRating,
+		&item.WatchCount,
+		&lastWatched,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
@@ -199,6 +241,13 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	}
 	if backdrop.Valid {
 		item.BackdropURL = backdrop.String
+	}
+	if userRating.Valid {
+		rating := int(userRating.Int32)
+		item.UserRating = &rating
+	}
+	if lastWatched.Valid {
+		item.LastWatched = &lastWatched.Time
 	}
 	if rowListType.Valid {
 		item.ListTypes = []string{rowListType.String}
@@ -225,10 +274,63 @@ func (s *Store) Delete(ctx context.Context, userID string, tmdbID int, mediaType
 	return err
 }
 
+func (s *Store) RemoveStatusLists(ctx context.Context, userID string, tmdbID int, mediaType string, keepType string) error {
+	mediaType = strings.TrimSpace(strings.ToLower(mediaType))
+	keepType = normalizeListType(keepType)
+	if keepType == "" {
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, `
+		delete from saved_titles
+		where user_id = $1 and tmdb_id = $2 and media_type = $3
+		  and list_type in ('favorite', 'watched', 'disliked')
+		  and list_type <> $4
+	`, userID, tmdbID, mediaType, keepType)
+	return err
+}
+
+func (s *Store) UpdateStats(
+	ctx context.Context,
+	userID string,
+	tmdbID int,
+	mediaType string,
+	listType string,
+	userRating *int,
+	watchCount *int,
+	lastWatched *time.Time,
+) error {
+	mediaType = strings.TrimSpace(strings.ToLower(mediaType))
+	listType = normalizeListType(listType)
+	if listType == "" {
+		listType = "follow"
+	}
+	var rating sql.NullInt32
+	if userRating != nil {
+		rating = sql.NullInt32{Int32: int32(*userRating), Valid: true}
+	}
+	var count sql.NullInt32
+	if watchCount != nil {
+		count = sql.NullInt32{Int32: int32(*watchCount), Valid: true}
+	}
+	var watched sql.NullTime
+	if lastWatched != nil {
+		watched = sql.NullTime{Time: *lastWatched, Valid: true}
+	}
+	_, err := s.db.ExecContext(ctx, `
+		update saved_titles
+		set user_rating = coalesce($5, user_rating),
+		    watch_count = coalesce($6, watch_count),
+		    last_watched_at = coalesce($7, last_watched_at),
+		    updated_at = now()
+		where user_id = $1 and tmdb_id = $2 and media_type = $3 and list_type = $4
+	`, userID, tmdbID, mediaType, listType, rating, count, watched)
+	return err
+}
+
 func normalizeListType(value string) string {
 	listType := strings.TrimSpace(strings.ToLower(value))
 	switch listType {
-	case "follow", "watchlist", "favorite":
+	case "follow", "watchlist", "favorite", "watched", "disliked":
 		return listType
 	default:
 		return ""

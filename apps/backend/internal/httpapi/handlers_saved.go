@@ -13,27 +13,42 @@ import (
 )
 
 type savedItem struct {
-	TMDBID      int    `json:"tmdbId"`
-	MediaType   string `json:"mediaType"`
-	Title       string `json:"title"`
-	NextRelease string `json:"nextRelease,omitempty"`
-	Status      string `json:"status"`
-	PosterURL   string `json:"posterUrl,omitempty"`
-	BackdropURL string `json:"backdropUrl,omitempty"`
-	ListTypes   []string `json:"listTypes,omitempty"`
-	Source      string `json:"source"`
-	Type        string `json:"type"`
+	TMDBID        int      `json:"tmdbId"`
+	MediaType     string   `json:"mediaType"`
+	Title         string   `json:"title"`
+	NextRelease   string   `json:"nextRelease,omitempty"`
+	Status        string   `json:"status"`
+	PosterURL     string   `json:"posterUrl,omitempty"`
+	BackdropURL   string   `json:"backdropUrl,omitempty"`
+	ListTypes     []string `json:"listTypes,omitempty"`
+	UserRating    *int     `json:"userRating,omitempty"`
+	WatchCount    int      `json:"watchCount,omitempty"`
+	LastWatchedAt string   `json:"lastWatchedAt,omitempty"`
+	Source        string   `json:"source"`
+	Type          string   `json:"type"`
 }
 
 type saveRequest struct {
- 	TMDBID      int    `json:"tmdbId"`
- 	MediaType   string `json:"mediaType"`
- 	Title       string `json:"title"`
- 	NextRelease string `json:"nextRelease"`
- 	Status      string `json:"status"`
- 	PosterURL   string `json:"posterUrl"`
- 	BackdropURL string `json:"backdropUrl"`
- 	ListType    string `json:"listType"`
+	TMDBID        int     `json:"tmdbId"`
+	MediaType     string  `json:"mediaType"`
+	Title         string  `json:"title"`
+	NextRelease   string  `json:"nextRelease"`
+	Status        string  `json:"status"`
+	PosterURL     string  `json:"posterUrl"`
+	BackdropURL   string  `json:"backdropUrl"`
+	ListType      string  `json:"listType"`
+	UserRating    *int    `json:"userRating,omitempty"`
+	WatchCount    *int    `json:"watchCount,omitempty"`
+	LastWatchedAt string  `json:"lastWatchedAt,omitempty"`
+}
+
+type updateStatsRequest struct {
+	TMDBID        int     `json:"tmdbId"`
+	MediaType     string  `json:"mediaType"`
+	ListType      string  `json:"listType"`
+	UserRating    *int    `json:"userRating,omitempty"`
+	WatchCount    *int    `json:"watchCount,omitempty"`
+	LastWatchedAt string  `json:"lastWatchedAt,omitempty"`
 }
 
 func (s *Server) savedHandler(w http.ResponseWriter, r *http.Request) {
@@ -48,11 +63,17 @@ func (s *Server) savedHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) savedItemHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
+	switch r.Method {
+	case http.MethodDelete:
+		s.handleSavedDelete(w, r)
+	case http.MethodPatch:
+		s.handleSavedUpdate(w, r)
+	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
+}
 
+func (s *Server) handleSavedDelete(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.requireUserID(r)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -87,6 +108,57 @@ func (s *Server) savedItemHandler(w http.ResponseWriter, r *http.Request) {
 	if err := s.saved.Remove(r.Context(), userID, tmdbID, mediaType, listType); err != nil {
 		s.logger.Printf("saved delete failed: %v", err)
 		http.Error(w, "failed to delete saved title", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleSavedUpdate(w http.ResponseWriter, r *http.Request) {
+	userID, err := s.requireUserID(r)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if s.saved == nil {
+		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	var payload updateStatsRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	if payload.TMDBID <= 0 || payload.MediaType == "" || payload.ListType == "" {
+		http.Error(w, "tmdbId, mediaType and listType are required", http.StatusBadRequest)
+		return
+	}
+	if normalized, ok := normalizeListType(payload.ListType); ok {
+		payload.ListType = normalized
+	} else {
+		http.Error(w, "invalid listType", http.StatusBadRequest)
+		return
+	}
+	var lastWatched *time.Time
+	if strings.TrimSpace(payload.LastWatchedAt) != "" {
+		if parsed, err := time.Parse(time.RFC3339, payload.LastWatchedAt); err == nil {
+			lastWatched = &parsed
+		}
+	}
+
+	if err := s.saved.UpdateStats(
+		r.Context(),
+		userID,
+		payload.TMDBID,
+		payload.MediaType,
+		payload.ListType,
+		payload.UserRating,
+		payload.WatchCount,
+		lastWatched,
+	); err != nil {
+		s.logger.Printf("saved stats update failed: %v", err)
+		http.Error(w, "failed to update saved stats", http.StatusInternalServerError)
 		return
 	}
 
@@ -166,6 +238,12 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 			nextRelease = &parsed
 		}
 	}
+	var lastWatched *time.Time
+	if strings.TrimSpace(payload.LastWatchedAt) != "" {
+		if parsed, err := time.Parse(time.RFC3339, payload.LastWatchedAt); err == nil {
+			lastWatched = &parsed
+		}
+	}
 
 	item, err := s.saved.Upsert(r.Context(), saved.UpsertInput{
 		UserID:      userID,
@@ -177,6 +255,9 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 		PosterURL:   strings.TrimSpace(payload.PosterURL),
 		BackdropURL: strings.TrimSpace(payload.BackdropURL),
 		ListType:    strings.TrimSpace(payload.ListType),
+		UserRating:  payload.UserRating,
+		WatchCount:  payload.WatchCount,
+		LastWatched: lastWatched,
 	})
 	if err != nil {
 		if errors.Is(err, saved.ErrInvalidMediaType) {
@@ -214,6 +295,10 @@ func mapSavedItem(item saved.Title) savedItem {
 	if item.NextRelease != nil {
 		nextRelease = item.NextRelease.Format(time.RFC3339)
 	}
+	lastWatched := ""
+	if item.LastWatched != nil {
+		lastWatched = item.LastWatched.Format(time.RFC3339)
+	}
 	mediaType := item.MediaType
 	releaseType := "series"
 	if mediaType == "movie" {
@@ -228,6 +313,9 @@ func mapSavedItem(item saved.Title) savedItem {
 		PosterURL:   item.PosterURL,
 		BackdropURL: item.BackdropURL,
 		ListTypes:   item.ListTypes,
+		UserRating:  item.UserRating,
+		WatchCount:  item.WatchCount,
+		LastWatchedAt: lastWatched,
 		Source:      "tmdb",
 		Type:        releaseType,
 	}
@@ -236,7 +324,7 @@ func mapSavedItem(item saved.Title) savedItem {
 func normalizeListType(value string) (string, bool) {
 	listType := strings.TrimSpace(strings.ToLower(value))
 	switch listType {
-	case "follow", "watchlist", "favorite":
+	case "follow", "watchlist", "favorite", "watched", "disliked":
 		return listType, true
 	default:
 		return "", false

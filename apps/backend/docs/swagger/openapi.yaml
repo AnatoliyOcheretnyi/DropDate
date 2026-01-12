@@ -325,7 +325,7 @@ paths:
           name: listType
           schema:
             type: string
-            enum: [follow, watchlist, favorite]
+            enum: [follow, watchlist, favorite, watched, disliked]
           required: false
           description: Фільтр за типом списку (опційно)
       responses:
@@ -384,11 +384,28 @@ paths:
           name: listType
           schema:
             type: string
-            enum: [follow, watchlist, favorite]
+            enum: [follow, watchlist, favorite, watched, disliked]
           required: false
       responses:
         '204':
           description: Видалено
+        '400':
+          description: Некоректні дані
+        '401':
+          description: Неавторизований
+        '500':
+          description: Помилка бекенду
+    patch:
+      summary: Оновити статистику тайтла у списку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedStatsRequest'
+      responses:
+        '204':
+          description: Оновлено
         '400':
           description: Некоректні дані
         '401':
@@ -426,7 +443,16 @@ components:
           type: array
           items:
             type: string
-            enum: [follow, watchlist, favorite]
+            enum: [follow, watchlist, favorite, watched, disliked]
+        userRating:
+          type: integer
+          example: 8
+        watchCount:
+          type: integer
+          example: 2
+        lastWatchedAt:
+          type: string
+          format: date-time
         source:
           type: string
           example: tmdb
@@ -460,8 +486,34 @@ components:
           format: uri
         listType:
           type: string
-          enum: [follow, watchlist, favorite]
+          enum: [follow, watchlist, favorite, watched, disliked]
           example: follow
+        userRating:
+          type: integer
+        watchCount:
+          type: integer
+        lastWatchedAt:
+          type: string
+          format: date-time
+    SavedStatsRequest:
+      type: object
+      required: [tmdbId, mediaType, listType]
+      properties:
+        tmdbId:
+          type: integer
+        mediaType:
+          type: string
+          enum: [movie, tv]
+        listType:
+          type: string
+          enum: [follow, watchlist, favorite, watched, disliked]
+        userRating:
+          type: integer
+        watchCount:
+          type: integer
+        lastWatchedAt:
+          type: string
+          format: date-time
     ReleaseInfo:
       type: object
       properties:

@@ -58,14 +58,22 @@ export default function TitleDetailsPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { savedCount, getListTypes, setSuggestionLists, isSuggestionSaved } =
-    useSavedReleases();
+  const {
+    savedCount,
+    getListTypes,
+    getSavedItem,
+    setSuggestionLists,
+    updateListStats,
+    isSuggestionSaved,
+  } = useSavedReleases();
   const [listPickerAnchor, setListPickerAnchor] = useState<
     "main" | "release" | null
   >(null);
   const [toasts, setToasts] = useState<
     { id: string; message: string; tone?: "success" | "warning" }[]
   >([]);
+  const [localRating, setLocalRating] = useState<number | undefined>(undefined);
+  const [localWatchCount, setLocalWatchCount] = useState<number>(0);
 
   const handleClearSelection = useCallback(() => {
     setError(null);
@@ -203,6 +211,16 @@ export default function TitleDetailsPage() {
   const currentListTypes = currentSuggestion
     ? getListTypes(currentSuggestion)
     : [];
+  const currentSavedItem = useMemo(
+    () => (currentSuggestion ? getSavedItem(currentSuggestion) : undefined),
+    [currentSuggestion, getSavedItem]
+  );
+  const statusListType = useMemo(() => {
+    if (currentListTypes.includes("favorite")) return "favorite";
+    if (currentListTypes.includes("watched")) return "watched";
+    if (currentListTypes.includes("disliked")) return "disliked";
+    return null;
+  }, [currentListTypes]);
 
   const currentRelease = useMemo(() => {
     if (!details) {
@@ -216,6 +234,8 @@ export default function TitleDetailsPage() {
       follow: copy.lists?.follow ?? "Підписка",
       watchlist: copy.lists?.watchlist ?? "Want to watch",
       favorite: copy.lists?.favorite ?? "Favorites",
+      watched: copy.lists?.watched ?? "Переглянуто",
+      disliked: copy.lists?.disliked ?? "Не сподобалось",
     }),
     []
   );
@@ -268,6 +288,40 @@ export default function TitleDetailsPage() {
     },
     [currentRelease, currentSuggestion, details]
   );
+
+  useEffect(() => {
+    if (!statusListType) {
+      setLocalRating(undefined);
+      setLocalWatchCount(0);
+      return;
+    }
+    setLocalRating(currentSavedItem?.userRating);
+    setLocalWatchCount(currentSavedItem?.watchCount || 1);
+  }, [
+    currentSavedItem?.userRating,
+    currentSavedItem?.watchCount,
+    statusListType,
+  ]);
+
+  const handleRatingChange = (value: number) => {
+    if (!currentSuggestion || !statusListType) {
+      return;
+    }
+    setLocalRating(value);
+    updateListStats(currentSuggestion, statusListType, { userRating: value });
+  };
+
+  const handleWatchCountChange = (delta: number) => {
+    if (!currentSuggestion || !statusListType) {
+      return;
+    }
+    const next = Math.max(1, (localWatchCount || 1) + delta);
+    setLocalWatchCount(next);
+    updateListStats(currentSuggestion, statusListType, {
+      watchCount: next,
+      lastWatchedAt: new Date().toISOString(),
+    });
+  };
 
   const metaRows = useMemo(() => {
     if (!details) {
@@ -525,6 +579,63 @@ export default function TitleDetailsPage() {
                     <span className="hint">{copy.hints.noReleaseData}</span>
                   )}
                 </div>
+                {statusListType ? (
+                  <div className="details-user-card">
+                    <h4>{copy.details.labels.personalTitle}</h4>
+                    <div className="details-user-row">
+                      <span>{copy.details.labels.yourRating}</span>
+                      <div className="details-user-rating">
+                        <input
+                          type="range"
+                          min={1}
+                          max={10}
+                          step={1}
+                          value={localRating || 1}
+                          onChange={(event) =>
+                            handleRatingChange(Number(event.target.value))
+                          }
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={localRating ?? ""}
+                          placeholder="–"
+                          onChange={(event) => {
+                            const value = Number(event.target.value);
+                            if (Number.isNaN(value)) {
+                              setLocalRating(undefined);
+                              return;
+                            }
+                            handleRatingChange(
+                              Math.min(10, Math.max(1, value))
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="details-user-row">
+                      <span>{copy.details.labels.watchCount}</span>
+                      <div className="details-user-stepper">
+                        <button
+                          type="button"
+                          onClick={() => handleWatchCountChange(-1)}
+                          aria-label="Зменшити"
+                        >
+                          −
+                        </button>
+                        <span>{localWatchCount || 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleWatchCountChange(1)}
+                          aria-label="Збільшити"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <aside className="details-side">
                 <div className="details-side-card">

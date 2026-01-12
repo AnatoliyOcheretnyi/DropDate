@@ -13,7 +13,7 @@ import { useSuggestions } from "../hooks/useSuggestions";
 import { useAuth } from "../state/auth";
 import type { SavedRelease } from "../lib/releases";
 
-type TabKey = "follow" | "watchlist" | "favorite";
+type TabKey = "follow" | "watchlist" | "favorite" | "watched" | "disliked";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -36,6 +36,8 @@ export default function ProfilePage() {
     follow: "Підписка",
     watchlist: "Want to watch",
     favorite: "Favorites",
+    watched: "Переглянуто",
+    disliked: "Не сподобалось",
     empty: "Поки порожньо — додай зі сторінки пошуку/трендів",
     loginPrompt: "Увійди, щоб зберігати більше та мати кілька списків.",
   };
@@ -45,11 +47,15 @@ export default function ProfilePage() {
     watched: "Переглянуто",
     rewatches: "Повторні перегляди",
     series: "Серіалів",
+    views: "Переглядів",
+    avgRating: "Середня оцінка",
   };
   const tabs = [
     { key: "follow", label: listCopy.follow },
     { key: "watchlist", label: listCopy.watchlist },
     { key: "favorite", label: listCopy.favorite },
+    { key: "watched", label: listCopy.watched },
+    { key: "disliked", label: listCopy.disliked },
   ] satisfies { key: TabKey; label: string }[];
 
   const normalizeItemLists = useCallback((item: SavedRelease): TabKey[] => {
@@ -142,11 +148,7 @@ export default function ProfilePage() {
     if (activeTab !== "watchlist") {
       return 0;
     }
-    return tabItems.reduce((sum, item) => {
-      const count = (item as SavedRelease & { watchedCount?: number })
-        .watchedCount;
-      return sum + (count || 0);
-    }, 0);
+    return tabItems.filter((item) => (item.watchCount || 0) > 0).length;
   }, [activeTab, tabItems]);
 
   const rewatchCount = useMemo(() => {
@@ -154,10 +156,30 @@ export default function ProfilePage() {
       return 0;
     }
     return tabItems.reduce((sum, item) => {
-      const count = (item as SavedRelease & { rewatchCount?: number })
-        .rewatchCount;
-      return sum + (count || 0);
+      const count = item.watchCount || 0;
+      return sum + Math.max(0, count - 1);
     }, 0);
+  }, [activeTab, tabItems]);
+
+  const watchedViews = useMemo(() => {
+    if (activeTab !== "watched") {
+      return 0;
+    }
+    return tabItems.reduce((sum, item) => sum + (item.watchCount || 0), 0);
+  }, [activeTab, tabItems]);
+
+  const averageRating = useMemo(() => {
+    if (activeTab !== "disliked") {
+      return 0;
+    }
+    const ratings = tabItems
+      .map((item) => item.userRating)
+      .filter((value): value is number => typeof value === "number");
+    if (ratings.length === 0) {
+      return 0;
+    }
+    const total = ratings.reduce((sum, value) => sum + value, 0);
+    return Math.round((total / ratings.length) * 10) / 10;
   }, [activeTab, tabItems]);
 
   const middleStat = useMemo(() => {
@@ -167,8 +189,22 @@ export default function ProfilePage() {
     if (activeTab === "watchlist") {
       return { value: watchedCount, label: statsCopy.watched, tone: "amber" };
     }
-    return { value: rewatchCount, label: statsCopy.rewatches, tone: "amber" };
-  }, [activeTab, statsCopy, weekCount, watchedCount, rewatchCount]);
+    if (activeTab === "favorite") {
+      return { value: rewatchCount, label: statsCopy.rewatches, tone: "amber" };
+    }
+    if (activeTab === "watched") {
+      return { value: watchedViews, label: statsCopy.views, tone: "amber" };
+    }
+    return { value: averageRating, label: statsCopy.avgRating, tone: "amber" };
+  }, [
+    activeTab,
+    averageRating,
+    rewatchCount,
+    statsCopy,
+    watchedCount,
+    watchedViews,
+    weekCount,
+  ]);
 
   const handleRemoveFromTab = useCallback(
     (item: SavedRelease) => {
@@ -305,6 +341,22 @@ export default function ProfilePage() {
                   <svg viewBox="0 0 24 24">
                     <path
                       d="M12 20.6 4.6 13.3a4.5 4.5 0 0 1 6.4-6.4L12 7.9l1-1a4.5 4.5 0 1 1 6.4 6.4L12 20.6Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
+                {tab.key === "watched" && (
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm4.2-12.6-5.2 5.2-2.4-2.4-1.4 1.4 3.8 3.8 6.6-6.6-1.4-1.4Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
+                {tab.key === "disliked" && (
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M3 10h4v10H3V10Zm6.2 0h6.1c.9 0 1.7.4 2.2 1.1l2.2 3.3c.3.5.5 1 .5 1.6V20a2 2 0 0 1-2 2h-5c-.8 0-1.5-.4-1.9-1l-2.1-3.1v-7.9Z"
                       fill="currentColor"
                     />
                   </svg>

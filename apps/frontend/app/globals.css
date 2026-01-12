@@ -979,6 +979,77 @@ main.page--profile {
   align-items: center;
 }
 
+.details-user-card {
+  margin-top: 1.25rem;
+  padding: 1rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(84, 255, 182, 0.2);
+  background: rgba(12, 26, 22, 0.7);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.details-user-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(245, 245, 245, 0.85);
+}
+
+.details-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: rgba(245, 245, 245, 0.75);
+  font-size: 0.9rem;
+}
+
+.details-user-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.details-user-rating input[type="range"] {
+  accent-color: #5fffd4;
+}
+
+.details-user-rating input[type="number"] {
+  width: 64px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(245, 245, 245, 0.9);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.details-user-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+}
+
+.details-user-stepper button {
+  border: none;
+  background: transparent;
+  color: #5fffd4;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.details-user-stepper span {
+  min-width: 24px;
+  text-align: center;
+  color: rgba(245, 245, 245, 0.9);
+  font-weight: 600;
+}
+
 .details-facts {
   display: flex;
   flex-wrap: wrap;
