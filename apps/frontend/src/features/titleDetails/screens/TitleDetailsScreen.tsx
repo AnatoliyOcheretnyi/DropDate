@@ -6,8 +6,8 @@ import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 import { ListBadges } from "../../../shared/ui/ListBadges";
 import { ListPickerModal } from "../../../widgets/ListPickerModal";
-import { getReleaseStatusLabel } from "../../../../lib/release";
-import { copy } from "../../../../lib/strings";
+import { getReleaseStatusLabel } from "../../../shared/lib/release";
+import { copy } from "../../../shared/lib/strings";
 import { useTitleDetails } from "../hooks/useTitleDetails";
 
 export function TitleDetailsScreen() {

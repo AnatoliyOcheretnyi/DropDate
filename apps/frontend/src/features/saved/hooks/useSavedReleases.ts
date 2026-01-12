@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReleaseInfo, Suggestion } from "../../lib/release";
+import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import {
   STORAGE_KEY,
   type SavedRelease,
   type ListType,
   getSuggestionId,
   savedIdentifier,
-} from "../lib/releases";
-import { copy } from "../../lib/strings";
-import { useAuth } from "../state/auth";
+} from "../../../shared/types/releases";
+import { copy } from "../../../shared/lib/strings";
+import { useAuth } from "../../../shared/state/auth";
 
 const remoteState: {
   token: string | null;

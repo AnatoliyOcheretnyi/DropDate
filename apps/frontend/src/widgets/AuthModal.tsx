@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { copy } from "../../lib/strings";
-import { useAuth } from "../../app/state/auth";
+import { copy } from "../shared/lib/strings";
+import { useAuth } from "../shared/state/auth";
 
 type Mode = "login" | "register";
 

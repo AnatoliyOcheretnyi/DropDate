@@ -1,4 +1,4 @@
-import type { ReleaseInfo, Suggestion } from "../../lib/release";
+import type { ReleaseInfo, Suggestion } from "../lib/release";
 
 export const STORAGE_KEY = "dropdate:saved-releases";
 

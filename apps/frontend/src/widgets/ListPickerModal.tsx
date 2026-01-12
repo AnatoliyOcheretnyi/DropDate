@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ListType } from "../../app/lib/releases";
-import { copy } from "../../lib/strings";
+import type { ListType } from "../shared/types/releases";
+import { copy } from "../shared/lib/strings";
 
 type Props = {
   isOpen: boolean;

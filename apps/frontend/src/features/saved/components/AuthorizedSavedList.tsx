@@ -1,8 +1,8 @@
 "use client";
 
-import type { SavedRelease } from "../../../../app/lib/releases";
-import { getReleaseStatusLabel, type Suggestion } from "../../../../lib/release";
-import { copy } from "../../../../lib/strings";
+import type { SavedRelease } from "../../../shared/types/releases";
+import { getReleaseStatusLabel, type Suggestion } from "../../../shared/lib/release";
+import { copy } from "../../../shared/lib/strings";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -64,7 +64,12 @@ const SECTION_TITLES: Record<string, string> = copy.saved.sectionTitles;
 
 const SECTION_ORDER = ["today", "week", "month", "later", "ended", "unknown"] as const;
 
-export function SavedList({ items, onRemove, actionsDisabled, groupByDate = true }: Props) {
+export function AuthorizedSavedList({
+  items,
+  onRemove,
+  actionsDisabled,
+  groupByDate = true,
+}: Props) {
   const router = useRouter();
   const buckets = groupByDate
     ? items.reduce<Record<string, SavedRelease[]>>((acc, item) => {

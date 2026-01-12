@@ -3,7 +3,7 @@
 import { Header } from "../../../widgets/Header";
 import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { AuthModal } from "../../../widgets/AuthModal";
-import { SavedList } from "../../saved/components/SavedList";
+import { AuthorizedSavedList } from "../../saved/components/AuthorizedSavedList";
 import { useProfile } from "../hooks/useProfile";
 import { ProfileCard } from "../components/ProfileCard";
 import { ProfileStats } from "../components/ProfileStats";
@@ -98,7 +98,7 @@ export function ProfileScreen() {
           statsCopy={{ total: statsCopy.total, series: statsCopy.series }}
         />
 
-        <SavedList
+        <AuthorizedSavedList
           items={tabItems}
           onRemove={handleRemoveFromTab}
           groupByDate={activeTab === "follow"}

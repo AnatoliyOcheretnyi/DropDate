@@ -1,8 +1,8 @@
 "use client";
 
-import type { Suggestion } from "../../lib/release";
-import type { ListType } from "../../app/lib/releases";
-import { copy } from "../../lib/strings";
+import type { Suggestion } from "../shared/lib/release";
+import type { ListType } from "../shared/types/releases";
+import { copy } from "../shared/lib/strings";
 import { ListBadges } from "../shared/ui/ListBadges";
 
 type Props = {

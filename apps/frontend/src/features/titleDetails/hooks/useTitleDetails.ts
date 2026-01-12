@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { Details, ReleaseInfo, Suggestion } from "../../../../lib/release";
-import { copy } from "../../../../lib/strings";
-import { useSavedReleases } from "../../../../app/hooks/useSavedReleases";
-import { useSuggestions } from "../../../../app/hooks/useSuggestions";
-import type { ListType } from "../../../../app/lib/releases";
+import type { Details, ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import { copy } from "../../../shared/lib/strings";
+import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
+import { useSuggestions } from "../../../shared/hooks/useSuggestions";
+import type { ListType } from "../../../shared/types/releases";
 import { fetchDetails } from "../api/detailsApi";
 
 const formatDate = (value?: string) => {

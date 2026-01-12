@@ -2,13 +2,13 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Suggestion } from "../../../../lib/release";
+import type { Suggestion } from "../../../shared/lib/release";
 import { Header } from "../../../widgets/Header";
 import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { TrendingCarousel } from "../components/TrendingCarousel";
-import { copy } from "../../../../lib/strings";
-import { useSavedReleases } from "../../../../app/hooks/useSavedReleases";
-import { useSuggestions } from "../../../../app/hooks/useSuggestions";
+import { copy } from "../../../shared/lib/strings";
+import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
+import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 
 type Props = {
   trendingMovies: Suggestion[];

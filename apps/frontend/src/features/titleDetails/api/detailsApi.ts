@@ -1,6 +1,6 @@
 "use client";
 
-import type { Details, ReleaseInfo, Suggestion } from "../../../../lib/release";
+import type { Details, ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 
 export type DetailsPayload = {
   details: Details;

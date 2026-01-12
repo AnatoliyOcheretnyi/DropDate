@@ -1,4 +1,4 @@
-import type { Suggestion } from "../lib/release";
+import type { Suggestion } from "../src/shared/lib/release";
 import { HomeScreen } from "../src/features/home/screens/HomeScreen";
 
 const DEFAULT_BACKEND_URL = "http://localhost:8080";

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { copy } from "../../lib/strings";
+import { copy } from "../shared/lib/strings";
 
 export function Footer() {
   const year = new Date().getFullYear();

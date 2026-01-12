@@ -1,6 +1,6 @@
 "use client";
 
-import { copy } from "../../../lib/strings";
+import { copy } from "../lib/strings";
 
 type TabKey = "search" | "saved";
 

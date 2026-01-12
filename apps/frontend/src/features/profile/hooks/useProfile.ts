@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ReleaseInfo, Suggestion } from "../../../../lib/release";
-import { copy } from "../../../../lib/strings";
-import { useSavedReleases } from "../../../../app/hooks/useSavedReleases";
-import { useSuggestions } from "../../../../app/hooks/useSuggestions";
-import { useAuth } from "../../../../app/state/auth";
-import type { SavedRelease } from "../../../../app/lib/releases";
+import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import { copy } from "../../../shared/lib/strings";
+import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
+import { useSuggestions } from "../../../shared/hooks/useSuggestions";
+import { useAuth } from "../../../shared/state/auth";
+import type { SavedRelease } from "../../../shared/types/releases";
 import type { ProfileStat, TabDefinition, TabKey } from "../types";
 
 type ListCopy = {

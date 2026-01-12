@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   NotificationItem,
   NotificationsResponse,
-} from "../lib/notifications";
-import { useAuth } from "../state/auth";
+} from "../types/notifications";
+import { useAuth } from "../../../shared/state/auth";
 
 const emptyState = { items: [], unreadCount: 0 } satisfies NotificationsResponse;
 

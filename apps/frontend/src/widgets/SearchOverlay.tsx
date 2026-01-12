@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Suggestion } from "../../lib/release";
-import { copy } from "../../lib/strings";
+import type { Suggestion } from "../shared/lib/release";
+import { copy } from "../shared/lib/strings";
 import { Suggestions } from "../shared/ui/Suggestions";
 
 type Props = {

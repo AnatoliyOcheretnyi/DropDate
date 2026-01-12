@@ -1,7 +1,7 @@
 "use client";
 
-import { getReleaseStatusLabel, type ReleaseInfo } from "../../../lib/release";
-import { copy } from "../../../lib/strings";
+import { getReleaseStatusLabel, type ReleaseInfo } from "../lib/release";
+import { copy } from "../lib/strings";
 import { ReleaseDetails } from "./ReleaseDetails";
 
 type Props = {

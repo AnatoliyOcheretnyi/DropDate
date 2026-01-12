@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { copy } from "../../lib/strings";
-import { useAuth } from "../../app/state/auth";
-import { useNotifications } from "../../app/hooks/useNotifications";
-import type { NotificationItem } from "../../app/lib/notifications";
+import { copy } from "../shared/lib/strings";
+import { useAuth } from "../shared/state/auth";
+import { useNotifications } from "../features/notifications/hooks/useNotifications";
+import type { NotificationItem } from "../features/notifications/types/notifications";
 import { AuthModal } from "./AuthModal";
 
 type ViewKey = "home" | "saved";

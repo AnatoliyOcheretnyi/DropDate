@@ -1,7 +1,7 @@
 "use client";
 
-import type { Suggestion } from "../../../lib/release";
-import { copy } from "../../../lib/strings";
+import type { Suggestion } from "../lib/release";
+import { copy } from "../lib/strings";
 
 type Props = {
   suggestions: Suggestion[];
