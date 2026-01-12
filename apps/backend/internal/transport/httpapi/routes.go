@@ -4,6 +4,7 @@ import "net/http"
 
 func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", s.healthHandler)
+	mux.HandleFunc("/ready", s.readyHandler)
 	mux.HandleFunc("/next-release", s.nextReleaseHandler)
 	mux.HandleFunc("/suggest", s.suggestHandler)
 	mux.HandleFunc("/trending", s.trendingHandler)

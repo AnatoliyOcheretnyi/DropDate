@@ -20,12 +20,23 @@ type AuthService interface {
 	Config() auth.Config
 }
 
+type ReadinessChecker interface {
+	Ready(ctx context.Context) error
+}
+
+type ServerOptions struct {
+	Readiness        ReadinessChecker
+	ReadinessTimeout time.Duration
+}
+
 type Server struct {
-	releases      *release.Service
-	auth          AuthService
-	saved         *saved.Service
-	notifications *notifications.Service
-	logger        *log.Logger
+	releases         *release.Service
+	auth             AuthService
+	saved            *saved.Service
+	notifications    *notifications.Service
+	readiness        ReadinessChecker
+	readinessTimeout time.Duration
+	logger           *log.Logger
 }
 
 func NewServer(
@@ -34,21 +45,27 @@ func NewServer(
 	savedSvc *saved.Service,
 	notificationsSvc *notifications.Service,
 	logger *log.Logger,
+	options ServerOptions,
 ) *Server {
 	if logger == nil {
 		logger = log.Default()
 	}
+	if options.ReadinessTimeout <= 0 {
+		options.ReadinessTimeout = 2 * time.Second
+	}
 	return &Server{
-		releases:      releases,
-		auth:          authSvc,
-		saved:         savedSvc,
-		notifications: notificationsSvc,
-		logger:        logger,
+		releases:         releases,
+		auth:             authSvc,
+		saved:            savedSvc,
+		notifications:    notificationsSvc,
+		readiness:        options.Readiness,
+		readinessTimeout: options.ReadinessTimeout,
+		logger:           logger,
 	}
 }
 
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
-	return mux
+	return s.withMiddleware(mux)
 }

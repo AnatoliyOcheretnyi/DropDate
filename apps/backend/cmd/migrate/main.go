@@ -10,13 +10,14 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/config"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const migrationsDir = "./migrations"
 
 func main() {
-	loadEnvFiles([]string{".env", ".env.local"})
+	config.LoadEnvFiles(".env", ".env.local")
 	dsn := strings.TrimSpace(os.Getenv("SUPABASE_CONNECTION_STRING"))
 	if dsn == "" {
 		log.Fatal("SUPABASE_CONNECTION_STRING is required")
@@ -58,35 +59,6 @@ func main() {
 	}
 
 	log.Printf("migrations complete")
-}
-
-func loadEnvFiles(paths []string) {
-	for _, path := range paths {
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		lines := strings.Split(string(raw), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			key := strings.TrimSpace(parts[0])
-			val := strings.TrimSpace(parts[1])
-			if key == "" {
-				continue
-			}
-			if _, exists := os.LookupEnv(key); exists {
-				continue
-			}
-			_ = os.Setenv(key, strings.Trim(val, `"'`))
-		}
-	}
 }
 
 func ensureMigrationsTable(db *sql.DB) error {

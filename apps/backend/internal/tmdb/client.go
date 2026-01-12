@@ -96,6 +96,15 @@ func NewClient(httpClient *http.Client, accessToken string) (*Client, error) {
 	}, nil
 }
 
+// Health verifies the TMDB API token with a lightweight request.
+func (c *Client) Health(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/configuration", c.baseURL), nil)
+	if err != nil {
+		return err
+	}
+	return c.do(req, nil)
+}
+
 // NextRelease finds the first TV show or movie that matches the query.
 func (c *Client) NextRelease(ctx context.Context, title string) (ReleaseInfo, error) {
 	results, err := c.search(ctx, title)
