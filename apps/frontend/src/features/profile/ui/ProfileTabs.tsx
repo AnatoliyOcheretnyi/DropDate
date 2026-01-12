@@ -1,0 +1,71 @@
+"use client";
+
+import type { TabDefinition, TabKey } from "../types";
+
+type Props = {
+  tabs: TabDefinition[];
+  activeTab: TabKey;
+  isAuthenticated: boolean;
+  onChange: (tab: TabKey) => void;
+};
+
+export function ProfileTabs({ tabs, activeTab, isAuthenticated, onChange }: Props) {
+  return (
+    <div className="profile-tabs">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          className={`profile-tab${activeTab === tab.key ? " active" : ""}`}
+          aria-label={tab.label}
+          onClick={() => onChange(tab.key)}
+          disabled={!isAuthenticated && tab.key !== "follow"}
+        >
+          <span className={`tab-icon tab-icon--${tab.key}`} aria-hidden="true">
+            {tab.key === "follow" && (
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 3a6 6 0 0 1 6 6v3.1l1.6 2.7a1 1 0 0 1-.86 1.5H5.26a1 1 0 0 1-.86-1.5l1.6-2.7V9a6 6 0 0 1 6-6Zm0 18a2.5 2.5 0 0 1-2.45-2h4.9A2.5 2.5 0 0 1 12 21Z"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+            {tab.key === "watchlist" && (
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M6 3h12a2 2 0 0 1 2 2v16l-8-4-8 4V5a2 2 0 0 1 2-2Z"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+            {tab.key === "favorite" && (
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 20.6 4.6 13.3a4.5 4.5 0 0 1 6.4-6.4L12 7.9l1-1a4.5 4.5 0 1 1 6.4 6.4L12 20.6Z"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+            {tab.key === "watched" && (
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm4.2-12.6-5.2 5.2-2.4-2.4-1.4 1.4 3.8 3.8 6.6-6.6-1.4-1.4Z"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+            {tab.key === "disliked" && (
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M3 10h4v10H3V10Zm6.2 0h6.1c.9 0 1.7.4 2.2 1.1l2.2 3.3c.3.5.5 1 .5 1.6V20a2 2 0 0 1-2 2h-5c-.8 0-1.5-.4-1.9-1l-2.1-3.1v-7.9Z"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+          </span>
+          <span className="tab-label">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
