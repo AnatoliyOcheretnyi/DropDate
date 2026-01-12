@@ -38,6 +38,7 @@ func (n *ReleaseNotifier) Run(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {
 		return
 	}
+	n.logger.Printf("notifications job start (interval=%s)", interval)
 	n.runOnce(ctx)
 
 	ticker := time.NewTicker(interval)
@@ -46,19 +47,23 @@ func (n *ReleaseNotifier) Run(ctx context.Context, interval time.Duration) {
 	for {
 		select {
 		case <-ticker.C:
+			n.logger.Printf("notifications job tick")
 			n.runOnce(ctx)
 		case <-ctx.Done():
+			n.logger.Printf("notifications job stopped: %v", ctx.Err())
 			return
 		}
 	}
 }
 
 func (n *ReleaseNotifier) RunOnce(ctx context.Context) {
+	n.logger.Printf("notifications job manual trigger")
 	n.runOnce(ctx)
 }
 
 func (n *ReleaseNotifier) runOnce(ctx context.Context) {
 	if n.releases == nil || n.saved == nil || n.events == nil {
+		n.logger.Printf("notifications job skipped: missing dependencies")
 		return
 	}
 
@@ -68,6 +73,7 @@ func (n *ReleaseNotifier) runOnce(ctx context.Context) {
 		return
 	}
 	if len(items) == 0 {
+		n.logger.Printf("notifications job: no follow items")
 		return
 	}
 
@@ -92,6 +98,7 @@ func (n *ReleaseNotifier) runOnce(ctx context.Context) {
 			n.logger.Printf("notifications: insert failed for %s: %v", key, err)
 		}
 	}
+	n.logger.Printf("notifications job finished: checked=%d", len(items))
 }
 
 func buildNotificationInput(
