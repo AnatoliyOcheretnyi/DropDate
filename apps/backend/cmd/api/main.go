@@ -83,7 +83,8 @@ func main() {
 	jobCtx, jobCancel := context.WithCancel(context.Background())
 	if notificationsService != nil && savedService != nil {
 		notifier := notifications.NewReleaseNotifier(releaseService, savedService, notificationsService, log.Default())
-		go notifier.Run(jobCtx, 24*time.Hour)
+		interval := parseDurationEnv("NOTIFICATIONS_JOB_INTERVAL", 24*time.Hour)
+		go notifier.Run(jobCtx, interval)
 	}
 
 	shutdown := make(chan os.Signal, 1)

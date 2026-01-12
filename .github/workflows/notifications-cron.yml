@@ -1,0 +1,22 @@
+name: Trigger notifications job
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call notifications job
+        env:
+          JOBS_ACCESS_TOKEN: ${{ secrets.JOBS_ACCESS_TOKEN }}
+          JOBS_ENDPOINT: ${{ secrets.JOBS_ENDPOINT }}
+        run: |
+          if [ -z "$JOBS_ACCESS_TOKEN" ] || [ -z "$JOBS_ENDPOINT" ]; then
+            echo "Missing JOBS_ACCESS_TOKEN or JOBS_ENDPOINT secret."
+            exit 1
+          fi
+          curl -fsS -X POST "$JOBS_ENDPOINT" \
+            -H "Authorization: Bearer $JOBS_ACCESS_TOKEN"

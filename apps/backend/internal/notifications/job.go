@@ -53,6 +53,10 @@ func (n *ReleaseNotifier) Run(ctx context.Context, interval time.Duration) {
 	}
 }
 
+func (n *ReleaseNotifier) RunOnce(ctx context.Context) {
+	n.runOnce(ctx)
+}
+
 func (n *ReleaseNotifier) runOnce(ctx context.Context) {
 	if n.releases == nil || n.saved == nil || n.events == nil {
 		return
