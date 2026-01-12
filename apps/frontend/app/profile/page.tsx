@@ -197,7 +197,7 @@ export default function ProfilePage() {
     if (activeTab === "watchlist") {
       return {
         value: `${watchlistAvgRating}/10`,
-        label: statsCopy.avgRating,
+        label: statsCopy.avgRating ?? "Середня оцінка",
         tone: "amber",
       };
     }
