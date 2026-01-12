@@ -33,7 +33,11 @@ export type Details = {
   lastAirDate?: string;
   nextAirDate?: string;
   nextEpisodeName?: string;
+  nextEpisodeSeason?: number;
+  nextEpisodeNumber?: number;
   lastEpisodeName?: string;
+  lastEpisodeSeason?: number;
+  lastEpisodeNumber?: number;
   seasonCount?: number;
   episodeCount?: number;
   runtime?: number;

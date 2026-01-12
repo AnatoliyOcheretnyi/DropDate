@@ -43,30 +43,34 @@ type SearchResults struct {
 }
 
 type Details struct {
-	ID            int      `json:"id"`
-	Title         string   `json:"title"`
-	MediaType     string   `json:"mediaType"`
-	Overview      string   `json:"overview,omitempty"`
-	Tagline       string   `json:"tagline,omitempty"`
-	PosterURL     string   `json:"posterUrl,omitempty"`
-	BackdropURL   string   `json:"backdropUrl,omitempty"`
-	Status        string   `json:"status,omitempty"`
-	ReleaseDate   string   `json:"releaseDate,omitempty"`
-	FirstAirDate  string   `json:"firstAirDate,omitempty"`
-	LastAirDate   string   `json:"lastAirDate,omitempty"`
-	NextAirDate   string   `json:"nextAirDate,omitempty"`
-	NextEpisode   string   `json:"nextEpisodeName,omitempty"`
-	LastEpisode   string   `json:"lastEpisodeName,omitempty"`
-	SeasonCount   int      `json:"seasonCount,omitempty"`
-	EpisodeCount  int      `json:"episodeCount,omitempty"`
-	Runtime       int      `json:"runtime,omitempty"`
-	Genres        []string `json:"genres,omitempty"`
-	Networks      []string `json:"networks,omitempty"`
-	VoteAverage   float64  `json:"voteAverage,omitempty"`
-	VoteCount     int      `json:"voteCount,omitempty"`
-	Popularity    float64  `json:"popularity,omitempty"`
-	Homepage      string   `json:"homepage,omitempty"`
-	OriginCountry []string `json:"originCountry,omitempty"`
+	ID                int      `json:"id"`
+	Title             string   `json:"title"`
+	MediaType         string   `json:"mediaType"`
+	Overview          string   `json:"overview,omitempty"`
+	Tagline           string   `json:"tagline,omitempty"`
+	PosterURL         string   `json:"posterUrl,omitempty"`
+	BackdropURL       string   `json:"backdropUrl,omitempty"`
+	Status            string   `json:"status,omitempty"`
+	ReleaseDate       string   `json:"releaseDate,omitempty"`
+	FirstAirDate      string   `json:"firstAirDate,omitempty"`
+	LastAirDate       string   `json:"lastAirDate,omitempty"`
+	NextAirDate       string   `json:"nextAirDate,omitempty"`
+	NextEpisode       string   `json:"nextEpisodeName,omitempty"`
+	NextEpisodeSeason int      `json:"nextEpisodeSeason,omitempty"`
+	NextEpisodeNumber int      `json:"nextEpisodeNumber,omitempty"`
+	LastEpisode       string   `json:"lastEpisodeName,omitempty"`
+	LastEpisodeSeason int      `json:"lastEpisodeSeason,omitempty"`
+	LastEpisodeNumber int      `json:"lastEpisodeNumber,omitempty"`
+	SeasonCount       int      `json:"seasonCount,omitempty"`
+	EpisodeCount      int      `json:"episodeCount,omitempty"`
+	Runtime           int      `json:"runtime,omitempty"`
+	Genres            []string `json:"genres,omitempty"`
+	Networks          []string `json:"networks,omitempty"`
+	VoteAverage       float64  `json:"voteAverage,omitempty"`
+	VoteCount         int      `json:"voteCount,omitempty"`
+	Popularity        float64  `json:"popularity,omitempty"`
+	Homepage          string   `json:"homepage,omitempty"`
+	OriginCountry     []string `json:"originCountry,omitempty"`
 }
 
 var (

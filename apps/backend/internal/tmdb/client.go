@@ -37,30 +37,34 @@ type ReleaseInfo struct {
 }
 
 type DetailInfo struct {
-	ID            int
-	Title         string
-	MediaType     string
-	Overview      string
-	Tagline       string
-	PosterURL     string
-	BackdropURL   string
-	Status        string
-	ReleaseDate   string
-	FirstAirDate  string
-	LastAirDate   string
-	NextAirDate   string
-	NextEpisode   string
-	LastEpisode   string
-	SeasonCount   int
-	EpisodeCount  int
-	Runtime       int
-	Genres        []string
-	Networks      []string
-	VoteAverage   float64
-	VoteCount     int
-	Popularity    float64
-	Homepage      string
-	OriginCountry []string
+	ID                int
+	Title             string
+	MediaType         string
+	Overview          string
+	Tagline           string
+	PosterURL         string
+	BackdropURL       string
+	Status            string
+	ReleaseDate       string
+	FirstAirDate      string
+	LastAirDate       string
+	NextAirDate       string
+	NextEpisode       string
+	NextEpisodeSeason int
+	NextEpisodeNumber int
+	LastEpisode       string
+	LastEpisodeSeason int
+	LastEpisodeNumber int
+	SeasonCount       int
+	EpisodeCount      int
+	Runtime           int
+	Genres            []string
+	Networks          []string
+	VoteAverage       float64
+	VoteCount         int
+	Popularity        float64
+	Homepage          string
+	OriginCountry     []string
 }
 
 // Suggestion is a lightweight search result.
@@ -625,43 +629,55 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 	}
 	nextAirDate := ""
 	nextEpisodeName := ""
+	nextEpisodeSeason := 0
+	nextEpisodeNumber := 0
 	if payload.NextEpisode != nil {
 		nextAirDate = payload.NextEpisode.AirDate
 		nextEpisodeName = payload.NextEpisode.Name
+		nextEpisodeSeason = payload.NextEpisode.SeasonNumber
+		nextEpisodeNumber = payload.NextEpisode.EpisodeNumber
 	}
 	lastAirDate := payload.LastAirDate
 	lastEpisodeName := ""
+	lastEpisodeSeason := 0
+	lastEpisodeNumber := 0
 	if payload.LastEpisode != nil {
 		if payload.LastEpisode.AirDate != "" {
 			lastAirDate = payload.LastEpisode.AirDate
 		}
 		lastEpisodeName = payload.LastEpisode.Name
+		lastEpisodeSeason = payload.LastEpisode.SeasonNumber
+		lastEpisodeNumber = payload.LastEpisode.EpisodeNumber
 	}
 
 	return DetailInfo{
-		ID:            id,
-		Title:         payload.Name,
-		MediaType:     "tv",
-		Overview:      payload.Overview,
-		Tagline:       payload.Tagline,
-		PosterURL:     poster,
-		BackdropURL:   backdrop,
-		Status:        payload.Status,
-		FirstAirDate:  payload.FirstAirDate,
-		LastAirDate:   lastAirDate,
-		NextAirDate:   nextAirDate,
-		NextEpisode:   nextEpisodeName,
-		LastEpisode:   lastEpisodeName,
-		SeasonCount:   payload.NumberSeasons,
-		EpisodeCount:  payload.NumberEpisodes,
-		Runtime:       runtime,
-		Genres:        genres,
-		Networks:      networks,
-		VoteAverage:   payload.VoteAverage,
-		VoteCount:     payload.VoteCount,
-		Popularity:    payload.Popularity,
-		Homepage:      payload.Homepage,
-		OriginCountry: payload.OriginCountry,
+		ID:                id,
+		Title:             payload.Name,
+		MediaType:         "tv",
+		Overview:          payload.Overview,
+		Tagline:           payload.Tagline,
+		PosterURL:         poster,
+		BackdropURL:       backdrop,
+		Status:            payload.Status,
+		FirstAirDate:      payload.FirstAirDate,
+		LastAirDate:       lastAirDate,
+		NextAirDate:       nextAirDate,
+		NextEpisode:       nextEpisodeName,
+		NextEpisodeSeason: nextEpisodeSeason,
+		NextEpisodeNumber: nextEpisodeNumber,
+		LastEpisode:       lastEpisodeName,
+		LastEpisodeSeason: lastEpisodeSeason,
+		LastEpisodeNumber: lastEpisodeNumber,
+		SeasonCount:       payload.NumberSeasons,
+		EpisodeCount:      payload.NumberEpisodes,
+		Runtime:           runtime,
+		Genres:            genres,
+		Networks:          networks,
+		VoteAverage:       payload.VoteAverage,
+		VoteCount:         payload.VoteCount,
+		Popularity:        payload.Popularity,
+		Homepage:          payload.Homepage,
+		OriginCountry:     payload.OriginCountry,
 	}, nil
 }
 
@@ -834,8 +850,10 @@ type tmdbNetwork struct {
 }
 
 type tvEpisodeEntry struct {
-	AirDate string `json:"air_date"`
-	Name    string `json:"name"`
+	AirDate       string `json:"air_date"`
+	Name          string `json:"name"`
+	SeasonNumber  int    `json:"season_number"`
+	EpisodeNumber int    `json:"episode_number"`
 }
 
 func yearFromDate(date string) string {

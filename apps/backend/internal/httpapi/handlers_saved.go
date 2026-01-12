@@ -13,42 +13,44 @@ import (
 )
 
 type savedItem struct {
-	TMDBID        int      `json:"tmdbId"`
-	MediaType     string   `json:"mediaType"`
-	Title         string   `json:"title"`
-	NextRelease   string   `json:"nextRelease,omitempty"`
-	Status        string   `json:"status"`
-	PosterURL     string   `json:"posterUrl,omitempty"`
-	BackdropURL   string   `json:"backdropUrl,omitempty"`
-	ListTypes     []string `json:"listTypes,omitempty"`
-	UserRating    *int     `json:"userRating,omitempty"`
-	WatchCount    int      `json:"watchCount,omitempty"`
-	LastWatchedAt string   `json:"lastWatchedAt,omitempty"`
-	Source        string   `json:"source"`
-	Type          string   `json:"type"`
+	TMDBID         int      `json:"tmdbId"`
+	MediaType      string   `json:"mediaType"`
+	Title          string   `json:"title"`
+	NextRelease    string   `json:"nextRelease,omitempty"`
+	Status         string   `json:"status"`
+	PosterURL      string   `json:"posterUrl,omitempty"`
+	BackdropURL    string   `json:"backdropUrl,omitempty"`
+	ListTypes      []string `json:"listTypes,omitempty"`
+	UserRating     *int     `json:"userRating,omitempty"`
+	WatchCount     int      `json:"watchCount,omitempty"`
+	LastWatchedAt  string   `json:"lastWatchedAt,omitempty"`
+	RuntimeMinutes *int     `json:"runtimeMinutes,omitempty"`
+	EpisodeCount   *int     `json:"episodeCount,omitempty"`
+	Source         string   `json:"source"`
+	Type           string   `json:"type"`
 }
 
 type saveRequest struct {
-	TMDBID        int     `json:"tmdbId"`
-	MediaType     string  `json:"mediaType"`
-	Title         string  `json:"title"`
-	NextRelease   string  `json:"nextRelease"`
-	Status        string  `json:"status"`
-	PosterURL     string  `json:"posterUrl"`
-	BackdropURL   string  `json:"backdropUrl"`
-	ListType      string  `json:"listType"`
-	UserRating    *int    `json:"userRating,omitempty"`
-	WatchCount    *int    `json:"watchCount,omitempty"`
-	LastWatchedAt string  `json:"lastWatchedAt,omitempty"`
+	TMDBID        int    `json:"tmdbId"`
+	MediaType     string `json:"mediaType"`
+	Title         string `json:"title"`
+	NextRelease   string `json:"nextRelease"`
+	Status        string `json:"status"`
+	PosterURL     string `json:"posterUrl"`
+	BackdropURL   string `json:"backdropUrl"`
+	ListType      string `json:"listType"`
+	UserRating    *int   `json:"userRating,omitempty"`
+	WatchCount    *int   `json:"watchCount,omitempty"`
+	LastWatchedAt string `json:"lastWatchedAt,omitempty"`
 }
 
 type updateStatsRequest struct {
-	TMDBID        int     `json:"tmdbId"`
-	MediaType     string  `json:"mediaType"`
-	ListType      string  `json:"listType"`
-	UserRating    *int    `json:"userRating,omitempty"`
-	WatchCount    *int    `json:"watchCount,omitempty"`
-	LastWatchedAt string  `json:"lastWatchedAt,omitempty"`
+	TMDBID        int    `json:"tmdbId"`
+	MediaType     string `json:"mediaType"`
+	ListType      string `json:"listType"`
+	UserRating    *int   `json:"userRating,omitempty"`
+	WatchCount    *int   `json:"watchCount,omitempty"`
+	LastWatchedAt string `json:"lastWatchedAt,omitempty"`
 }
 
 func (s *Server) savedHandler(w http.ResponseWriter, r *http.Request) {
@@ -244,20 +246,36 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 			lastWatched = &parsed
 		}
 	}
+	var runtimeMinutes *int
+	var episodeCount *int
+	if s.releases != nil && payload.TMDBID > 0 && payload.MediaType != "" {
+		if details, err := s.releases.Details(r.Context(), payload.TMDBID, payload.MediaType); err == nil {
+			if details.Runtime > 0 {
+				value := details.Runtime
+				runtimeMinutes = &value
+			}
+			if details.EpisodeCount > 0 {
+				value := details.EpisodeCount
+				episodeCount = &value
+			}
+		}
+	}
 
 	item, err := s.saved.Upsert(r.Context(), saved.UpsertInput{
-		UserID:      userID,
-		TMDBID:      payload.TMDBID,
-		MediaType:   payload.MediaType,
-		Title:       strings.TrimSpace(payload.Title),
-		NextRelease: nextRelease,
-		Status:      payload.Status,
-		PosterURL:   strings.TrimSpace(payload.PosterURL),
-		BackdropURL: strings.TrimSpace(payload.BackdropURL),
-		ListType:    strings.TrimSpace(payload.ListType),
-		UserRating:  payload.UserRating,
-		WatchCount:  payload.WatchCount,
-		LastWatched: lastWatched,
+		UserID:         userID,
+		TMDBID:         payload.TMDBID,
+		MediaType:      payload.MediaType,
+		Title:          strings.TrimSpace(payload.Title),
+		NextRelease:    nextRelease,
+		Status:         payload.Status,
+		PosterURL:      strings.TrimSpace(payload.PosterURL),
+		BackdropURL:    strings.TrimSpace(payload.BackdropURL),
+		ListType:       strings.TrimSpace(payload.ListType),
+		UserRating:     payload.UserRating,
+		WatchCount:     payload.WatchCount,
+		LastWatched:    lastWatched,
+		RuntimeMinutes: runtimeMinutes,
+		EpisodeCount:   episodeCount,
 	})
 	if err != nil {
 		if errors.Is(err, saved.ErrInvalidMediaType) {
@@ -305,19 +323,21 @@ func mapSavedItem(item saved.Title) savedItem {
 		releaseType = "movie"
 	}
 	return savedItem{
-		TMDBID:      item.TMDBID,
-		MediaType:   mediaType,
-		Title:       item.Title,
-		NextRelease: nextRelease,
-		Status:      item.Status,
-		PosterURL:   item.PosterURL,
-		BackdropURL: item.BackdropURL,
-		ListTypes:   item.ListTypes,
-		UserRating:  item.UserRating,
-		WatchCount:  item.WatchCount,
-		LastWatchedAt: lastWatched,
-		Source:      "tmdb",
-		Type:        releaseType,
+		TMDBID:         item.TMDBID,
+		MediaType:      mediaType,
+		Title:          item.Title,
+		NextRelease:    nextRelease,
+		Status:         item.Status,
+		PosterURL:      item.PosterURL,
+		BackdropURL:    item.BackdropURL,
+		ListTypes:      item.ListTypes,
+		UserRating:     item.UserRating,
+		WatchCount:     item.WatchCount,
+		LastWatchedAt:  lastWatched,
+		RuntimeMinutes: item.RuntimeMinutes,
+		EpisodeCount:   item.EpisodeCount,
+		Source:         "tmdb",
+		Type:           releaseType,
 	}
 }
 

@@ -45,6 +45,7 @@ export default function ProfilePage() {
     total: "Всього у списку",
     thisWeek: "Цього тижня",
     watched: "Переглянуто",
+    watchHours: "Годин у списку",
     rewatches: "Повторні перегляди",
     series: "Серіалів",
     views: "Переглядів",
@@ -144,11 +145,27 @@ export default function ProfilePage() {
     [tabItems]
   );
 
-  const watchedCount = useMemo(() => {
+  const watchHours = useMemo(() => {
     if (activeTab !== "watchlist") {
-      return 0;
+      return "0";
     }
-    return tabItems.filter((item) => (item.watchCount || 0) > 0).length;
+    const totalMinutes = tabItems.reduce((sum, item) => {
+      const runtime = item.runtimeMinutes || 0;
+      if (!runtime) {
+        return sum;
+      }
+      if (item.mediaType === "tv") {
+        const episodes = item.episodeCount || 0;
+        if (!episodes) {
+          return sum;
+        }
+        return sum + runtime * episodes;
+      }
+      return sum + runtime;
+    }, 0);
+    const hours = totalMinutes / 60;
+    const rounded = Math.round(hours * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   }, [activeTab, tabItems]);
 
   const rewatchCount = useMemo(() => {
@@ -187,7 +204,11 @@ export default function ProfilePage() {
       return { value: weekCount, label: statsCopy.thisWeek, tone: "amber" };
     }
     if (activeTab === "watchlist") {
-      return { value: watchedCount, label: statsCopy.watched, tone: "amber" };
+      return {
+        value: watchHours,
+        label: statsCopy.watchHours ?? "Годин у списку",
+        tone: "amber",
+      };
     }
     if (activeTab === "favorite") {
       return { value: rewatchCount, label: statsCopy.rewatches, tone: "amber" };
@@ -201,7 +222,7 @@ export default function ProfilePage() {
     averageRating,
     rewatchCount,
     statsCopy,
-    watchedCount,
+    watchHours,
     watchedViews,
     weekCount,
   ]);
@@ -295,20 +316,22 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
-          {user ? (
-            <button type="button" className="secondary danger" onClick={handleLogout}>
-              {copy.auth.signOut}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setIsAuthOpen(true)}
-              disabled={authLoading}
-            >
-              {copy.auth.signIn}
-            </button>
-          )}
+          <div className="profile-actions">
+            {user ? (
+              <button type="button" className="secondary danger" onClick={handleLogout}>
+                {copy.auth.signOut}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setIsAuthOpen(true)}
+                disabled={authLoading}
+              >
+                {copy.auth.signIn}
+              </button>
+            )}
+          </div>
         </div>
         <div className="profile-tabs">
           {tabs.map((tab) => (

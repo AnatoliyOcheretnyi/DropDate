@@ -17,6 +17,10 @@ func (s *Service) List(ctx context.Context, userID string, listType string) ([]T
 	return s.store.ListByUser(ctx, userID, listType)
 }
 
+func (s *Service) ListFollowSubscriptions(ctx context.Context) ([]FollowItem, error) {
+	return s.store.ListFollowSubscriptions(ctx)
+}
+
 func (s *Service) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	if isStatusListType(input.ListType) {
 		if err := s.store.RemoveStatusLists(ctx, input.UserID, input.TMDBID, input.MediaType, input.ListType); err != nil {

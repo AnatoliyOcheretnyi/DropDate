@@ -57,6 +57,7 @@ export const copy = {
     total: "Всього у списку",
     thisWeek: "Цього тижня",
     watched: "Переглянуто",
+    watchHours: "Годин у списку",
     rewatches: "Повторні перегляди",
     series: "Серіалів",
   },

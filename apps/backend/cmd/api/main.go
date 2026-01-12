@@ -11,6 +11,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/httpapi"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
@@ -52,6 +53,7 @@ func main() {
 
 	var authService *auth.Service
 	var savedService *saved.Service
+	var notificationsService *notifications.Service
 	if db := openDatabase(); db != nil {
 		service, err := buildAuthService(db)
 		if err != nil {
@@ -59,9 +61,10 @@ func main() {
 		}
 		authService = service
 		savedService = saved.NewService(saved.NewStore(db))
+		notificationsService = notifications.NewService(notifications.NewStore(db))
 	}
 
-	apiServer := httpapi.NewServer(releaseService, authService, savedService, log.Default())
+	apiServer := httpapi.NewServer(releaseService, authService, savedService, notificationsService, log.Default())
 
 	server := &http.Server{
 		Addr:              ":8080",
@@ -77,9 +80,17 @@ func main() {
 		}
 	}()
 
+	jobCtx, jobCancel := context.WithCancel(context.Background())
+	if notificationsService != nil && savedService != nil {
+		notifier := notifications.NewReleaseNotifier(releaseService, savedService, notificationsService, log.Default())
+		go notifier.Run(jobCtx, 24*time.Hour)
+	}
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdown
+
+	jobCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
