@@ -1,0 +1,85 @@
+.hero-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+.hero-inner {
+  padding: 0 3rem;
+}
+
+.hero h1 {
+  font-size: clamp(2.8rem, 8vw, 4rem);
+  margin: 0.2rem 0;
+}
+
+.hero .lead {
+  color: rgba(245, 245, 245, 0.8);
+  font-size: 1.1rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.4rem;
+  font-size: 0.75rem;
+  color: rgba(245, 245, 245, 0.6);
+  margin: 0;
+}
+
+.trend-section {
+  margin-top: 0.5rem;
+}
+
+.trend-section + .trend-section {
+  margin-top: 0.5rem;
+}
+
+.trend-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+.trend-inner {
+  padding: 0 3rem;
+}
+
+.trend-carousel {
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.trend-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, 200px);
+  grid-auto-columns: 140px;
+  gap: 1rem;
+  width: max-content;
+  padding-right: 0.5rem;
+}
+
+.trend-carousel .poster-card {
+  height: 200px;
+  min-height: 0;
+}
+
+@media (max-width: 600px) {
+  .hero-inner {
+    padding: 0 2rem;
+  }
+
+  .trend-inner {
+    padding: 0 2rem;
+  }
+
+  .trend-track {
+    grid-template-rows: repeat(2, 170px);
+    grid-auto-columns: 120px;
+  }
+
+  .trend-carousel .poster-card {
+    height: 170px;
+  }
+}
