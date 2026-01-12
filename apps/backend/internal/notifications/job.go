@@ -144,8 +144,8 @@ func buildNotificationInput(
 	var eventKey string
 	if details.LastEpisodeSeason > 0 && details.LastEpisodeNumber > 0 {
 		eventKey = fmt.Sprintf("tv:s%02de%02d", details.LastEpisodeSeason, details.LastEpisodeNumber)
-	} else if details.LastEpisodeName != "" {
-		eventKey = fmt.Sprintf("tv:%s:%s", releaseDate.Format("2006-01-02"), details.LastEpisodeName)
+	} else if details.LastEpisode != "" {
+		eventKey = fmt.Sprintf("tv:%s:%s", releaseDate.Format("2006-01-02"), details.LastEpisode)
 	} else {
 		eventKey = fmt.Sprintf("tv:%s", releaseDate.Format("2006-01-02"))
 	}
@@ -170,7 +170,7 @@ func buildNotificationInput(
 		EventKey:      eventKey,
 		SeasonNumber:  seasonPtr,
 		EpisodeNumber: episodePtr,
-		EpisodeName:   details.LastEpisodeName,
+		EpisodeName:   details.LastEpisode,
 		ReleaseDate:   &releaseDate,
 		PosterURL:     poster,
 		BackdropURL:   backdrop,
