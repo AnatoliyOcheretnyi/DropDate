@@ -58,6 +58,7 @@ export const copy = {
     thisWeek: "Цього тижня",
     watched: "Переглянуто",
     watchHours: "Годин у списку",
+    avgRating: "Середня оцінка",
     rewatches: "Повторні перегляди",
     series: "Серіалів",
   },
