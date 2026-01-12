@@ -3,17 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../../../../lib/release";
-import { getReleaseStatusLabel } from "../../../../lib/release";
 import { copy } from "../../../../lib/strings";
 import { useSavedReleases } from "../../../../app/hooks/useSavedReleases";
 import { useSuggestions } from "../../../../app/hooks/useSuggestions";
 import type { ListType } from "../../../../app/lib/releases";
-
-type DetailsPayload = {
-  details: Details;
-  release?: ReleaseInfo;
-  recommendations?: Suggestion[];
-};
+import { fetchDetails } from "../api/detailsApi";
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -88,12 +82,8 @@ export function useTitleDetails() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/details?tmdbId=${id}&mediaType=${mediaType}`,
-        { cache: "no-store" }
-      );
-      const payload = (await response.json()) as DetailsPayload;
-      if (!response.ok) {
+      const { ok, payload } = await fetchDetails(id, mediaType);
+      if (!ok || !payload) {
         setError(copy.errors.detailsLoad);
         return;
       }

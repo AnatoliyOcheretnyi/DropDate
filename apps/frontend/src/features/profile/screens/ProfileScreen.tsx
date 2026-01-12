@@ -1,13 +1,13 @@
 "use client";
 
-import { Header } from "../../../../app/components/Header";
-import { SearchOverlay } from "../../../../app/components/SearchOverlay";
-import { AuthModal } from "../../../../app/components/AuthModal";
-import { SavedList } from "../../../../app/components/SavedList";
+import { Header } from "../../../widgets/Header";
+import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { AuthModal } from "../../../widgets/AuthModal";
+import { SavedList } from "../../saved/components/SavedList";
 import { useProfile } from "../hooks/useProfile";
-import { ProfileCard } from "./ProfileCard";
-import { ProfileStats } from "./ProfileStats";
-import { ProfileTabs } from "./ProfileTabs";
+import { ProfileCard } from "../components/ProfileCard";
+import { ProfileStats } from "../components/ProfileStats";
+import { ProfileTabs } from "../components/ProfileTabs";
 
 export function ProfileScreen() {
   const {

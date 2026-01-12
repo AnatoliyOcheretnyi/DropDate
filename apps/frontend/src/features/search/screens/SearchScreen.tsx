@@ -1,9 +1,9 @@
 "use client";
 
 import { Suspense } from "react";
-import { Header } from "../../../../app/components/Header";
-import { SearchOverlay } from "../../../../app/components/SearchOverlay";
-import { SearchResultsGrid } from "../../../../app/components/SearchResultsGrid";
+import { Header } from "../../../widgets/Header";
+import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 import { copy } from "../../../../lib/strings";
 import { useSearchPage } from "../hooks/useSearchPage";
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Suggestion } from "../../lib/release";
 import { copy } from "../../lib/strings";
-import { Suggestions } from "./Suggestions";
+import { Suggestions } from "../shared/ui/Suggestions";
 
 type Props = {
   title: string;

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReleaseInfo } from "../../lib/release";
-import { copy } from "../../lib/strings";
+import type { ReleaseInfo } from "../../../lib/release";
+import { copy } from "../../../lib/strings";
 
 type Props = {
   release: ReleaseInfo;

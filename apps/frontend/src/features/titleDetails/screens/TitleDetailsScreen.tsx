@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Header } from "../../../../app/components/Header";
-import { SearchOverlay } from "../../../../app/components/SearchOverlay";
-import { SearchResultsGrid } from "../../../../app/components/SearchResultsGrid";
-import { ListBadges } from "../../../../app/components/ListBadges";
-import { ListPickerModal } from "../../../../app/components/ListPickerModal";
+import { Header } from "../../../widgets/Header";
+import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
+import { ListBadges } from "../../../shared/ui/ListBadges";
+import { ListPickerModal } from "../../../widgets/ListPickerModal";
 import { getReleaseStatusLabel } from "../../../../lib/release";
 import { copy } from "../../../../lib/strings";
 import { useTitleDetails } from "../hooks/useTitleDetails";

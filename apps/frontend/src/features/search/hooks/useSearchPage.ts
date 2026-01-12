@@ -6,7 +6,8 @@ import type { Suggestion } from "../../../../lib/release";
 import { copy } from "../../../../lib/strings";
 import { useSavedReleases } from "../../../../app/hooks/useSavedReleases";
 import { useSuggestions } from "../../../../app/hooks/useSuggestions";
-import type { SearchFilter, SearchPayload } from "../types";
+import type { SearchFilter } from "../types";
+import { fetchSearchResults } from "../api/searchApi";
 
 export function useSearchPage() {
   const router = useRouter();
@@ -55,12 +56,8 @@ export function useSearchPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
-          `/api/search?query=${encodeURIComponent(trimmed)}&page=${pageToLoad}`,
-          { cache: "no-store" }
-        );
-        const payload = (await response.json()) as SearchPayload;
-        if (!response.ok) {
+        const { ok, payload } = await fetchSearchResults(trimmed, pageToLoad);
+        if (!ok || !payload) {
           setResults([]);
           setPage(1);
           setTotalPages(1);

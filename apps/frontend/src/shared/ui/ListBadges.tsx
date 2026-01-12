@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListType } from "../lib/releases";
+import type { ListType } from "../../../app/lib/releases";
 
 type Props = {
   listTypes: ListType[];

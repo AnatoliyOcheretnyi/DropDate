@@ -5,9 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { copy } from "../../lib/strings";
-import { useAuth } from "../state/auth";
-import { useNotifications } from "../hooks/useNotifications";
-import type { NotificationItem } from "../lib/notifications";
+import { useAuth } from "../../app/state/auth";
+import { useNotifications } from "../../app/hooks/useNotifications";
+import type { NotificationItem } from "../../app/lib/notifications";
 import { AuthModal } from "./AuthModal";
 
 type ViewKey = "home" | "saved";

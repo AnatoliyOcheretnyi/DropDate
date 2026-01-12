@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "../../lib/strings";
-import { useAuth } from "../state/auth";
+import { useAuth } from "../../app/state/auth";
 
 type Mode = "login" | "register";
 

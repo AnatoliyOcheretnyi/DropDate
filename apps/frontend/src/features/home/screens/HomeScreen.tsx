@@ -2,20 +2,20 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Suggestion } from "../../lib/release";
-import { Header } from "./Header";
-import { SearchOverlay } from "./SearchOverlay";
-import { TrendingCarousel } from "./TrendingCarousel";
-import { copy } from "../../lib/strings";
-import { useSavedReleases } from "../hooks/useSavedReleases";
-import { useSuggestions } from "../hooks/useSuggestions";
+import type { Suggestion } from "../../../../lib/release";
+import { Header } from "../../../widgets/Header";
+import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { TrendingCarousel } from "../components/TrendingCarousel";
+import { copy } from "../../../../lib/strings";
+import { useSavedReleases } from "../../../../app/hooks/useSavedReleases";
+import { useSuggestions } from "../../../../app/hooks/useSuggestions";
 
 type Props = {
   trendingMovies: Suggestion[];
   trendingSeries: Suggestion[];
 };
 
-function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
+function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] =
@@ -152,10 +152,10 @@ function HomeClientContent({ trendingMovies, trendingSeries }: Props) {
   );
 }
 
-export function HomeClient(props: Props) {
+export function HomeScreen(props: Props) {
   return (
     <Suspense fallback={<main className="page" />}>
-      <HomeClientContent {...props} />
+      <HomeScreenContent {...props} />
     </Suspense>
   );
 }

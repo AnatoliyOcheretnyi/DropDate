@@ -1,8 +1,8 @@
 "use client";
 
-import type { SavedRelease } from "../lib/releases";
-import { getReleaseStatusLabel, type Suggestion } from "../../lib/release";
-import { copy } from "../../lib/strings";
+import type { SavedRelease } from "../../../../app/lib/releases";
+import { getReleaseStatusLabel, type Suggestion } from "../../../../lib/release";
+import { copy } from "../../../../lib/strings";
 import { useRouter } from "next/navigation";
 
 type Props = {

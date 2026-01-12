@@ -3,9 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Suggestion } from "../../lib/release";
-import { Header } from "../components/Header";
-import { SearchOverlay } from "../components/SearchOverlay";
-import { SavedList } from "../components/SavedList";
+import { Header } from "../../src/widgets/Header";
+import { SearchOverlay } from "../../src/widgets/SearchOverlay";
+import { SavedList } from "../../src/features/saved/components/SavedList";
 import { copy } from "../../lib/strings";
 import { useSavedReleases } from "../hooks/useSavedReleases";
 import { useSuggestions } from "../hooks/useSuggestions";

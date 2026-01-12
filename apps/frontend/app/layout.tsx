@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Footer } from "./components/Footer";
+import { Footer } from "../src/widgets/Footer";
 import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });

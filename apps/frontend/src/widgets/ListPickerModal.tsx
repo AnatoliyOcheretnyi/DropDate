@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ListType } from "../lib/releases";
+import type { ListType } from "../../app/lib/releases";
 import { copy } from "../../lib/strings";
 
 type Props = {

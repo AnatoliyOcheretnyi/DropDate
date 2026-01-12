@@ -1,5 +1,5 @@
 import type { Suggestion } from "../lib/release";
-import { HomeClient } from "./components/HomeClient";
+import { HomeScreen } from "../src/features/home/screens/HomeScreen";
 
 const DEFAULT_BACKEND_URL = "http://localhost:8080";
 
@@ -33,5 +33,5 @@ const fetchTrending = async () => {
 export default async function HomePage() {
   const { movies, series } = await fetchTrending();
 
-  return <HomeClient trendingMovies={movies} trendingSeries={series} />;
+  return <HomeScreen trendingMovies={movies} trendingSeries={series} />;
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import type { Suggestion } from "../../lib/release";
-import type { ListType } from "../lib/releases";
+import type { ListType } from "../../app/lib/releases";
 import { copy } from "../../lib/strings";
-import { ListBadges } from "./ListBadges";
+import { ListBadges } from "../shared/ui/ListBadges";
 
 type Props = {
   items: Suggestion[];

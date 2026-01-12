@@ -1,9 +1,9 @@
 "use client";
 
-import type { Suggestion } from "../../lib/release";
-import type { ListType } from "../lib/releases";
-import { copy } from "../../lib/strings";
-import { ListBadges } from "./ListBadges";
+import type { Suggestion } from "../../../../lib/release";
+import type { ListType } from "../../../../app/lib/releases";
+import { copy } from "../../../../lib/strings";
+import { ListBadges } from "../../../shared/ui/ListBadges";
 
 type Props = {
   title: string;
