@@ -61,6 +61,7 @@ export const copy = {
     avgRating: "Середня оцінка",
     rewatches: "Повторні перегляди",
     series: "Серіалів",
+    views: "Переглядів",
   },
   hints: {
     loadingCollection: "Завантажуємо підбірку…",
