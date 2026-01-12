@@ -48,13 +48,16 @@ const getBucketKey = (item: SavedRelease) => {
   endWeek.setDate(endWeek.getDate() + 7);
   const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  if (date < endToday) {
+  if (date < startToday) {
+    return "ended";
+  }
+  if (date >= startToday && date < endToday) {
     return "today";
   }
-  if (date < endWeek) {
+  if (date >= endToday && date < endWeek) {
     return "week";
   }
-  if (date < endMonth) {
+  if (date >= endWeek && date < endMonth) {
     return "month";
   }
   return "later";
