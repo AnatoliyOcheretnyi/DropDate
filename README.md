@@ -4,8 +4,8 @@ DropDate is a small playground for tracking the next release date of a show or m
 
 ## Stack
 
-- **Backend (`apps/backend`)** — Go HTTP API that talks to TMDB for both series and movies; exposes `/health`, `/next-release`, `/suggest`, `/trending`, `/details`, `/bulk-next-release`; caches popular titles in‑memory.
-- **Frontend (`apps/frontend`)** — Next.js 14 app with trending rows, full search, details page, and saved list. All traffic goes through internal API routes (`/api/*`).
+- **Backend (`apps/backend`)** — Go HTTP API that talks to TMDB for both series and movies; exposes releases/search/details/saved lists + notifications; runs a scheduled notifications job; caches popular titles in‑memory.
+- **Frontend (`apps/frontend`)** — Next.js 14 app with trending rows, full search, details page, saved lists, and profile activity center (bell + notifications). All traffic goes through internal API routes (`/api/*`).
 - **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`. Draft state only.
 
 ## Getting Started
@@ -17,6 +17,7 @@ yarn install
 Environment tweaks:
 - Backend requires `TMDB_ACCESS_TOKEN` (v4 read token). Copy `apps/backend/.env.example` → `.env` (or `.env.local`) and place your TMDB token there, or export it manually before running `yarn dev:backend`.
 - Backend migrations use `SUPABASE_CONNECTION_STRING` (`apps/backend/.env`) and run via `yarn db:migrate`.
+- Backend notification job endpoint uses `JOBS_ACCESS_TOKEN` (Bearer token) and `NOTIFICATIONS_JOB_INTERVAL` (optional, default 24h).
 - Frontend reads `BACKEND_URL` from `apps/frontend/.env.local` (copy `.env.example`).
 - Mobile reads `EXPO_PUBLIC_BACKEND_URL` from `apps/mobile/.env` (copy `.env.example` and use a LAN IP for physical devices).
 

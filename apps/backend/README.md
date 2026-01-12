@@ -49,6 +49,9 @@ The server listens on `http://localhost:8080`. Useful requests:
 - `curl "http://localhost:8080/trending?window=week&limit=18"` – trending movies + series bundle.
 - `curl "http://localhost:8080/details?tmdbId=603&mediaType=movie"` – full details (plus recommendations).
 - `curl -X POST http://localhost:8080/bulk-next-release -d '{"titles":[{"title":"Dune","tmdbId":603,"mediaType":"movie"}]}'` – batch next-release lookup.
+- `curl -H "Authorization: Bearer <token>" http://localhost:8080/saved` – get saved list for the current user.
+- `curl -X POST -H "Authorization: Bearer <token>" http://localhost:8080/notifications` – get notifications + unread count.
+- `curl -X POST -H "Authorization: Bearer <token>" http://localhost:8080/notifications/read -d '{"all":true}'` – mark notifications as read.
 - `curl -X POST http://localhost:8080/auth/register -d '{"email":"test@dropdate.com","password":"StrongP@ss1"}'` – create account.
 - `curl -X POST http://localhost:8080/auth/login -d '{"email":"test@dropdate.com","password":"StrongP@ss1"}'` – login and receive tokens.
 - `curl -X POST http://localhost:8080/auth/refresh` – rotate refresh token cookie.
@@ -62,7 +65,21 @@ The repo includes a simple migration runner and SQL files:
 - `yarn db:migrate` runs `apps/backend/cmd/migrate` to apply pending migrations.
 - Set `SUPABASE_CONNECTION_STRING` in `apps/backend/.env` (or `.env.local`) to point at your Supabase/Postgres instance.
 
-Migrations currently create tables for users, refresh tokens, and saved titles. This is prep work for auth + persistence.
+Migrations currently create tables for users, refresh tokens, saved titles, and notifications.
+
+## Notifications job
+
+The backend runs a scheduled job that checks `follow` subscriptions and creates notifications when a movie releases or a new episode airs. You can trigger it manually via a protected endpoint:
+
+```
+POST /jobs/notifications
+Authorization: Bearer <JOBS_ACCESS_TOKEN>
+```
+
+Environment variables:
+
+- `JOBS_ACCESS_TOKEN` – shared secret for the job endpoint.
+- `NOTIFICATIONS_JOB_INTERVAL` – schedule interval (default `24h`, set to `0` to disable).
 
 ## Swagger / OpenAPI
 

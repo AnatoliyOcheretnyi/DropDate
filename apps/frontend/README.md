@@ -1,6 +1,6 @@
 # DropDate Frontend
 
-Next.js 14 UI for DropDate. The app includes trending rows, a full search page, title details, autosuggestions, and a saved list. Responsive layout, Ukrainian copy.
+Next.js 14 UI for DropDate. The app includes trending rows, a full search page, title details, autosuggestions, saved lists, and profile activity center (bell + notifications). Responsive layout, Ukrainian copy.
 
 ## Quick start
 
@@ -23,8 +23,13 @@ Requests go through the Next.js routes below (forwarding to the Go API and avoid
 - `/api/bulk-refresh` – refresh saved items.
 - `/api/trending` – trending rows for the home page.
 - `/api/details` – full title details + recommendations.
+- `/api/saved` – CRUD for saved lists (auth required).
+- `/api/saved/items` – update stats for saved items (rating/watch count).
+- `/api/notifications` – notifications feed + unread count.
+- `/api/notifications/read` – mark notifications as read.
+- `/api/auth/*` – login/register/refresh/logout endpoints.
 
-Adjust the backend URL via `.env.local`. Autosuggest shows up to 5 TMDB matches (title + year + poster). Search results are shown as a grid; clicking a card opens the details page, and the “+” action saves it to the list (persisted in `localStorage`).
+Adjust the backend URL via `.env.local`. Autosuggest shows up to 5 TMDB matches (title + year + poster). Search results are shown as a grid; clicking a card opens the details page, and the “+” action saves it to the list. When logged in, saved lists sync with the backend and include stats like your rating and watch count.
 
 ## Scripts
 
