@@ -126,7 +126,7 @@ export function useSavedReleases() {
       }
     >
   >(new Map());
-  const flushTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const flushTimeoutRef = useRef<number | null>(null);
   const pendingStatsRef = useRef<
     Map<
       string,
@@ -140,7 +140,7 @@ export function useSavedReleases() {
       }
     >
   >(new Map());
-  const flushStatsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const flushStatsTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
