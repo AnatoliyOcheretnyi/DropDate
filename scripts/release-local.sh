@@ -20,6 +20,8 @@ next="$(scripts/bump-version.sh "$app" "$bump")"
 git add "apps/${app}/VERSION"
 git commit -m "chore(${app}): bump version to ${next}"
 git tag "${app}/v${next}"
-git push origin HEAD --tags
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+git push origin "$branch" --tags
 
 echo "Released ${app}/v${next}"
