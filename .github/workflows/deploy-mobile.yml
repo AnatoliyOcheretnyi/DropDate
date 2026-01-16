@@ -8,14 +8,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      MOBILE_DEPLOY_HOOK_URL: ${{ secrets.MOBILE_DEPLOY_HOOK_URL }}
     steps:
       - name: Trigger mobile deploy hook
-        if: ${{ secrets.MOBILE_DEPLOY_HOOK_URL != '' }}
-        run: curl -X POST "$MOBILE_DEPLOY_HOOK_URL"
-        env:
-          MOBILE_DEPLOY_HOOK_URL: ${{ secrets.MOBILE_DEPLOY_HOOK_URL }}
-
-      - name: Missing mobile deploy hook
-        if: ${{ secrets.MOBILE_DEPLOY_HOOK_URL == '' }}
         run: |
-          echo "Missing MOBILE_DEPLOY_HOOK_URL secret. Skipping deploy."
+          if [ -z "$MOBILE_DEPLOY_HOOK_URL" ]; then
+            echo "Missing MOBILE_DEPLOY_HOOK_URL secret. Skipping deploy."
+            exit 0
+          fi
+          curl -X POST "$MOBILE_DEPLOY_HOOK_URL"

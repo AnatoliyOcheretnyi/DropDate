@@ -8,14 +8,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
     steps:
       - name: Trigger Vercel deploy hook
-        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
-        run: curl -X POST "$VERCEL_DEPLOY_HOOK_URL"
-        env:
-          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
-
-      - name: Missing Vercel deploy hook
-        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL == '' }}
         run: |
-          echo "Missing VERCEL_DEPLOY_HOOK_URL secret. Skipping deploy."
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "Missing VERCEL_DEPLOY_HOOK_URL secret. Skipping deploy."
+            exit 0
+          fi
+          curl -X POST "$VERCEL_DEPLOY_HOOK_URL"
