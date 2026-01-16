@@ -36,6 +36,25 @@ All commands execute from repo root and delegate to Nx targets.
 | `yarn test` | Execute backend `go test` (extend when frontend tests arrive). |
 | `yarn nx graph` | Visualize project dependency graph. |
 
+## Releases (Tag-based)
+
+Each app has its own version file:
+- `apps/frontend/VERSION`
+- `apps/backend/VERSION`
+- `apps/mobile/VERSION`
+
+Deploys are triggered by tags:
+- `frontend/vX.Y.Z`
+- `backend/vX.Y.Z`
+- `mobile/vX.Y.Z`
+
+Optional auto-bump on merge uses commit tags:
+- `#release:front:major|minor|patch`
+- `#release:backend:major|minor|patch`
+- `#release:mobile:major|minor|patch`
+
+Details: `RELEASING.md`
+
 ## Nx Notes
 
 - Projects are declared in `nx.json` and corresponding `apps/*/project.json` files.

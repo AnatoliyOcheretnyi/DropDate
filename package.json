@@ -9,7 +9,16 @@
     "dev:frontend": "nx run frontend:dev",
     "dev:backend": "nx run backend:serve",
     "dev:mobile": "nx run mobile:start",
-    "db:migrate": "cd apps/backend && go run ./cmd/migrate"
+    "db:migrate": "cd apps/backend && go run ./cmd/migrate",
+    "release:front:major": "bash scripts/release-local.sh frontend major",
+    "release:front:minor": "bash scripts/release-local.sh frontend minor",
+    "release:front:patch": "bash scripts/release-local.sh frontend patch",
+    "release:backend:major": "bash scripts/release-local.sh backend major",
+    "release:backend:minor": "bash scripts/release-local.sh backend minor",
+    "release:backend:patch": "bash scripts/release-local.sh backend patch",
+    "release:mobile:major": "bash scripts/release-local.sh mobile major",
+    "release:mobile:minor": "bash scripts/release-local.sh mobile minor",
+    "release:mobile:patch": "bash scripts/release-local.sh mobile patch"
   },
   "devDependencies": {
     "nx": "22.2.3"

@@ -1,0 +1,22 @@
+name: Deploy Frontend
+
+on:
+  push:
+    tags:
+      - "frontend/v*"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel deploy hook
+        if: secrets.VERCEL_DEPLOY_HOOK_URL != ''
+        run: curl -X POST "$VERCEL_DEPLOY_HOOK_URL"
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+
+      - name: Missing Vercel deploy hook
+        if: secrets.VERCEL_DEPLOY_HOOK_URL == ''
+        run: |
+          echo "Missing VERCEL_DEPLOY_HOOK_URL secret."
+          exit 1

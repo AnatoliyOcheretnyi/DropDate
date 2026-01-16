@@ -1,0 +1,67 @@
+name: Auto Release on Merge
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse release tags
+        id: release
+        shell: bash
+        run: |
+          message="$(git log -1 --pretty=%B)"
+          echo "commit_message<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$message" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          front="$(echo "$message" | grep -Eo '#release:front:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          back="$(echo "$message" | grep -Eo '#release:backend:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          mobile="$(echo "$message" | grep -Eo '#release:mobile:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+
+          echo "front_bump=$front" >> "$GITHUB_OUTPUT"
+          echo "backend_bump=$back" >> "$GITHUB_OUTPUT"
+          echo "mobile_bump=$mobile" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if no release tags
+        if: ${{ steps.release.outputs.front_bump == '' && steps.release.outputs.backend_bump == '' && steps.release.outputs.mobile_bump == '' }}
+        run: echo "No release tags found, skipping."
+
+      - name: Bump versions
+        if: ${{ steps.release.outputs.front_bump != '' || steps.release.outputs.backend_bump != '' || steps.release.outputs.mobile_bump != '' }}
+        shell: bash
+        run: |
+          chmod +x scripts/bump-version.sh
+          if [ -n "${{ steps.release.outputs.front_bump }}" ]; then
+            next="$(scripts/bump-version.sh frontend ${{ steps.release.outputs.front_bump }})"
+            git add apps/frontend/VERSION
+            git tag "frontend/v${next}"
+          fi
+          if [ -n "${{ steps.release.outputs.backend_bump }}" ]; then
+            next="$(scripts/bump-version.sh backend ${{ steps.release.outputs.backend_bump }})"
+            git add apps/backend/VERSION
+            git tag "backend/v${next}"
+          fi
+          if [ -n "${{ steps.release.outputs.mobile_bump }}" ]; then
+            next="$(scripts/bump-version.sh mobile ${{ steps.release.outputs.mobile_bump }})"
+            git add apps/mobile/VERSION
+            git tag "mobile/v${next}"
+          fi
+
+      - name: Commit and push tags
+        if: ${{ steps.release.outputs.front_bump != '' || steps.release.outputs.backend_bump != '' || steps.release.outputs.mobile_bump != '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(release): bump app versions [skip ci]"
+          git push origin main --tags
