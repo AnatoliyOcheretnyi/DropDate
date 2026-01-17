@@ -24,4 +24,4 @@ jobs:
             echo "Missing Vercel secrets (VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID)."
             exit 1
           fi
-          vercel deploy --prod --token "$VERCEL_TOKEN" --cwd apps/frontend
+          vercel deploy --prod --token "$VERCEL_TOKEN"
