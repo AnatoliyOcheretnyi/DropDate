@@ -9,6 +9,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Install Vercel CLI
         run: npm i -g vercel
 
@@ -22,4 +24,4 @@ jobs:
             echo "Missing Vercel secrets (VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID)."
             exit 1
           fi
-          vercel deploy --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prod --token "$VERCEL_TOKEN" --cwd apps/frontend
