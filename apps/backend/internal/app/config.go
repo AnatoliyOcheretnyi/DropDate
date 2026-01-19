@@ -16,6 +16,7 @@ type Config struct {
 	Database      DatabaseConfig
 	Auth          AuthConfig
 	Notifications NotificationsConfig
+	Email         EmailConfig
 }
 
 type HTTPConfig struct {
@@ -48,16 +49,24 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret    string
-	Issuer       string
-	AccessTTL    time.Duration
-	RefreshTTL   time.Duration
-	CookieName   string
-	CookieSecure bool
+	JWTSecret                string
+	Issuer                   string
+	AccessTTL                time.Duration
+	RefreshTTL               time.Duration
+	CookieName               string
+	CookieSecure             bool
+	RequireEmailVerification bool
+	VerificationTTL          time.Duration
 }
 
 type NotificationsConfig struct {
 	Interval time.Duration
+}
+
+type EmailConfig struct {
+	ResendAPIKey string
+	ResendSender string
+	AppBaseURL   string
 }
 
 func LoadConfig() (Config, error) {
@@ -88,17 +97,24 @@ func LoadConfig() (Config, error) {
 		Notifications: NotificationsConfig{
 			Interval: config.Duration("NOTIFICATIONS_JOB_INTERVAL", 24*time.Hour),
 		},
+		Email: EmailConfig{
+			ResendAPIKey: config.String("RESEND_API_KEY", ""),
+			ResendSender: config.String("RESEND_SENDER", ""),
+			AppBaseURL:   config.String("APP_BASE_URL", ""),
+		},
 	}
 
 	// Auth settings are only required when the database is enabled.
 	if cfg.Database.DSN != "" {
 		cfg.Auth = AuthConfig{
-			JWTSecret:    config.String("AUTH_JWT_SECRET", ""),
-			Issuer:       config.String("AUTH_JWT_ISSUER", "dropdate"),
-			AccessTTL:    config.Duration("AUTH_ACCESS_TTL", 15*time.Minute),
-			RefreshTTL:   config.Duration("AUTH_REFRESH_TTL", 30*24*time.Hour),
-			CookieName:   config.String("AUTH_COOKIE_NAME", "dd_refresh"),
-			CookieSecure: config.Bool("AUTH_COOKIE_SECURE", false),
+			JWTSecret:                config.String("AUTH_JWT_SECRET", ""),
+			Issuer:                   config.String("AUTH_JWT_ISSUER", "dropdate"),
+			AccessTTL:                config.Duration("AUTH_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:               config.Duration("AUTH_REFRESH_TTL", 30*24*time.Hour),
+			CookieName:               config.String("AUTH_COOKIE_NAME", "dd_refresh"),
+			CookieSecure:             config.Bool("AUTH_COOKIE_SECURE", false),
+			RequireEmailVerification: config.Bool("AUTH_REQUIRE_EMAIL_VERIFICATION", false),
+			VerificationTTL:          config.Duration("AUTH_VERIFICATION_TTL", 24*time.Hour),
 		}
 
 	}
@@ -129,6 +145,20 @@ func (c Config) Validate() error {
 	}
 	if c.Database.DSN != "" && c.Auth.JWTSecret == "" {
 		errs = append(errs, "AUTH_JWT_SECRET is required when database is configured")
+	}
+	if c.Auth.RequireEmailVerification {
+		if c.Email.ResendAPIKey == "" {
+			errs = append(errs, "RESEND_API_KEY is required when email verification is enabled")
+		}
+		if c.Email.ResendSender == "" {
+			errs = append(errs, "RESEND_SENDER is required when email verification is enabled")
+		}
+		if c.Email.AppBaseURL == "" {
+			errs = append(errs, "APP_BASE_URL is required when email verification is enabled")
+		}
+		if c.Auth.VerificationTTL <= 0 {
+			errs = append(errs, "AUTH_VERIFICATION_TTL must be > 0 when email verification is enabled")
+		}
 	}
 	if len(errs) == 0 {
 		return nil

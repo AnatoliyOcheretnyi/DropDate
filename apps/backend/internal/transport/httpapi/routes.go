@@ -20,6 +20,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/auth/login", s.loginHandler)
 	mux.HandleFunc("/auth/refresh", s.refreshHandler)
 	mux.HandleFunc("/auth/logout", s.logoutHandler)
+	mux.HandleFunc("/auth/verify", s.verifyEmailHandler)
 
 	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.Dir("./docs/swagger"))))
 }

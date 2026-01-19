@@ -8,20 +8,25 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/mail"
 	"strings"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	ErrEmailExists        = errors.New("email already registered")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidToken       = errors.New("invalid refresh token")
-	ErrWeakPassword       = errors.New("password does not meet policy")
-	ErrInvalidEmail       = errors.New("invalid email")
+	ErrEmailExists               = errors.New("email already registered")
+	ErrInvalidCredentials        = errors.New("invalid credentials")
+	ErrInvalidToken              = errors.New("invalid refresh token")
+	ErrWeakPassword              = errors.New("password does not meet policy")
+	ErrInvalidEmail              = errors.New("invalid email")
+	ErrEmailNotVerified          = errors.New("email not verified")
+	ErrEmailVerificationRequired = errors.New("email verification required")
+	ErrInvalidVerificationToken  = errors.New("invalid verification token")
 )
 
 const minPasswordLength = 8
@@ -43,24 +48,31 @@ func (e PasswordPolicyError) Unwrap() error {
 }
 
 type Config struct {
-	JWTSecret    []byte
-	Issuer       string
-	AccessTTL    time.Duration
-	RefreshTTL   time.Duration
-	CookieName   string
-	CookieSecure bool
+	JWTSecret                []byte
+	Issuer                   string
+	AccessTTL                time.Duration
+	RefreshTTL               time.Duration
+	CookieName               string
+	CookieSecure             bool
+	RequireEmailVerification bool
+	EmailVerificationTTL     time.Duration
+	AppBaseURL               string
+	EmailSender              email.Sender
+	EmailFrom                string
 }
 
 type Service struct {
-	users  *UserStore
-	tokens *TokenStore
-	cfg    Config
+	users         *UserStore
+	tokens        *TokenStore
+	verifications *EmailVerificationStore
+	cfg           Config
 }
 
 type User struct {
-	ID        string
-	Email     string
-	CreatedAt time.Time
+	ID              string
+	Email           string
+	CreatedAt       time.Time
+	EmailVerifiedAt *time.Time
 }
 
 type RefreshToken struct {
@@ -82,9 +94,10 @@ type TokenPair struct {
 
 func NewService(db *sql.DB, cfg Config) *Service {
 	return &Service{
-		users:  NewUserStore(db),
-		tokens: NewTokenStore(db),
-		cfg:    cfg,
+		users:         NewUserStore(db),
+		tokens:        NewTokenStore(db),
+		verifications: NewEmailVerificationStore(db),
+		cfg:           cfg,
 	}
 }
 
@@ -111,6 +124,13 @@ func (s *Service) Register(ctx context.Context, email, password string) (TokenPa
 		return TokenPair{}, err
 	}
 
+	if s.cfg.RequireEmailVerification {
+		if err := s.sendVerificationEmail(ctx, user); err != nil {
+			return TokenPair{}, err
+		}
+		return TokenPair{}, ErrEmailVerificationRequired
+	}
+
 	return s.issueTokens(ctx, user)
 }
 
@@ -126,6 +146,9 @@ func (s *Service) Login(ctx context.Context, email, password string) (TokenPair,
 
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
 		return TokenPair{}, ErrInvalidCredentials
+	}
+	if s.cfg.RequireEmailVerification && user.EmailVerifiedAt == nil {
+		return TokenPair{}, ErrEmailNotVerified
 	}
 
 	return s.issueTokens(ctx, user)
@@ -157,6 +180,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (TokenPair, 
 	if err != nil {
 		return TokenPair{}, err
 	}
+	if s.cfg.RequireEmailVerification && user.EmailVerifiedAt == nil {
+		return TokenPair{}, ErrEmailNotVerified
+	}
 
 	return s.issueTokens(ctx, user)
 }
@@ -174,6 +200,28 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 		return err
 	}
 	return s.tokens.Revoke(ctx, stored.ID)
+}
+
+func (s *Service) VerifyEmail(ctx context.Context, token string) error {
+	if token == "" {
+		return ErrInvalidVerificationToken
+	}
+	tokenHash := hashToken(token)
+	record, err := s.verifications.FindByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrInvalidVerificationToken
+		}
+		return err
+	}
+	if record.UsedAt.Valid || time.Now().After(record.ExpiresAt) {
+		return ErrInvalidVerificationToken
+	}
+
+	if err := s.users.MarkEmailVerified(ctx, record.UserID); err != nil {
+		return err
+	}
+	return s.verifications.MarkUsed(ctx, record.ID)
 }
 
 func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error) {
@@ -199,6 +247,37 @@ func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error)
 		AccessExpiresAt:  expiresAt,
 		RefreshExpiresAt: refreshExpires,
 	}, nil
+}
+
+func (s *Service) sendVerificationEmail(ctx context.Context, user User) error {
+	if s.cfg.EmailSender == nil || s.cfg.EmailFrom == "" || s.cfg.AppBaseURL == "" {
+		return fmt.Errorf("email verification is enabled but email sender is not configured")
+	}
+	if s.cfg.EmailVerificationTTL <= 0 {
+		return fmt.Errorf("email verification ttl must be > 0")
+	}
+
+	token, err := generateToken()
+	if err != nil {
+		return err
+	}
+	expiresAt := time.Now().Add(s.cfg.EmailVerificationTTL)
+	if err := s.verifications.Create(ctx, user.ID, hashToken(token), expiresAt); err != nil {
+		return err
+	}
+
+	link := strings.TrimRight(s.cfg.AppBaseURL, "/") + "/auth/verify?token=" + token
+	subject := "Confirm your DropDate email"
+	body := "Please confirm your email by clicking the link below:<br><br>" +
+		"<a href=\"" + link + "\">Verify email</a><br><br>" +
+		"If you didn't request this, you can ignore this email."
+
+	return s.cfg.EmailSender.Send(ctx, email.Message{
+		From:    s.cfg.EmailFrom,
+		To:      user.Email,
+		Subject: subject,
+		HTML:    body,
+	})
 }
 
 func (s *Service) createAccessToken(user User) (string, time.Time, error) {

@@ -53,6 +53,12 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 	result, err := s.auth.Register(r.Context(), payload.Email, payload.Password)
 	if err != nil {
 		switch {
+		case errors.Is(err, auth.ErrEmailVerificationRequired):
+			writeJSON(w, http.StatusAccepted, map[string]any{
+				"status":  "verification_required",
+				"message": "verify your email to continue",
+			})
+			return
 		case errors.Is(err, auth.ErrEmailExists):
 			writeErrorWithDetails(w, http.StatusConflict, "email_exists", "email already registered", nil)
 		case errors.Is(err, auth.ErrWeakPassword):
@@ -102,6 +108,10 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.auth.Login(r.Context(), payload.Email, payload.Password)
 	if err != nil {
+		if errors.Is(err, auth.ErrEmailNotVerified) {
+			writeErrorWithDetails(w, http.StatusForbidden, "email_not_verified", "email not verified", nil)
+			return
+		}
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			writeErrorWithDetails(w, http.StatusUnauthorized, "invalid_credentials", "invalid credentials", nil)
 			return
@@ -134,6 +144,10 @@ func (s *Server) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.auth.Refresh(r.Context(), refreshToken)
 	if err != nil {
+		if errors.Is(err, auth.ErrEmailNotVerified) {
+			writeErrorWithDetails(w, http.StatusForbidden, "email_not_verified", "email not verified", nil)
+			return
+		}
 		if errors.Is(err, auth.ErrInvalidToken) {
 			writeErrorWithDetails(w, http.StatusUnauthorized, "invalid_refresh_token", "invalid refresh token", nil)
 			return
@@ -167,6 +181,35 @@ func (s *Server) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.clearRefreshCookie(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	if s.auth == nil {
+		writeError(w, http.StatusServiceUnavailable, "auth service unavailable")
+		return
+	}
+
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		writeErrorWithDetails(w, http.StatusBadRequest, "missing_token", "token is required", nil)
+		return
+	}
+
+	if err := s.auth.VerifyEmail(r.Context(), token); err != nil {
+		if errors.Is(err, auth.ErrInvalidVerificationToken) {
+			writeErrorWithDetails(w, http.StatusBadRequest, "invalid_token", "invalid or expired token", nil)
+			return
+		}
+		s.logger.Printf("verify email failed: %v", err)
+		writeErrorWithDetails(w, http.StatusInternalServerError, "internal_error", "internal server error", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "verified"})
 }
 
 func (s *Server) setRefreshCookie(w http.ResponseWriter, token string, expiresAt time.Time) {

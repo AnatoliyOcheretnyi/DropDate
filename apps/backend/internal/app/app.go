@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
@@ -68,7 +69,8 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		db = openedDB
 		closeDB = openedDB.Close
 
-		service, err := buildAuthService(openedDB, cfg.Auth)
+		emailSender := buildEmailSender(cfg.Email, httpClient)
+		service, err := buildAuthService(openedDB, cfg.Auth, emailSender, cfg.Email)
 		if err != nil {
 			_ = openedDB.Close()
 			return nil, err
@@ -196,13 +198,25 @@ func openDatabase(cfg DatabaseConfig) (*sql.DB, error) {
 	return db, nil
 }
 
-func buildAuthService(db *sql.DB, cfg AuthConfig) (*auth.Service, error) {
+func buildAuthService(db *sql.DB, cfg AuthConfig, sender email.Sender, emailCfg EmailConfig) (*auth.Service, error) {
 	return auth.NewService(db, auth.Config{
-		JWTSecret:    []byte(cfg.JWTSecret),
-		Issuer:       cfg.Issuer,
-		AccessTTL:    cfg.AccessTTL,
-		RefreshTTL:   cfg.RefreshTTL,
-		CookieName:   cfg.CookieName,
-		CookieSecure: cfg.CookieSecure,
+		JWTSecret:                []byte(cfg.JWTSecret),
+		Issuer:                   cfg.Issuer,
+		AccessTTL:                cfg.AccessTTL,
+		RefreshTTL:               cfg.RefreshTTL,
+		CookieName:               cfg.CookieName,
+		CookieSecure:             cfg.CookieSecure,
+		RequireEmailVerification: cfg.RequireEmailVerification,
+		EmailVerificationTTL:     cfg.VerificationTTL,
+		AppBaseURL:               emailCfg.AppBaseURL,
+		EmailSender:              sender,
+		EmailFrom:                emailCfg.ResendSender,
 	}), nil
+}
+
+func buildEmailSender(cfg EmailConfig, httpClient *http.Client) email.Sender {
+	if cfg.ResendAPIKey == "" || cfg.ResendSender == "" {
+		return nil
+	}
+	return email.NewResendSender(cfg.ResendAPIKey, httpClient)
 }

@@ -21,47 +21,68 @@ func (s *UserStore) Create(ctx context.Context, email, passwordHash string) (Use
 	row := s.db.QueryRowContext(ctx, `
 		insert into users (email, password_hash)
 		values ($1, $2)
-		returning id, email, created_at
+		returning id, email, created_at, email_verified_at
 	`, email, passwordHash)
 
 	var user User
-	if err := row.Scan(&user.ID, &user.Email, &user.CreatedAt); err != nil {
+	var verifiedAt sql.NullTime
+	if err := row.Scan(&user.ID, &user.Email, &user.CreatedAt, &verifiedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return User{}, ErrEmailExists
 		}
 		return User{}, err
 	}
+	if verifiedAt.Valid {
+		user.EmailVerifiedAt = &verifiedAt.Time
+	}
 	return user, nil
 }
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, string, error) {
 	row := s.db.QueryRowContext(ctx, `
-		select id, email, password_hash, created_at
+		select id, email, password_hash, created_at, email_verified_at
 		from users
 		where email = $1
 	`, email)
 
 	var user User
 	var hash string
-	if err := row.Scan(&user.ID, &user.Email, &hash, &user.CreatedAt); err != nil {
+	var verifiedAt sql.NullTime
+	if err := row.Scan(&user.ID, &user.Email, &hash, &user.CreatedAt, &verifiedAt); err != nil {
 		return User{}, "", err
+	}
+	if verifiedAt.Valid {
+		user.EmailVerifiedAt = &verifiedAt.Time
 	}
 	return user, hash, nil
 }
 
 func (s *UserStore) GetByID(ctx context.Context, id string) (User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		select id, email, created_at
+		select id, email, created_at, email_verified_at
 		from users
 		where id = $1
 	`, id)
 
 	var user User
-	if err := row.Scan(&user.ID, &user.Email, &user.CreatedAt); err != nil {
+	var verifiedAt sql.NullTime
+	if err := row.Scan(&user.ID, &user.Email, &user.CreatedAt, &verifiedAt); err != nil {
 		return User{}, err
 	}
+	if verifiedAt.Valid {
+		user.EmailVerifiedAt = &verifiedAt.Time
+	}
 	return user, nil
+}
+
+func (s *UserStore) MarkEmailVerified(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `
+		update users
+		set email_verified_at = now()
+		where id = $1 and email_verified_at is null
+	`, id)
+	return err
 }
 
 type TokenStore struct {

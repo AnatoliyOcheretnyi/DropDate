@@ -17,6 +17,7 @@ type AuthService interface {
 	Login(ctx context.Context, email, password string) (auth.TokenPair, error)
 	Refresh(ctx context.Context, refreshToken string) (auth.TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
+	VerifyEmail(ctx context.Context, token string) error
 	ParseAccessToken(token string) (string, error)
 	Config() auth.Config
 }
