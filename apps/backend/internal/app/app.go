@@ -95,6 +95,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		httpapi.ServerOptions{
 			Readiness:        readiness,
 			ReadinessTimeout: cfg.Readiness.Timeout,
+			RequestTimeout:   cfg.HTTP.RequestTimeout,
 		},
 	)
 

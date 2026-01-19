@@ -22,12 +22,13 @@ type AuthService interface {
 }
 
 type ReadinessChecker interface {
-	Ready(ctx context.Context) error
+	Readiness(ctx context.Context) map[string]error
 }
 
 type ServerOptions struct {
 	Readiness        ReadinessChecker
 	ReadinessTimeout time.Duration
+	RequestTimeout   time.Duration
 }
 
 type Server struct {
@@ -37,6 +38,7 @@ type Server struct {
 	notifications    *notifications.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
+	requestTimeout   time.Duration
 	logger           *log.Logger
 }
 
@@ -61,6 +63,7 @@ func NewServer(
 		notifications:    notificationsSvc,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
+		requestTimeout:   options.RequestTimeout,
 		logger:           logger,
 	}
 }

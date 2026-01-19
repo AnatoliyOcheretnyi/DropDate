@@ -1,7 +1,7 @@
 package app
 
 import (
-	"fmt"
+	"strings"
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/config"
@@ -24,6 +24,7 @@ type HTTPConfig struct {
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration
+	RequestTimeout    time.Duration
 }
 
 type HTTPClientConfig struct {
@@ -67,6 +68,7 @@ func LoadConfig() (Config, error) {
 			ReadTimeout:       config.Duration("HTTP_READ_TIMEOUT", 15*time.Second),
 			WriteTimeout:      config.Duration("HTTP_WRITE_TIMEOUT", 15*time.Second),
 			IdleTimeout:       config.Duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
+			RequestTimeout:    config.Duration("HTTP_REQUEST_TIMEOUT", 10*time.Second),
 		},
 		HTTPClient: HTTPClientConfig{
 			Timeout: config.Duration("HTTP_CLIENT_TIMEOUT", 5*time.Second),
@@ -99,10 +101,37 @@ func LoadConfig() (Config, error) {
 			CookieSecure: config.Bool("AUTH_COOKIE_SECURE", false),
 		}
 
-		if cfg.Auth.JWTSecret == "" {
-			return Config{}, fmt.Errorf("AUTH_JWT_SECRET is required when database is configured")
-		}
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return Config{}, err
 	}
 
 	return cfg, nil
+}
+
+type validationErrors []string
+
+func (v validationErrors) Error() string {
+	return "invalid configuration: " + strings.Join(v, "; ")
+}
+
+func (c Config) Validate() error {
+	var errs validationErrors
+	if c.HTTP.Addr == "" {
+		errs = append(errs, "HTTP_ADDR is required")
+	}
+	if c.HTTP.RequestTimeout < 0 {
+		errs = append(errs, "HTTP_REQUEST_TIMEOUT must be >= 0")
+	}
+	if c.Shutdown.Timeout <= 0 {
+		errs = append(errs, "HTTP_SHUTDOWN_TIMEOUT must be > 0")
+	}
+	if c.Database.DSN != "" && c.Auth.JWTSecret == "" {
+		errs = append(errs, "AUTH_JWT_SECRET is required when database is configured")
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
 }

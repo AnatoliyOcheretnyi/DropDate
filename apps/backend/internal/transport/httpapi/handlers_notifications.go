@@ -39,16 +39,16 @@ type markReadRequest struct {
 
 func (s *Server) notificationsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	userID, err := s.requireUserID(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if s.notifications == nil {
-		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
 		return
 	}
 
@@ -61,13 +61,13 @@ func (s *Server) notificationsHandler(w http.ResponseWriter, r *http.Request) {
 	items, err := s.notifications.List(r.Context(), userID, limit)
 	if err != nil {
 		s.logger.Printf("notifications list failed: %v", err)
-		http.Error(w, "failed to fetch notifications", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch notifications")
 		return
 	}
 	unreadCount, err := s.notifications.CountUnread(r.Context(), userID)
 	if err != nil {
 		s.logger.Printf("notifications unread count failed: %v", err)
-		http.Error(w, "failed to fetch unread count", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch unread count")
 		return
 	}
 
@@ -76,39 +76,36 @@ func (s *Server) notificationsHandler(w http.ResponseWriter, r *http.Request) {
 		payload = append(payload, mapNotification(item))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(notificationsResponse{
+	writeJSON(w, http.StatusOK, notificationsResponse{
 		Items:       payload,
 		UnreadCount: unreadCount,
-	}); err != nil {
-		s.logger.Printf("failed to encode notifications: %v", err)
-	}
+	})
 }
 
 func (s *Server) notificationsReadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	userID, err := s.requireUserID(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if s.notifications == nil {
-		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
 		return
 	}
 
 	var payload markReadRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	if payload.All || len(payload.IDs) == 0 {
 		if err := s.notifications.MarkAllRead(r.Context(), userID); err != nil {
 			s.logger.Printf("notifications mark all failed: %v", err)
-			http.Error(w, "failed to mark read", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "failed to mark read")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -117,7 +114,7 @@ func (s *Server) notificationsReadHandler(w http.ResponseWriter, r *http.Request
 
 	if err := s.notifications.MarkRead(r.Context(), userID, payload.IDs); err != nil {
 		s.logger.Printf("notifications mark read failed: %v", err)
-		http.Error(w, "failed to mark read", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to mark read")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

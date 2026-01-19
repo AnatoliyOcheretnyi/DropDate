@@ -36,17 +36,17 @@ type authResponse struct {
 
 func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	if s.auth == nil {
-		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "auth service unavailable")
 		return
 	}
 
 	var payload authRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
@@ -54,14 +54,14 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrEmailExists):
-			http.Error(w, "email already registered", http.StatusConflict)
+			writeError(w, http.StatusConflict, "email already registered")
 		case errors.Is(err, auth.ErrWeakPassword):
-			http.Error(w, "password does not meet policy", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "password does not meet policy")
 		case errors.Is(err, auth.ErrInvalidEmail):
-			http.Error(w, "invalid email", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid email")
 		default:
 			s.logger.Printf("register failed: %v", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
@@ -72,28 +72,28 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	if s.auth == nil {
-		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "auth service unavailable")
 		return
 	}
 
 	var payload authRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
 	result, err := s.auth.Login(r.Context(), payload.Email, payload.Password)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
 		s.logger.Printf("login failed: %v", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
@@ -103,29 +103,29 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	if s.auth == nil {
-		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "auth service unavailable")
 		return
 	}
 
 	cookieName := s.auth.Config().CookieName
 	refreshToken, fromBody := readRefreshToken(r, cookieName)
 	if refreshToken == "" {
-		http.Error(w, "missing refresh token", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "missing refresh token")
 		return
 	}
 
 	result, err := s.auth.Refresh(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidToken) {
-			http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "invalid refresh token")
 			return
 		}
 		s.logger.Printf("refresh failed: %v", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
@@ -135,11 +135,11 @@ func (s *Server) refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	if s.auth == nil {
-		http.Error(w, "auth service unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "auth service unavailable")
 		return
 	}
 
@@ -187,8 +187,7 @@ func (s *Server) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair,
 	if includeRefresh {
 		refresh = &result.RefreshToken
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(authResponse{
+	writeJSON(w, http.StatusOK, authResponse{
 		AccessToken:  result.AccessToken,
 		ExpiresAt:    result.AccessExpiresAt,
 		RefreshToken: refresh,
@@ -196,9 +195,7 @@ func (s *Server) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair,
 			ID:    result.User.ID,
 			Email: result.User.Email,
 		},
-	}); err != nil {
-		s.logger.Printf("failed to encode auth response: %v", err)
-	}
+	})
 }
 
 func shouldReturnRefresh(payload authRequest) bool {

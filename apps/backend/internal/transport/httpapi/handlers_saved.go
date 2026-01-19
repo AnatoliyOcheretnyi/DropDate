@@ -61,7 +61,7 @@ func (s *Server) savedHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		s.handleSavedUpsert(w, r)
 	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 	}
 }
 
@@ -72,18 +72,18 @@ func (s *Server) savedItemHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPatch:
 		s.handleSavedUpdate(w, r)
 	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 	}
 }
 
 func (s *Server) handleSavedDelete(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.requireUserID(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if s.saved == nil {
-		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
 		return
 	}
 
@@ -91,26 +91,26 @@ func (s *Server) handleSavedDelete(w http.ResponseWriter, r *http.Request) {
 	mediaType := strings.TrimSpace(r.URL.Query().Get("mediaType"))
 	listType := strings.TrimSpace(r.URL.Query().Get("listType"))
 	if tmdbIDStr == "" || mediaType == "" {
-		http.Error(w, "tmdbId and mediaType are required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "tmdbId and mediaType are required")
 		return
 	}
 	if listType != "" {
 		if normalized, ok := normalizeListType(listType); ok {
 			listType = normalized
 		} else {
-			http.Error(w, "invalid listType", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid listType")
 			return
 		}
 	}
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil || tmdbID <= 0 {
-		http.Error(w, "invalid tmdbId", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid tmdbId")
 		return
 	}
 
 	if err := s.saved.Remove(r.Context(), userID, tmdbID, mediaType, listType); err != nil {
 		s.logger.Printf("saved delete failed: %v", err)
-		http.Error(w, "failed to delete saved title", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to delete saved title")
 		return
 	}
 
@@ -120,27 +120,27 @@ func (s *Server) handleSavedDelete(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSavedUpdate(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.requireUserID(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if s.saved == nil {
-		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
 		return
 	}
 
 	var payload updateStatsRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	if payload.TMDBID <= 0 || payload.MediaType == "" || payload.ListType == "" {
-		http.Error(w, "tmdbId, mediaType and listType are required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "tmdbId, mediaType and listType are required")
 		return
 	}
 	if normalized, ok := normalizeListType(payload.ListType); ok {
 		payload.ListType = normalized
 	} else {
-		http.Error(w, "invalid listType", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid listType")
 		return
 	}
 	var lastWatched *time.Time
@@ -161,7 +161,7 @@ func (s *Server) handleSavedUpdate(w http.ResponseWriter, r *http.Request) {
 		lastWatched,
 	); err != nil {
 		s.logger.Printf("saved stats update failed: %v", err)
-		http.Error(w, "failed to update saved stats", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to update saved stats")
 		return
 	}
 
@@ -171,11 +171,11 @@ func (s *Server) handleSavedUpdate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSavedList(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.requireUserID(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if s.saved == nil {
-		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
 		return
 	}
 
@@ -184,14 +184,14 @@ func (s *Server) handleSavedList(w http.ResponseWriter, r *http.Request) {
 		if normalized, ok := normalizeListType(listType); ok {
 			listType = normalized
 		} else {
-			http.Error(w, "invalid listType", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid listType")
 			return
 		}
 	}
 	items, err := s.saved.List(r.Context(), userID, listType)
 	if err != nil {
 		s.logger.Printf("saved list failed: %v", err)
-		http.Error(w, "failed to fetch saved titles", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch saved titles")
 		return
 	}
 
@@ -200,37 +200,34 @@ func (s *Server) handleSavedList(w http.ResponseWriter, r *http.Request) {
 		payload = append(payload, mapSavedItem(item))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{"items": payload}); err != nil {
-		s.logger.Printf("failed to encode saved list: %v", err)
-	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": payload})
 }
 
 func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.requireUserID(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if s.saved == nil {
-		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
 		return
 	}
 
 	var payload saveRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	if payload.TMDBID <= 0 || payload.MediaType == "" || strings.TrimSpace(payload.Title) == "" {
-		http.Error(w, "tmdbId, mediaType and title are required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "tmdbId, mediaType and title are required")
 		return
 	}
 	if payload.ListType != "" {
 		if normalized, ok := normalizeListType(payload.ListType); ok {
 			payload.ListType = normalized
 		} else {
-			http.Error(w, "invalid listType", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid listType")
 			return
 		}
 	}
@@ -286,18 +283,15 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, saved.ErrInvalidMediaType) {
-			http.Error(w, "invalid mediaType", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid mediaType")
 			return
 		}
 		s.logger.Printf("saved upsert failed: %v", err)
-		http.Error(w, "failed to save title", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to save title")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(mapSavedItem(item)); err != nil {
-		s.logger.Printf("failed to encode saved item: %v", err)
-	}
+	writeJSON(w, http.StatusOK, mapSavedItem(item))
 }
 
 func (s *Server) requireUserID(r *http.Request) (string, error) {

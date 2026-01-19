@@ -13,13 +13,13 @@ import (
 
 func (s *Server) nextReleaseHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
 	title := strings.TrimSpace(r.URL.Query().Get("title"))
 	if title == "" {
-		http.Error(w, "title query parameter is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "title query parameter is required")
 		return
 	}
 
@@ -42,29 +42,26 @@ func (s *Server) nextReleaseHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := s.releases.NextRelease(r.Context(), title, hint)
 	if err != nil {
 		if errors.Is(err, release.ErrNotFound) {
-			http.Error(w, "release not found", http.StatusNotFound)
+			writeError(w, http.StatusNotFound, "release not found")
 			return
 		}
 		s.logger.Printf("release lookup failed: %v", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(info); err != nil {
-		s.logger.Printf("failed to encode response: %v", err)
-	}
+	writeJSON(w, http.StatusOK, info)
 }
 
 func (s *Server) suggestHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	if len(query) < 2 {
-		http.Error(w, "query should be at least 2 characters", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "query should be at least 2 characters")
 		return
 	}
 
@@ -78,19 +75,16 @@ func (s *Server) suggestHandler(w http.ResponseWriter, r *http.Request) {
 	results, err := s.releases.Suggestions(r.Context(), query, limit)
 	if err != nil {
 		s.logger.Printf("suggestions failed: %v", err)
-		http.Error(w, "failed to fetch suggestions", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch suggestions")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
-		s.logger.Printf("failed to encode suggestions: %v", err)
-	}
+	writeJSON(w, http.StatusOK, map[string]any{"results": results})
 }
 
 func (s *Server) trendingHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
@@ -105,35 +99,32 @@ func (s *Server) trendingHandler(w http.ResponseWriter, r *http.Request) {
 	movies, err := s.releases.TrendingByType(r.Context(), "movie", window, limit)
 	if err != nil {
 		s.logger.Printf("trending movies failed: %v", err)
-		http.Error(w, "failed to fetch trending movies", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch trending movies")
 		return
 	}
 
 	series, err := s.releases.TrendingByType(r.Context(), "tv", window, limit)
 	if err != nil {
 		s.logger.Printf("trending series failed: %v", err)
-		http.Error(w, "failed to fetch trending series", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch trending series")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"movies": movies,
 		"series": series,
-	}); err != nil {
-		s.logger.Printf("failed to encode trending: %v", err)
-	}
+	})
 }
 
 func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	if query == "" {
-		http.Error(w, "query is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "query is required")
 		return
 	}
 
@@ -147,14 +138,11 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	results, err := s.releases.Search(r.Context(), query, page)
 	if err != nil {
 		s.logger.Printf("search failed: %v", err)
-		http.Error(w, "failed to fetch search results", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch search results")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(results); err != nil {
-		s.logger.Printf("failed to encode search: %v", err)
-	}
+	writeJSON(w, http.StatusOK, results)
 }
 
 type detailsResponse struct {
@@ -165,35 +153,35 @@ type detailsResponse struct {
 
 func (s *Server) detailsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
 	tmdbIDStr := strings.TrimSpace(r.URL.Query().Get("tmdbId"))
 	if tmdbIDStr == "" {
-		http.Error(w, "tmdbId is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "tmdbId is required")
 		return
 	}
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil || tmdbID <= 0 {
-		http.Error(w, "invalid tmdbId", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid tmdbId")
 		return
 	}
 
 	mediaType := strings.TrimSpace(r.URL.Query().Get("mediaType"))
 	if mediaType == "" {
-		http.Error(w, "mediaType is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "mediaType is required")
 		return
 	}
 
 	details, err := s.releases.Details(r.Context(), tmdbID, mediaType)
 	if err != nil {
 		if errors.Is(err, release.ErrNotFound) {
-			http.Error(w, "not found", http.StatusNotFound)
+			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
 		s.logger.Printf("details failed: %v", err)
-		http.Error(w, "failed to fetch details", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "failed to fetch details")
 		return
 	}
 
@@ -215,14 +203,11 @@ func (s *Server) detailsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(detailsResponse{
+	writeJSON(w, http.StatusOK, detailsResponse{
 		Details:         details,
 		Release:         releaseInfo,
 		Recommendations: recommendations,
-	}); err != nil {
-		s.logger.Printf("failed to encode details: %v", err)
-	}
+	})
 }
 
 type bulkNextReleaseRequest struct {
@@ -244,19 +229,19 @@ type bulkNextReleaseResult struct {
 
 func (s *Server) bulkNextReleaseHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
 	var payload bulkNextReleaseRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
 	results := make([]bulkNextReleaseResult, 0, len(payload.Items))
 	if len(payload.Items) == 0 {
-		http.Error(w, "items array is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "items array is required")
 		return
 	}
 
@@ -297,8 +282,5 @@ func (s *Server) bulkNextReleaseHandler(w http.ResponseWriter, r *http.Request) 
 		results = append(results, entry)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{"results": results}); err != nil {
-		s.logger.Printf("failed to encode bulk response: %v", err)
-	}
+	writeJSON(w, http.StatusOK, map[string]any{"results": results})
 }

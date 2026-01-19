@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
 )
@@ -13,16 +12,13 @@ type readinessChecker struct {
 	tmdbClient *tmdb.Client
 }
 
-func (r readinessChecker) Ready(ctx context.Context) error {
+func (r readinessChecker) Readiness(ctx context.Context) map[string]error {
+	checks := map[string]error{}
 	if r.db != nil {
-		if err := r.db.PingContext(ctx); err != nil {
-			return fmt.Errorf("database: %w", err)
-		}
+		checks["database"] = r.db.PingContext(ctx)
 	}
 	if r.tmdbClient != nil {
-		if err := r.tmdbClient.Health(ctx); err != nil {
-			return fmt.Errorf("tmdb: %w", err)
-		}
+		checks["tmdb"] = r.tmdbClient.Health(ctx)
 	}
-	return nil
+	return checks
 }

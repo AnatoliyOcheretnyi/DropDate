@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -31,6 +32,12 @@ func (w *statusWriter) Write(p []byte) (int, error) {
 
 func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.requestTimeout > 0 {
+			ctx, cancel := context.WithTimeout(r.Context(), s.requestTimeout)
+			defer cancel()
+			r = r.WithContext(ctx)
+		}
+
 		requestID := r.Header.Get(requestIDHeader)
 		if requestID == "" {
 			requestID = observability.NewRequestID()
@@ -45,7 +52,7 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				s.logger.Printf("request_id=%s panic=%v", requestID, recovered)
-				http.Error(sw, "internal server error", http.StatusInternalServerError)
+				writeError(sw, http.StatusInternalServerError, "internal server error")
 			}
 		}()
 

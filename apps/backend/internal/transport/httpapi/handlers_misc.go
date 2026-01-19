@@ -8,7 +8,7 @@ import (
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
@@ -17,12 +17,12 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 
 	if s.readiness == nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 		return
 	}
 
@@ -33,19 +33,41 @@ func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
-	if err := s.readiness.Ready(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
-			"status": "not_ready",
-			"error":  err.Error(),
-		})
-		return
+	checks := s.readiness.Readiness(ctx)
+	overall := http.StatusOK
+	payload := map[string]any{
+		"status": "ok",
+		"checks": formatReadiness(checks),
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	for _, err := range checks {
+		if err != nil {
+			overall = http.StatusServiceUnavailable
+			payload["status"] = "not_ready"
+			break
+		}
+	}
+
+	writeJSON(w, overall, payload)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func formatReadiness(checks map[string]error) map[string]string {
+	if len(checks) == 0 {
+		return map[string]string{}
+	}
+	response := make(map[string]string, len(checks))
+	for key, err := range checks {
+		if err == nil {
+			response[key] = "ok"
+			continue
+		}
+		response[key] = err.Error()
+	}
+	return response
 }
