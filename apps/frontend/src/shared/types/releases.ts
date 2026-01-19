@@ -1,6 +1,7 @@
 import type { ReleaseInfo, Suggestion } from "../lib/release";
 
 export const STORAGE_KEY = "dropdate:saved-releases";
+export const SYNC_ON_AUTH_KEY = "dropdate:sync-on-auth";
 
 export type ListType =
   | "follow"

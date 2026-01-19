@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { SYNC_ON_AUTH_KEY } from "../types/releases";
 
 type AuthUser = {
   id: string;
@@ -49,6 +50,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const applyAuth = useCallback((result: AuthResult) => {
     setUser(result.user);
     setAccessToken(result.accessToken);
+  }, []);
+
+  const setSyncFlag = useCallback((value: "1" | "0") => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(SYNC_ON_AUTH_KEY, value);
+    } catch {
+      // ignore storage issues
+    }
+  }, []);
+
+  const clearSyncFlag = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.removeItem(SYNC_ON_AUTH_KEY);
+    } catch {
+      // ignore storage issues
+    }
   }, []);
 
   const clearAuth = useCallback(() => {
@@ -94,9 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       const result = await parseAuthResponse(response);
+      setSyncFlag("0");
       applyAuth(result);
     },
-    [applyAuth]
+    [applyAuth, setSyncFlag]
   );
 
   const register = useCallback(
@@ -108,9 +132,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       const result = await parseAuthResponse(response);
+      setSyncFlag("1");
       applyAuth(result);
     },
-    [applyAuth]
+    [applyAuth, setSyncFlag]
   );
 
   const logout = useCallback(async () => {
@@ -122,11 +147,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } finally {
       clearAuth();
+      clearSyncFlag();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("saved:clear"));
       }
     }
-  }, [clearAuth]);
+  }, [clearAuth, clearSyncFlag]);
 
   const value = useMemo(
     () => ({

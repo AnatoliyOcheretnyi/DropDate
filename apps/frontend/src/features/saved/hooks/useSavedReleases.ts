@@ -8,6 +8,7 @@ import {
   type ListType,
   getSuggestionId,
   savedIdentifier,
+  SYNC_ON_AUTH_KEY,
 } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { useAuth } from "../../../shared/state/auth";
@@ -62,6 +63,20 @@ const readSavedFromStorage = (): SavedRelease[] => {
     // ignore malformed storage
   }
   return [];
+};
+
+const shouldSyncOnAuth = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(SYNC_ON_AUTH_KEY) === "1";
+};
+
+const clearSyncOnAuth = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(SYNC_ON_AUTH_KEY);
 };
 
 const mergeSaved = (localItems: SavedRelease[], remoteItems: SavedRelease[]) => {
@@ -258,6 +273,7 @@ export function useSavedReleases() {
     let isMounted = true;
     const loadRemote = async (): Promise<SavedRelease[] | null> => {
       const localSnapshot = readSavedFromStorage();
+      const shouldSync = shouldSyncOnAuth();
       try {
         const response = await fetch("/api/saved", {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -285,7 +301,9 @@ export function useSavedReleases() {
             }),
           };
         });
-        const merged = mergeSaved(localSnapshot, normalizedRemote);
+        const merged = shouldSync
+          ? mergeSaved(localSnapshot, normalizedRemote)
+          : normalizedRemote;
         if (isMounted) {
           setSaved(merged);
         }
@@ -294,59 +312,62 @@ export function useSavedReleases() {
         }
         remoteState.data = merged;
 
-        const localToSync = localSnapshot.filter(
-          (item) => item.tmdbId && item.mediaType
-        );
-        if (localToSync.length > 0) {
-          await Promise.all(
-            localToSync.map((item) =>
-              Promise.all(
-                normalizeListTypes(item.listTypes).map((listType) => {
-                  const hasStats =
-                    typeof item.userRating === "number" ||
-                    typeof item.watchCount === "number" ||
-                    Boolean(item.lastWatchedAt);
-                  return Promise.all([
-                    fetch("/api/saved", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${accessToken}`,
-                      },
-                      body: JSON.stringify({
-                        tmdbId: item.tmdbId,
-                        mediaType: item.mediaType,
-                        title: item.title,
-                        nextRelease: item.nextRelease,
-                        status: item.status,
-                        posterUrl: item.posterUrl,
-                        backdropUrl: item.backdropUrl,
-                        listType,
-                      }),
-                    }).catch(() => null),
-                    hasStats
-                      ? fetch("/api/saved/items", {
-                          method: "PATCH",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${accessToken}`,
-                          },
-                          body: JSON.stringify({
-                            tmdbId: item.tmdbId,
-                            mediaType: item.mediaType,
-                            listType,
-                            userRating: item.userRating,
-                            watchCount: item.watchCount,
-                            lastWatchedAt: item.lastWatchedAt,
-                          }),
-                        }).catch(() => null)
-                      : Promise.resolve(null),
-                  ]);
-                })
-              )
-            )
+        if (shouldSync) {
+          const localToSync = localSnapshot.filter(
+            (item) => item.tmdbId && item.mediaType
           );
+          if (localToSync.length > 0) {
+            await Promise.all(
+              localToSync.map((item) =>
+                Promise.all(
+                  normalizeListTypes(item.listTypes).map((listType) => {
+                    const hasStats =
+                      typeof item.userRating === "number" ||
+                      typeof item.watchCount === "number" ||
+                      Boolean(item.lastWatchedAt);
+                    return Promise.all([
+                      fetch("/api/saved", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${accessToken}`,
+                        },
+                        body: JSON.stringify({
+                          tmdbId: item.tmdbId,
+                          mediaType: item.mediaType,
+                          title: item.title,
+                          nextRelease: item.nextRelease,
+                          status: item.status,
+                          posterUrl: item.posterUrl,
+                          backdropUrl: item.backdropUrl,
+                          listType,
+                        }),
+                      }).catch(() => null),
+                      hasStats
+                        ? fetch("/api/saved/items", {
+                            method: "PATCH",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${accessToken}`,
+                            },
+                            body: JSON.stringify({
+                              tmdbId: item.tmdbId,
+                              mediaType: item.mediaType,
+                              listType,
+                              userRating: item.userRating,
+                              watchCount: item.watchCount,
+                              lastWatchedAt: item.lastWatchedAt,
+                            }),
+                          }).catch(() => null)
+                        : Promise.resolve(null),
+                    ]);
+                  })
+                )
+              )
+            );
+          }
         }
+        clearSyncOnAuth();
         return merged;
       } catch {
         // ignore remote errors
