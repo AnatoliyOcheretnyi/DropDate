@@ -46,7 +46,7 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	var payload authRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		writeErrorWithDetails(w, http.StatusBadRequest, "invalid_json", "invalid JSON body", nil)
 		return
 	}
 
@@ -54,14 +54,28 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrEmailExists):
-			writeError(w, http.StatusConflict, "email already registered")
+			writeErrorWithDetails(w, http.StatusConflict, "email_exists", "email already registered", nil)
 		case errors.Is(err, auth.ErrWeakPassword):
-			writeError(w, http.StatusBadRequest, "password does not meet policy")
+			var policyErr auth.PasswordPolicyError
+			if errors.As(err, &policyErr) {
+				writeErrorWithDetails(
+					w,
+					http.StatusBadRequest,
+					"weak_password",
+					"password does not meet policy",
+					map[string]any{
+						"minLength": auth.MinPasswordLength(),
+						"missing":   policyErr.Reasons,
+					},
+				)
+				return
+			}
+			writeErrorWithDetails(w, http.StatusBadRequest, "weak_password", "password does not meet policy", nil)
 		case errors.Is(err, auth.ErrInvalidEmail):
-			writeError(w, http.StatusBadRequest, "invalid email")
+			writeErrorWithDetails(w, http.StatusBadRequest, "invalid_email", "invalid email", nil)
 		default:
 			s.logger.Printf("register failed: %v", err)
-			writeError(w, http.StatusInternalServerError, "internal server error")
+			writeErrorWithDetails(w, http.StatusInternalServerError, "internal_error", "internal server error", nil)
 		}
 		return
 	}
@@ -82,18 +96,18 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	var payload authRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		writeErrorWithDetails(w, http.StatusBadRequest, "invalid_json", "invalid JSON body", nil)
 		return
 	}
 
 	result, err := s.auth.Login(r.Context(), payload.Email, payload.Password)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			writeError(w, http.StatusUnauthorized, "invalid credentials")
+			writeErrorWithDetails(w, http.StatusUnauthorized, "invalid_credentials", "invalid credentials", nil)
 			return
 		}
 		s.logger.Printf("login failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeErrorWithDetails(w, http.StatusInternalServerError, "internal_error", "internal server error", nil)
 		return
 	}
 
@@ -114,18 +128,18 @@ func (s *Server) refreshHandler(w http.ResponseWriter, r *http.Request) {
 	cookieName := s.auth.Config().CookieName
 	refreshToken, fromBody := readRefreshToken(r, cookieName)
 	if refreshToken == "" {
-		writeError(w, http.StatusUnauthorized, "missing refresh token")
+		writeErrorWithDetails(w, http.StatusUnauthorized, "missing_refresh_token", "missing refresh token", nil)
 		return
 	}
 
 	result, err := s.auth.Refresh(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidToken) {
-			writeError(w, http.StatusUnauthorized, "invalid refresh token")
+			writeErrorWithDetails(w, http.StatusUnauthorized, "invalid_refresh_token", "invalid refresh token", nil)
 			return
 		}
 		s.logger.Printf("refresh failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeErrorWithDetails(w, http.StatusInternalServerError, "internal_error", "internal server error", nil)
 		return
 	}
 

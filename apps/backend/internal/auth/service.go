@@ -24,6 +24,24 @@ var (
 	ErrInvalidEmail       = errors.New("invalid email")
 )
 
+const minPasswordLength = 8
+
+func MinPasswordLength() int {
+	return minPasswordLength
+}
+
+type PasswordPolicyError struct {
+	Reasons []string
+}
+
+func (e PasswordPolicyError) Error() string {
+	return ErrWeakPassword.Error()
+}
+
+func (e PasswordPolicyError) Unwrap() error {
+	return ErrWeakPassword
+}
+
 type Config struct {
 	JWTSecret    []byte
 	Issuer       string
@@ -55,9 +73,9 @@ type RefreshToken struct {
 }
 
 type TokenPair struct {
-	AccessToken  string
-	RefreshToken string
-	User         User
+	AccessToken      string
+	RefreshToken     string
+	User             User
 	AccessExpiresAt  time.Time
 	RefreshExpiresAt time.Time
 }
@@ -175,9 +193,9 @@ func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error)
 	}
 
 	return TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User:         user,
+		AccessToken:      accessToken,
+		RefreshToken:     refreshToken,
+		User:             user,
 		AccessExpiresAt:  expiresAt,
 		RefreshExpiresAt: refreshExpires,
 	}, nil
@@ -249,8 +267,9 @@ func validateEmail(value string) error {
 }
 
 func validatePassword(value string) error {
-	if len(value) < 8 {
-		return ErrWeakPassword
+	var reasons []string
+	if len(value) < minPasswordLength {
+		reasons = append(reasons, "min_length")
 	}
 	var hasUpper, hasLower, hasDigit, hasSpecial bool
 	for _, r := range value {
@@ -266,7 +285,21 @@ func validatePassword(value string) error {
 		}
 	}
 	if !hasUpper || !hasLower || !hasDigit || !hasSpecial {
-		return ErrWeakPassword
+		if !hasUpper {
+			reasons = append(reasons, "upper")
+		}
+		if !hasLower {
+			reasons = append(reasons, "lower")
+		}
+		if !hasDigit {
+			reasons = append(reasons, "digit")
+		}
+		if !hasSpecial {
+			reasons = append(reasons, "special")
+		}
+	}
+	if len(reasons) > 0 {
+		return PasswordPolicyError{Reasons: reasons}
 	}
 	return nil
 }
