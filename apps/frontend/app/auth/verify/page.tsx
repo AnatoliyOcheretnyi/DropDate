@@ -124,9 +124,21 @@ function VerifyEmailClient() {
   );
 }
 
+function VerifyEmailFallback() {
+  return (
+    <div className="verify-page">
+      <div className="verify-card">
+        <h1>{copy.auth.verifyProcessingTitle}</h1>
+        <p>{copy.auth.verifyProcessingText}</p>
+        <div className="verify-loader" aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
+
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<VerifyEmailClient />}>
+    <Suspense fallback={<VerifyEmailFallback />}>
       <VerifyEmailClient />
     </Suspense>
   );
