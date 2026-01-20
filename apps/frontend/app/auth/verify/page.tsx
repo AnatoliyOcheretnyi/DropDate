@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { copy } from "../../../src/shared/lib/strings";
 
 type VerifyState = "idle" | "loading" | "success" | "error";
 
-export default function VerifyEmailPage() {
+function VerifyEmailClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -121,5 +121,13 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<VerifyEmailClient />}>
+      <VerifyEmailClient />
+    </Suspense>
   );
 }
