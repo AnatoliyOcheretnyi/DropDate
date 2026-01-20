@@ -26,7 +26,12 @@ var (
 	ErrInvalidEmail              = errors.New("invalid email")
 	ErrEmailNotVerified          = errors.New("email not verified")
 	ErrEmailVerificationRequired = errors.New("email verification required")
+	ErrEmailAlreadyVerified      = errors.New("email already verified")
 	ErrInvalidVerificationToken  = errors.New("invalid verification token")
+	ErrVerificationTokenNotFound = errors.New("verification token not found")
+	ErrVerificationTokenExpired  = errors.New("verification token expired")
+	ErrVerificationTokenUsed     = errors.New("verification token already used")
+	ErrVerificationResendTooSoon = errors.New("verification resend too soon")
 )
 
 const minPasswordLength = 8
@@ -47,6 +52,18 @@ func (e PasswordPolicyError) Unwrap() error {
 	return ErrWeakPassword
 }
 
+type VerificationResendCooldownError struct {
+	RetryAfter time.Duration
+}
+
+func (e VerificationResendCooldownError) Error() string {
+	return ErrVerificationResendTooSoon.Error()
+}
+
+func (e VerificationResendCooldownError) Unwrap() error {
+	return ErrVerificationResendTooSoon
+}
+
 type Config struct {
 	JWTSecret                []byte
 	Issuer                   string
@@ -56,6 +73,7 @@ type Config struct {
 	CookieSecure             bool
 	RequireEmailVerification bool
 	EmailVerificationTTL     time.Duration
+	VerificationResendCooldown time.Duration
 	AppBaseURL               string
 	EmailSender              email.Sender
 	EmailFrom                string
@@ -210,18 +228,59 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	record, err := s.verifications.FindByHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrInvalidVerificationToken
+			return ErrVerificationTokenNotFound
 		}
 		return err
 	}
-	if record.UsedAt.Valid || time.Now().After(record.ExpiresAt) {
-		return ErrInvalidVerificationToken
+	if record.UsedAt.Valid {
+		return ErrVerificationTokenUsed
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return ErrVerificationTokenExpired
 	}
 
 	if err := s.users.MarkEmailVerified(ctx, record.UserID); err != nil {
 		return err
 	}
 	return s.verifications.MarkUsed(ctx, record.ID)
+}
+
+func (s *Service) ResendVerification(ctx context.Context, email string) error {
+	email = normalizeEmail(email)
+	if err := validateEmail(email); err != nil {
+		return err
+	}
+	if !s.cfg.RequireEmailVerification {
+		return nil
+	}
+
+	user, _, err := s.users.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if user.EmailVerifiedAt != nil {
+		return ErrEmailAlreadyVerified
+	}
+
+	if s.cfg.VerificationResendCooldown > 0 {
+		last, err := s.verifications.LatestByUser(ctx, user.ID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if err == nil {
+			elapsed := time.Since(last.CreatedAt)
+			if elapsed < s.cfg.VerificationResendCooldown {
+				return VerificationResendCooldownError{
+					RetryAfter: s.cfg.VerificationResendCooldown - elapsed,
+				}
+			}
+		}
+	}
+
+	return s.sendVerificationEmail(ctx, user)
 }
 
 func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error) {

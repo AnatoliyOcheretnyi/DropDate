@@ -60,3 +60,26 @@ func (s *EmailVerificationStore) MarkUsed(ctx context.Context, id string) error 
 	`, id)
 	return err
 }
+
+func (s *EmailVerificationStore) LatestByUser(ctx context.Context, userID string) (EmailVerification, error) {
+	row := s.db.QueryRowContext(ctx, `
+		select id, user_id, token_hash, expires_at, used_at, created_at
+		from email_verifications
+		where user_id = $1
+		order by created_at desc
+		limit 1
+	`, userID)
+
+	var record EmailVerification
+	if err := row.Scan(
+		&record.ID,
+		&record.UserID,
+		&record.TokenHash,
+		&record.ExpiresAt,
+		&record.UsedAt,
+		&record.CreatedAt,
+	); err != nil {
+		return EmailVerification{}, err
+	}
+	return record, nil
+}

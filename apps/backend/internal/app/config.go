@@ -57,6 +57,7 @@ type AuthConfig struct {
 	CookieSecure             bool
 	RequireEmailVerification bool
 	VerificationTTL          time.Duration
+	VerificationResendCooldown time.Duration
 }
 
 type NotificationsConfig struct {
@@ -64,9 +65,10 @@ type NotificationsConfig struct {
 }
 
 type EmailConfig struct {
-	ResendAPIKey string
-	ResendSender string
-	AppBaseURL   string
+	ResendAPIKey  string
+	ResendSender  string
+	AppBaseURL    string
+	VerifyBaseURL string
 }
 
 func LoadConfig() (Config, error) {
@@ -98,9 +100,10 @@ func LoadConfig() (Config, error) {
 			Interval: config.Duration("NOTIFICATIONS_JOB_INTERVAL", 24*time.Hour),
 		},
 		Email: EmailConfig{
-			ResendAPIKey: config.String("RESEND_API_KEY", ""),
-			ResendSender: config.String("RESEND_SENDER", ""),
-			AppBaseURL:   config.String("APP_BASE_URL", ""),
+			ResendAPIKey:  config.String("RESEND_API_KEY", ""),
+			ResendSender:  config.String("RESEND_SENDER", ""),
+			AppBaseURL:    config.String("APP_BASE_URL", ""),
+			VerifyBaseURL: config.String("AUTH_VERIFY_BASE_URL", ""),
 		},
 	}
 
@@ -115,6 +118,7 @@ func LoadConfig() (Config, error) {
 			CookieSecure:             config.Bool("AUTH_COOKIE_SECURE", false),
 			RequireEmailVerification: config.Bool("AUTH_REQUIRE_EMAIL_VERIFICATION", false),
 			VerificationTTL:          config.Duration("AUTH_VERIFICATION_TTL", 24*time.Hour),
+			VerificationResendCooldown: config.Duration("AUTH_VERIFICATION_RESEND_COOLDOWN", 2*time.Minute),
 		}
 
 	}
@@ -153,8 +157,8 @@ func (c Config) Validate() error {
 		if c.Email.ResendSender == "" {
 			errs = append(errs, "RESEND_SENDER is required when email verification is enabled")
 		}
-		if c.Email.AppBaseURL == "" {
-			errs = append(errs, "APP_BASE_URL is required when email verification is enabled")
+		if c.Email.VerifyBaseURL == "" && c.Email.AppBaseURL == "" {
+			errs = append(errs, "AUTH_VERIFY_BASE_URL or APP_BASE_URL is required when email verification is enabled")
 		}
 		if c.Auth.VerificationTTL <= 0 {
 			errs = append(errs, "AUTH_VERIFICATION_TTL must be > 0 when email verification is enabled")

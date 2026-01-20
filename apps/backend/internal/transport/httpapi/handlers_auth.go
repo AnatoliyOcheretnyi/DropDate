@@ -22,6 +22,10 @@ type refreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type resendVerificationRequest struct {
+	Email string `json:"email"`
+}
+
 type authUserResponse struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
@@ -200,7 +204,17 @@ func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.auth.VerifyEmail(r.Context(), token); err != nil {
-		if errors.Is(err, auth.ErrInvalidVerificationToken) {
+		switch {
+		case errors.Is(err, auth.ErrVerificationTokenNotFound):
+			writeErrorWithDetails(w, http.StatusBadRequest, "token_not_found", "invalid verification token", nil)
+			return
+		case errors.Is(err, auth.ErrVerificationTokenExpired):
+			writeErrorWithDetails(w, http.StatusBadRequest, "token_expired", "verification token expired", nil)
+			return
+		case errors.Is(err, auth.ErrVerificationTokenUsed):
+			writeErrorWithDetails(w, http.StatusBadRequest, "token_used", "verification token already used", nil)
+			return
+		case errors.Is(err, auth.ErrInvalidVerificationToken):
 			writeErrorWithDetails(w, http.StatusBadRequest, "invalid_token", "invalid or expired token", nil)
 			return
 		}
@@ -210,6 +224,58 @@ func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "verified"})
+}
+
+func (s *Server) resendVerificationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if s.auth == nil {
+		writeError(w, http.StatusServiceUnavailable, "auth service unavailable")
+		return
+	}
+
+	var payload resendVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeErrorWithDetails(w, http.StatusBadRequest, "invalid_json", "invalid JSON body", nil)
+		return
+	}
+
+	email := strings.TrimSpace(payload.Email)
+	if email == "" {
+		writeErrorWithDetails(w, http.StatusBadRequest, "invalid_email", "invalid email", nil)
+		return
+	}
+
+	if err := s.auth.ResendVerification(r.Context(), email); err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalidEmail):
+			writeErrorWithDetails(w, http.StatusBadRequest, "invalid_email", "invalid email", nil)
+			return
+		case errors.Is(err, auth.ErrEmailAlreadyVerified):
+			writeJSON(w, http.StatusOK, map[string]string{"status": "already_verified"})
+			return
+		case errors.Is(err, auth.ErrVerificationResendTooSoon):
+			var cooldown auth.VerificationResendCooldownError
+			retryAfter := 0
+			if errors.As(err, &cooldown) {
+				retryAfter = int(cooldown.RetryAfter.Seconds())
+				if retryAfter < 1 {
+					retryAfter = 1
+				}
+			}
+			writeErrorWithDetails(w, http.StatusTooManyRequests, "resend_too_soon", "verification already sent", map[string]any{
+				"retryAfterSeconds": retryAfter,
+			})
+			return
+		}
+		s.logger.Printf("resend verification failed: %v", err)
+		writeErrorWithDetails(w, http.StatusInternalServerError, "internal_error", "internal server error", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "sent"})
 }
 
 func (s *Server) setRefreshCookie(w http.ResponseWriter, token string, expiresAt time.Time) {

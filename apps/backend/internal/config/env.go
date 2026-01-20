@@ -10,6 +10,7 @@ import (
 
 func LoadEnvFiles(paths ...string) {
 	for _, path := range paths {
+		override := strings.HasSuffix(path, ".env.local")
 		file, err := os.Open(path)
 		if err != nil {
 			continue
@@ -31,8 +32,15 @@ func LoadEnvFiles(paths ...string) {
 			if key == "" {
 				continue
 			}
-			if _, exists := os.LookupEnv(key); exists {
-				continue
+			if !override {
+				if _, exists := os.LookupEnv(key); exists {
+					continue
+				}
+			}
+			if override {
+				if _, exists := os.LookupEnv(key); exists {
+					_ = os.Unsetenv(key)
+				}
 			}
 
 			_ = os.Setenv(key, strings.Trim(value, `"'`))

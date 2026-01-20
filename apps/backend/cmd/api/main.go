@@ -12,7 +12,12 @@ import (
 )
 
 func main() {
-	config.LoadEnvFiles(".env", ".env.local")
+	config.LoadEnvFiles(
+		".env",
+		".env.local",
+		"apps/backend/.env",
+		"apps/backend/.env.local",
+	)
 
 	cfg, err := app.LoadConfig()
 	if err != nil {

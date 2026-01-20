@@ -17,7 +17,12 @@ import (
 const migrationsDir = "./migrations"
 
 func main() {
-	config.LoadEnvFiles(".env", ".env.local")
+	config.LoadEnvFiles(
+		"apps/backend/.env.local",
+		"apps/backend/.env",
+		".env.local",
+		".env",
+	)
 	dsn := strings.TrimSpace(os.Getenv("SUPABASE_CONNECTION_STRING"))
 	if dsn == "" {
 		log.Fatal("SUPABASE_CONNECTION_STRING is required")

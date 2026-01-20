@@ -274,6 +274,76 @@ export function useSavedReleases() {
     const loadRemote = async (): Promise<SavedRelease[] | null> => {
       const localSnapshot = readSavedFromStorage();
       const shouldSync = shouldSyncOnAuth();
+      if (shouldSync) {
+        if (isMounted) {
+          setSaved(localSnapshot);
+        }
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(localSnapshot)
+          );
+          window.dispatchEvent(new Event("saved:updated"));
+        }
+        remoteState.data = localSnapshot;
+
+        const localToSync = localSnapshot.filter(
+          (item) => item.tmdbId && item.mediaType
+        );
+        if (localToSync.length > 0) {
+          await Promise.all(
+            localToSync.map((item) =>
+              Promise.all(
+                normalizeListTypes(item.listTypes).map((listType) => {
+                  const hasStats =
+                    typeof item.userRating === "number" ||
+                    typeof item.watchCount === "number" ||
+                    Boolean(item.lastWatchedAt);
+                  return Promise.all([
+                    fetch("/api/saved", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken}`,
+                      },
+                      body: JSON.stringify({
+                        tmdbId: item.tmdbId,
+                        mediaType: item.mediaType,
+                        title: item.title,
+                        nextRelease: item.nextRelease,
+                        status: item.status,
+                        posterUrl: item.posterUrl,
+                        backdropUrl: item.backdropUrl,
+                        listType,
+                      }),
+                    }).catch(() => null),
+                    hasStats
+                      ? fetch("/api/saved/items", {
+                          method: "PATCH",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${accessToken}`,
+                          },
+                          body: JSON.stringify({
+                            tmdbId: item.tmdbId,
+                            mediaType: item.mediaType,
+                            listType,
+                            userRating: item.userRating,
+                            watchCount: item.watchCount,
+                            lastWatchedAt: item.lastWatchedAt,
+                          }),
+                        }).catch(() => null)
+                      : Promise.resolve(null),
+                  ]);
+                })
+              )
+            )
+          );
+        }
+
+        clearSyncOnAuth();
+        return localSnapshot;
+      }
       try {
         const response = await fetch("/api/saved", {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -312,61 +382,6 @@ export function useSavedReleases() {
         }
         remoteState.data = merged;
 
-        if (shouldSync) {
-          const localToSync = localSnapshot.filter(
-            (item) => item.tmdbId && item.mediaType
-          );
-          if (localToSync.length > 0) {
-            await Promise.all(
-              localToSync.map((item) =>
-                Promise.all(
-                  normalizeListTypes(item.listTypes).map((listType) => {
-                    const hasStats =
-                      typeof item.userRating === "number" ||
-                      typeof item.watchCount === "number" ||
-                      Boolean(item.lastWatchedAt);
-                    return Promise.all([
-                      fetch("/api/saved", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Bearer ${accessToken}`,
-                        },
-                        body: JSON.stringify({
-                          tmdbId: item.tmdbId,
-                          mediaType: item.mediaType,
-                          title: item.title,
-                          nextRelease: item.nextRelease,
-                          status: item.status,
-                          posterUrl: item.posterUrl,
-                          backdropUrl: item.backdropUrl,
-                          listType,
-                        }),
-                      }).catch(() => null),
-                      hasStats
-                        ? fetch("/api/saved/items", {
-                            method: "PATCH",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Authorization: `Bearer ${accessToken}`,
-                            },
-                            body: JSON.stringify({
-                              tmdbId: item.tmdbId,
-                              mediaType: item.mediaType,
-                              listType,
-                              userRating: item.userRating,
-                              watchCount: item.watchCount,
-                              lastWatchedAt: item.lastWatchedAt,
-                            }),
-                          }).catch(() => null)
-                        : Promise.resolve(null),
-                    ]);
-                  })
-                )
-              )
-            );
-          }
-        }
         clearSyncOnAuth();
         return merged;
       } catch {
@@ -421,6 +436,7 @@ export function useSavedReleases() {
         if (typeof window !== "undefined") {
           try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            window.dispatchEvent(new Event("saved:updated"));
           } catch {
             // ignore write errors
           }

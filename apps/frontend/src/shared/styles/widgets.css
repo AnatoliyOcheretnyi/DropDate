@@ -399,6 +399,119 @@
   cursor: wait;
 }
 
+.auth-secondary {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: rgba(245, 245, 245, 0.85);
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-verify {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: rgba(245, 245, 245, 0.8);
+}
+
+.auth-verify h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.auth-verify-hint {
+  font-size: 0.8rem;
+  color: rgba(245, 245, 245, 0.55);
+}
+
+.auth-verify-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.auth-verify-actions .auth-submit {
+  flex: 1;
+}
+
+.verify-page {
+  min-height: calc(100vh - 120px);
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.5rem;
+}
+
+.verify-card {
+  width: min(520px, 92vw);
+  background: rgba(12, 22, 24, 0.9);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2rem;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.verify-card h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--text);
+}
+
+.verify-card p {
+  margin: 0;
+  color: rgba(245, 245, 245, 0.75);
+}
+
+.verify-loader {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(95, 255, 212, 0.15) 0%,
+    rgba(95, 255, 212, 0.45) 45%,
+    rgba(95, 255, 212, 0.15) 100%
+  );
+  background-size: 200% 100%;
+  animation: verify-shimmer 1.3s ease-in-out infinite;
+}
+
+.verify-loader::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  box-shadow: 0 0 24px rgba(95, 255, 212, 0.2);
+}
+
+.verify-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.verify-actions .auth-submit,
+.verify-actions .auth-secondary {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+}
+
+@keyframes verify-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
 .list-picker {
   position: relative;
   display: inline-flex;

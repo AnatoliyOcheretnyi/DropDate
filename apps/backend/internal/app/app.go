@@ -199,6 +199,10 @@ func openDatabase(cfg DatabaseConfig) (*sql.DB, error) {
 }
 
 func buildAuthService(db *sql.DB, cfg AuthConfig, sender email.Sender, emailCfg EmailConfig) (*auth.Service, error) {
+	verifyBaseURL := emailCfg.VerifyBaseURL
+	if verifyBaseURL == "" {
+		verifyBaseURL = emailCfg.AppBaseURL
+	}
 	return auth.NewService(db, auth.Config{
 		JWTSecret:                []byte(cfg.JWTSecret),
 		Issuer:                   cfg.Issuer,
@@ -208,7 +212,8 @@ func buildAuthService(db *sql.DB, cfg AuthConfig, sender email.Sender, emailCfg 
 		CookieSecure:             cfg.CookieSecure,
 		RequireEmailVerification: cfg.RequireEmailVerification,
 		EmailVerificationTTL:     cfg.VerificationTTL,
-		AppBaseURL:               emailCfg.AppBaseURL,
+		VerificationResendCooldown: cfg.VerificationResendCooldown,
+		AppBaseURL:               verifyBaseURL,
 		EmailSender:              sender,
 		EmailFrom:                emailCfg.ResendSender,
 	}), nil
