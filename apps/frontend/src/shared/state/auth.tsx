@@ -150,7 +150,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (email: string, password: string) => {
+    async (
+      email: string,
+      password: string
+    ): Promise<{ status: "ok" | "verification_required"; message?: string }> => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -160,7 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await response.json().catch(() => null);
       if (response.status === 202 && payload?.status === "verification_required") {
         setSyncFlag("1");
-        return { status: "verification_required", message: payload?.message };
+        const message =
+          typeof payload?.message === "string" ? payload.message : undefined;
+        return { status: "verification_required", message };
       }
       if (!response.ok) {
         const message = payload?.message || "Auth request failed";
