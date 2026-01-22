@@ -15,14 +15,26 @@ type Props = {
   trendingSeries: Suggestion[];
 };
 
+type BackendStatus = "idle" | "checking" | "waking" | "ready";
+
 function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
+  const [trendingMoviesState, setTrendingMoviesState] =
+    useState<Suggestion[]>(trendingMovies);
+  const [trendingSeriesState, setTrendingSeriesState] =
+    useState<Suggestion[]>(trendingSeries);
+  const [isTrendingRefreshing, setIsTrendingRefreshing] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
   const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const backendCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const backendBannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const backendAttemptsRef = useRef(0);
+  const trendingCountsRef = useRef({ movies: trendingMovies.length, series: trendingSeries.length });
   const router = useRouter();
   const searchParams = useSearchParams();
   const handleClearSelection = useCallback(() => {
@@ -35,6 +47,95 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
     selectedSuggestion,
     handleClearSelection
   );
+
+  useEffect(() => {
+    setTrendingMoviesState(trendingMovies);
+    setTrendingSeriesState(trendingSeries);
+    trendingCountsRef.current = {
+      movies: trendingMovies.length,
+      series: trendingSeries.length,
+    };
+  }, [trendingMovies, trendingSeries]);
+
+  const refreshTrending = useCallback(async () => {
+    setIsTrendingRefreshing(true);
+    try {
+      const response = await fetch("/api/trending?window=week&limit=18", {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as {
+        movies?: Suggestion[];
+        series?: Suggestion[];
+      };
+      const nextMovies = payload?.movies ?? [];
+      const nextSeries = payload?.series ?? [];
+      setTrendingMoviesState(nextMovies);
+      setTrendingSeriesState(nextSeries);
+      trendingCountsRef.current = {
+        movies: nextMovies.length,
+        series: nextSeries.length,
+      };
+    } catch {
+      // ignore refresh errors; we'll retry on next health check
+    } finally {
+      setIsTrendingRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const checkBackend = async () => {
+      backendAttemptsRef.current += 1;
+      setBackendStatus((prev) =>
+        prev === "ready"
+          ? prev
+          : backendAttemptsRef.current === 1
+          ? "checking"
+          : "waking"
+      );
+      try {
+        const response = await fetch("/api/health", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+        });
+      if (response.ok) {
+        const hadRetries = backendAttemptsRef.current > 1;
+        const { movies, series } = trendingCountsRef.current;
+        const shouldRefreshTrending =
+          hadRetries || (movies === 0 && series === 0);
+        setBackendStatus("ready");
+        backendAttemptsRef.current = 0;
+        if (shouldRefreshTrending) {
+          refreshTrending();
+        }
+        if (backendBannerTimeoutRef.current) {
+          clearTimeout(backendBannerTimeoutRef.current);
+        }
+          backendBannerTimeoutRef.current = setTimeout(() => {
+            setBackendStatus("idle");
+          }, 2400);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      const delay = Math.min(4000, 700 + backendAttemptsRef.current * 400);
+      backendCheckTimeoutRef.current = setTimeout(checkBackend, delay);
+    };
+
+    checkBackend();
+    return () => {
+      if (backendCheckTimeoutRef.current) {
+        clearTimeout(backendCheckTimeoutRef.current);
+      }
+      if (backendBannerTimeoutRef.current) {
+        clearTimeout(backendBannerTimeoutRef.current);
+      }
+    };
+  }, [refreshTrending]);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: Suggestion) => {
@@ -99,6 +200,21 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
       />
+      {backendStatus !== "idle" && (
+        <div
+          className={`backend-status-banner backend-status-banner--${backendStatus}`}
+          role="status"
+        >
+          <span className="backend-status-dot" aria-hidden="true" />
+          <span>
+            {backendStatus === "ready"
+              ? copy.hints.backendReady
+              : backendStatus === "checking"
+              ? copy.hints.backendChecking
+              : copy.hints.backendWaking}
+          </span>
+        </div>
+      )}
       <SearchOverlay
         title={title}
         isLoading={isLoading}
@@ -133,15 +249,15 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
           <>
             <TrendingCarousel
               title={copy.sections.trendingMovies}
-              items={trendingMovies}
-              isLoading={false}
+              items={trendingMoviesState}
+              isLoading={isTrendingRefreshing}
               onSelect={handleGallerySelect}
               getListTypes={getListTypes}
             />
             <TrendingCarousel
               title={copy.sections.trendingSeries}
-              items={trendingSeries}
-              isLoading={false}
+              items={trendingSeriesState}
+              isLoading={isTrendingRefreshing}
               onSelect={handleGallerySelect}
               getListTypes={getListTypes}
             />

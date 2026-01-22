@@ -75,6 +75,9 @@ export const copy = {
     noReleaseData: "Немає даних про реліз",
     noOverview: "Опис поки відсутній.",
     partialUpdate: (count: number) => `Частину шоу не оновлено (${count}).`,
+    backendChecking: "Перевіряємо бекенд…",
+    backendWaking: "Будимо бекенд…",
+    backendReady: "Бекенд готовий.",
   },
   errors: {
     invalidRequest: "Невірний запит.",

@@ -32,6 +32,13 @@ class AuthError extends Error {
   }
 }
 
+class AuthTransientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthTransientError";
+  }
+}
+
 type AuthContextValue = {
   user: AuthUser | null;
   accessToken: string | null;
@@ -108,10 +115,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "content-type": "application/json" },
         credentials: "include",
       });
-      const result = await parseAuthResponse(response);
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          clearAuth();
+          return;
+        }
+        throw new AuthTransientError(`refresh failed with ${response.status}`);
+      }
+      const result = await response.json().catch(() => null);
+      if (!result) {
+        throw new AuthTransientError("refresh returned invalid JSON");
+      }
       applyAuth(result);
     } catch {
-      clearAuth();
+      // Transient errors (cold starts, network) should not wipe auth state.
+      throw new AuthTransientError("refresh failed");
     }
   }, [applyAuth, clearAuth, isVerifyRoute]);
 
@@ -123,7 +141,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
         return;
       }
-      await refresh();
+      const maxAttempts = 4;
+      const baseDelay = 600;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          await refresh();
+          break;
+        } catch (error) {
+          if (!(error instanceof AuthTransientError)) {
+            break;
+          }
+          if (attempt === maxAttempts - 1) {
+            break;
+          }
+          await new Promise((resolve) =>
+            setTimeout(resolve, baseDelay * 2 ** attempt)
+          );
+        }
+      }
       if (isMounted) {
         setIsLoading(false);
       }
