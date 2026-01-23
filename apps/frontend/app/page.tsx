@@ -15,7 +15,14 @@ const fetchTrending = async (window: "day" | "week") => {
       next: { revalidate: 3600 },
     });
     if (!response.ok) {
-      return { movies: [] as Suggestion[], series: [] as Suggestion[] };
+      return {
+        upcomingMovies: [] as Suggestion[],
+        upcomingSeries: [] as Suggestion[],
+        popularMovies: [] as Suggestion[],
+        popularSeries: [] as Suggestion[],
+        topRatedMovies: [] as Suggestion[],
+        topRatedSeries: [] as Suggestion[],
+      };
     }
     const payload = (await response.json()) as {
       movies?: Suggestion[];
@@ -30,7 +37,16 @@ const fetchTrending = async (window: "day" | "week") => {
   }
 };
 
-const fetchHome = async () => {
+type HomePayload = {
+  upcomingMovies: Suggestion[];
+  upcomingSeries: Suggestion[];
+  popularMovies: Suggestion[];
+  popularSeries: Suggestion[];
+  topRatedMovies: Suggestion[];
+  topRatedSeries: Suggestion[];
+};
+
+const fetchHome = async (): Promise<HomePayload> => {
   const backendBase = process.env.BACKEND_URL || DEFAULT_BACKEND_URL;
   const backendURL = new URL("/home", backendBase);
   backendURL.searchParams.set("limit", "18");
@@ -41,7 +57,14 @@ const fetchHome = async () => {
       next: { revalidate: 3600 },
     });
     if (!response.ok) {
-      return { movies: [] as Suggestion[], series: [] as Suggestion[] };
+      return {
+        upcomingMovies: [] as Suggestion[],
+        upcomingSeries: [] as Suggestion[],
+        popularMovies: [] as Suggestion[],
+        popularSeries: [] as Suggestion[],
+        topRatedMovies: [] as Suggestion[],
+        topRatedSeries: [] as Suggestion[],
+      };
     }
     const payload = (await response.json()) as {
       upcoming?: { movies?: Suggestion[]; series?: Suggestion[] };
