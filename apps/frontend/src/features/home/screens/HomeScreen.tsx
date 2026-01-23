@@ -75,49 +75,27 @@ function HomeScreenContent({ sections }: Props) {
   const refreshTrending = useCallback(async () => {
     setIsTrendingRefreshing(true);
     try {
-      const [upcomingResponse, popularResponse, topRatedResponse] =
-        await Promise.all([
-        fetch("/api/upcoming?limit=18", {
-          headers: { accept: "application/json" },
-          cache: "no-store",
-        }),
-        fetch("/api/popular?limit=18", {
-          headers: { accept: "application/json" },
-          cache: "no-store",
-        }),
-        fetch("/api/top-rated?limit=18", {
-          headers: { accept: "application/json" },
-          cache: "no-store",
-        }),
-      ]);
+      const response = await fetch("/api/home?limit=18", {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+      });
 
-      if (
-        !upcomingResponse.ok ||
-        !popularResponse.ok ||
-        !topRatedResponse.ok
-      ) {
+      if (!response.ok) {
         return;
       }
 
-      const upcomingPayload = (await upcomingResponse.json()) as {
-        movies?: Suggestion[];
-        series?: Suggestion[];
-      };
-      const popularPayload = (await popularResponse.json()) as {
-        movies?: Suggestion[];
-        series?: Suggestion[];
-      };
-      const topRatedPayload = (await topRatedResponse.json()) as {
-        movies?: Suggestion[];
-        series?: Suggestion[];
+      const payload = (await response.json()) as {
+        upcoming?: { movies?: Suggestion[]; series?: Suggestion[] };
+        popular?: { movies?: Suggestion[]; series?: Suggestion[] };
+        topRated?: { movies?: Suggestion[]; series?: Suggestion[] };
       };
 
-      const upcomingMovies = upcomingPayload?.movies ?? [];
-      const upcomingSeries = upcomingPayload?.series ?? [];
-      const popularMovies = popularPayload?.movies ?? [];
-      const popularSeries = popularPayload?.series ?? [];
-      const topRatedMovies = topRatedPayload?.movies ?? [];
-      const topRatedSeries = topRatedPayload?.series ?? [];
+      const upcomingMovies = payload?.upcoming?.movies ?? [];
+      const upcomingSeries = payload?.upcoming?.series ?? [];
+      const popularMovies = payload?.popular?.movies ?? [];
+      const popularSeries = payload?.popular?.series ?? [];
+      const topRatedMovies = payload?.topRated?.movies ?? [];
+      const topRatedSeries = payload?.topRated?.series ?? [];
 
       const nextSections = {
         upcoming: mixSuggestions(upcomingMovies, upcomingSeries),

@@ -329,6 +329,7 @@ func (s *Service) Upcoming(ctx context.Context, mediaType string, limit int) ([]
 
 	out := make([]Suggestion, 0, limit)
 	now := time.Now()
+	startToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for _, item := range results {
 		if len(out) >= limit {
 			break
@@ -341,16 +342,29 @@ func (s *Service) Upcoming(ctx context.Context, mediaType string, limit int) ([]
 		if mediaType == "movie" {
 			dateSource = details.ReleaseDate
 		} else {
-			dateSource = details.FirstAirDate
+			// For TV, prefer next episode date (upcoming season start), fallback to first air date.
+			dateSource = details.NextAirDate
+			if dateSource == "" {
+				dateSource = details.FirstAirDate
+			}
+			// Exclude shows where the new season has already started.
+			if details.LastEpisodeSeason > 0 && details.NextEpisodeSeason > 0 {
+				if details.NextEpisodeSeason == details.LastEpisodeSeason {
+					continue
+				}
+			}
 		}
 		if dateSource == "" {
+			// Keep if release date missing to avoid empty upcoming lists.
+			out = append(out, item)
 			continue
 		}
 		parsed, err := time.Parse("2006-01-02", dateSource)
 		if err != nil {
+			out = append(out, item)
 			continue
 		}
-		if parsed.After(now) {
+		if !parsed.Before(startToday) {
 			out = append(out, item)
 		}
 	}

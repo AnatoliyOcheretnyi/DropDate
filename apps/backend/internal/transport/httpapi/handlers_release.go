@@ -215,6 +215,77 @@ func (s *Server) upcomingHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+
+	limit := 18
+	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	upcomingMovies, err := s.releases.Upcoming(r.Context(), "movie", limit)
+	if err != nil {
+		s.logger.Printf("home upcoming movies failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming movies")
+		return
+	}
+
+	upcomingSeries, err := s.releases.Upcoming(r.Context(), "tv", limit)
+	if err != nil {
+		s.logger.Printf("home upcoming series failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming series")
+		return
+	}
+
+	popularMovies, err := s.releases.Popular(r.Context(), "movie", limit)
+	if err != nil {
+		s.logger.Printf("home popular movies failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch popular movies")
+		return
+	}
+
+	popularSeries, err := s.releases.Popular(r.Context(), "tv", limit)
+	if err != nil {
+		s.logger.Printf("home popular series failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch popular series")
+		return
+	}
+
+	topRatedMovies, err := s.releases.TopRated(r.Context(), "movie", limit)
+	if err != nil {
+		s.logger.Printf("home top-rated movies failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch top-rated movies")
+		return
+	}
+
+	topRatedSeries, err := s.releases.TopRated(r.Context(), "tv", limit)
+	if err != nil {
+		s.logger.Printf("home top-rated series failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch top-rated series")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"upcoming": map[string]any{
+			"movies": upcomingMovies,
+			"series": upcomingSeries,
+		},
+		"popular": map[string]any{
+			"movies": popularMovies,
+			"series": popularSeries,
+		},
+		"topRated": map[string]any{
+			"movies": topRatedMovies,
+			"series": topRatedSeries,
+		},
+	})
+}
+
 func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)

@@ -11,6 +11,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/popular", s.popularHandler)
 	mux.HandleFunc("/top-rated", s.topRatedHandler)
 	mux.HandleFunc("/upcoming", s.upcomingHandler)
+	mux.HandleFunc("/home", s.homeHandler)
 	mux.HandleFunc("/search", s.searchHandler)
 	mux.HandleFunc("/details", s.detailsHandler)
 	mux.HandleFunc("/bulk-next-release", s.bulkNextReleaseHandler)
