@@ -42,16 +42,15 @@ function HomeScreenContent({ sections }: Props) {
     useState<Suggestion | null>(null);
   const [sectionState, setSectionState] = useState(sections);
   const [isTrendingRefreshing, setIsTrendingRefreshing] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>("idle");
   const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const backendCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const backendBannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const backendAttemptsRef = useRef(0);
-  const trendingCountsRef = useRef({
-    upcoming: sections.upcoming.length,
-  });
+  const hasWakeAttemptRef = useRef(false);
+  const hadWakeFailureRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const handleClearSelection = useCallback(() => {
@@ -67,12 +66,9 @@ function HomeScreenContent({ sections }: Props) {
 
   useEffect(() => {
     setSectionState(sections);
-    trendingCountsRef.current = {
-      upcoming: sections.upcoming.length,
-    };
   }, [sections]);
 
-  const refreshTrending = useCallback(async () => {
+  const refreshHome = useCallback(async () => {
     setIsTrendingRefreshing(true);
     try {
       const response = await fetch("/api/home?limit=18", {
@@ -104,7 +100,6 @@ function HomeScreenContent({ sections }: Props) {
         topRated: mixSuggestions(topRatedMovies, topRatedSeries),
       };
       setSectionState(nextSections);
-      trendingCountsRef.current = { upcoming: nextSections.upcoming.length };
     } catch {
       // ignore refresh errors; we'll retry on next health check
     } finally {
@@ -113,45 +108,52 @@ function HomeScreenContent({ sections }: Props) {
   }, []);
 
   useEffect(() => {
-    const checkBackend = async () => {
+    const hasContent =
+      sectionState.upcoming.length > 0 ||
+      sectionState.popularMovies.length > 0 ||
+      sectionState.popularSeries.length > 0 ||
+      sectionState.topRated.length > 0;
+
+    if (hasContent || hasWakeAttemptRef.current) {
+      return;
+    }
+
+    hasWakeAttemptRef.current = true;
+
+    const wakeBackend = async () => {
       backendAttemptsRef.current += 1;
-      setBackendStatus((prev) =>
-        prev === "ready"
-          ? prev
-          : backendAttemptsRef.current === 1
-          ? "checking"
-          : "waking"
-      );
       try {
         const response = await fetch("/api/health", {
           headers: { accept: "application/json" },
           cache: "no-store",
         });
         if (response.ok) {
-          const hadRetries = backendAttemptsRef.current > 1;
-          const { upcoming } = trendingCountsRef.current;
-          const shouldRefreshTrending = hadRetries || upcoming === 0;
-          setBackendStatus("ready");
-          backendAttemptsRef.current = 0;
-          if (shouldRefreshTrending) {
-            refreshTrending();
+          if (hadWakeFailureRef.current) {
+            setBackendStatus("ready");
           }
+          backendAttemptsRef.current = 0;
+          await refreshHome();
           if (backendBannerTimeoutRef.current) {
             clearTimeout(backendBannerTimeoutRef.current);
           }
-          backendBannerTimeoutRef.current = setTimeout(() => {
-            setBackendStatus("idle");
-          }, 2400);
+          if (hadWakeFailureRef.current) {
+            backendBannerTimeoutRef.current = setTimeout(() => {
+              setBackendStatus("idle");
+              hadWakeFailureRef.current = false;
+            }, 2400);
+          }
           return;
         }
       } catch {
         // ignore
       }
-      const delay = Math.min(4000, 700 + backendAttemptsRef.current * 400);
-      backendCheckTimeoutRef.current = setTimeout(checkBackend, delay);
+      hadWakeFailureRef.current = true;
+      setBackendStatus("waking");
+      const delay = Math.min(5000, 900 + backendAttemptsRef.current * 600);
+      backendCheckTimeoutRef.current = setTimeout(wakeBackend, delay);
     };
 
-    checkBackend();
+    wakeBackend();
     return () => {
       if (backendCheckTimeoutRef.current) {
         clearTimeout(backendCheckTimeoutRef.current);
@@ -160,7 +162,7 @@ function HomeScreenContent({ sections }: Props) {
         clearTimeout(backendBannerTimeoutRef.current);
       }
     };
-  }, [refreshTrending]);
+  }, [refreshHome, sectionState]);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: Suggestion) => {
