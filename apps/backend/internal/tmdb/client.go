@@ -314,6 +314,116 @@ func (c *Client) TrendingByType(
 	return out, nil
 }
 
+// Popular returns TMDB popular titles for a specific media type.
+func (c *Client) Popular(ctx context.Context, mediaType string, limit int) ([]Suggestion, error) {
+	switch mediaType {
+	case "movie":
+		return c.listMovies(ctx, "/movie/popular", limit)
+	case "tv":
+		return c.listSeries(ctx, "/tv/popular", limit)
+	default:
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
+}
+
+// TopRated returns TMDB top-rated titles for a specific media type.
+func (c *Client) TopRated(ctx context.Context, mediaType string, limit int) ([]Suggestion, error) {
+	switch mediaType {
+	case "movie":
+		return c.listMovies(ctx, "/movie/top_rated", limit)
+	case "tv":
+		return c.listSeries(ctx, "/tv/top_rated", limit)
+	default:
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
+}
+
+// Upcoming returns upcoming titles for a specific media type.
+func (c *Client) Upcoming(ctx context.Context, mediaType string, limit int) ([]Suggestion, error) {
+	switch mediaType {
+	case "movie":
+		return c.listMovies(ctx, "/movie/upcoming", limit)
+	case "tv":
+		return c.listSeries(ctx, "/tv/on_the_air", limit)
+	default:
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
+}
+
+func (c *Client) listMovies(ctx context.Context, path string, limit int) ([]Suggestion, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s%s", c.baseURL, path), nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+
+	var payload movieListResponse
+	if err := c.do(req, &payload); err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(payload.Results))
+	for _, result := range payload.Results {
+		if result.Title == "" {
+			continue
+		}
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     result.Title,
+			MediaType: "movie",
+			Year:      yearFromDate(result.ReleaseDate),
+			PosterURL: poster,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (c *Client) listSeries(ctx context.Context, path string, limit int) ([]Suggestion, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s%s", c.baseURL, path), nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+
+	var payload tvListResponse
+	if err := c.do(req, &payload); err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(payload.Results))
+	for _, result := range payload.Results {
+		if result.Name == "" {
+			continue
+		}
+		poster := ""
+		if result.PosterPath != "" {
+			poster = buildPosterURL(result.PosterPath)
+		}
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     result.Name,
+			MediaType: "tv",
+			Year:      yearFromDate(result.FirstAirDate),
+			PosterURL: poster,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
 func (c *Client) search(ctx context.Context, title string) ([]searchResult, error) {
 	payload, err := c.searchPage(ctx, title, 1)
 	if err != nil {
@@ -806,6 +916,28 @@ type recommendationResult struct {
 	Title        string `json:"title"`
 	Name         string `json:"name"`
 	ReleaseDate  string `json:"release_date"`
+	FirstAirDate string `json:"first_air_date"`
+	PosterPath   string `json:"poster_path"`
+}
+
+type movieListResponse struct {
+	Results []movieListEntry `json:"results"`
+}
+
+type movieListEntry struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	ReleaseDate string `json:"release_date"`
+	PosterPath  string `json:"poster_path"`
+}
+
+type tvListResponse struct {
+	Results []tvListEntry `json:"results"`
+}
+
+type tvListEntry struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
 	FirstAirDate string `json:"first_air_date"`
 	PosterPath   string `json:"poster_path"`
 }

@@ -11,21 +11,36 @@ import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 
 type Props = {
-  trendingMovies: Suggestion[];
-  trendingSeries: Suggestion[];
+  sections: {
+    upcoming: Suggestion[];
+    popularMovies: Suggestion[];
+    popularSeries: Suggestion[];
+    topRated: Suggestion[];
+  };
 };
 
 type BackendStatus = "idle" | "checking" | "waking" | "ready";
 
-function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
+const mixSuggestions = (movies: Suggestion[], series: Suggestion[]) => {
+  const mixed: Suggestion[] = [];
+  const max = Math.max(movies.length, series.length);
+  for (let i = 0; i < max; i += 1) {
+    if (movies[i]) {
+      mixed.push(movies[i]);
+    }
+    if (series[i]) {
+      mixed.push(series[i]);
+    }
+  }
+  return mixed;
+};
+
+function HomeScreenContent({ sections }: Props) {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
-  const [trendingMoviesState, setTrendingMoviesState] =
-    useState<Suggestion[]>(trendingMovies);
-  const [trendingSeriesState, setTrendingSeriesState] =
-    useState<Suggestion[]>(trendingSeries);
+  const [sectionState, setSectionState] = useState(sections);
   const [isTrendingRefreshing, setIsTrendingRefreshing] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
   const [, setIsInputFocused] = useState(false);
@@ -34,7 +49,9 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
   const backendCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const backendBannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const backendAttemptsRef = useRef(0);
-  const trendingCountsRef = useRef({ movies: trendingMovies.length, series: trendingSeries.length });
+  const trendingCountsRef = useRef({
+    upcoming: sections.upcoming.length,
+  });
   const router = useRouter();
   const searchParams = useSearchParams();
   const handleClearSelection = useCallback(() => {
@@ -49,36 +66,67 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
   );
 
   useEffect(() => {
-    setTrendingMoviesState(trendingMovies);
-    setTrendingSeriesState(trendingSeries);
+    setSectionState(sections);
     trendingCountsRef.current = {
-      movies: trendingMovies.length,
-      series: trendingSeries.length,
+      upcoming: sections.upcoming.length,
     };
-  }, [trendingMovies, trendingSeries]);
+  }, [sections]);
 
   const refreshTrending = useCallback(async () => {
     setIsTrendingRefreshing(true);
     try {
-      const response = await fetch("/api/trending?window=week&limit=18", {
-        headers: { accept: "application/json" },
-        cache: "no-store",
-      });
-      if (!response.ok) {
+      const [upcomingResponse, popularResponse, topRatedResponse] =
+        await Promise.all([
+        fetch("/api/upcoming?limit=18", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+        }),
+        fetch("/api/popular?limit=18", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+        }),
+        fetch("/api/top-rated?limit=18", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+        }),
+      ]);
+
+      if (
+        !upcomingResponse.ok ||
+        !popularResponse.ok ||
+        !topRatedResponse.ok
+      ) {
         return;
       }
-      const payload = (await response.json()) as {
+
+      const upcomingPayload = (await upcomingResponse.json()) as {
         movies?: Suggestion[];
         series?: Suggestion[];
       };
-      const nextMovies = payload?.movies ?? [];
-      const nextSeries = payload?.series ?? [];
-      setTrendingMoviesState(nextMovies);
-      setTrendingSeriesState(nextSeries);
-      trendingCountsRef.current = {
-        movies: nextMovies.length,
-        series: nextSeries.length,
+      const popularPayload = (await popularResponse.json()) as {
+        movies?: Suggestion[];
+        series?: Suggestion[];
       };
+      const topRatedPayload = (await topRatedResponse.json()) as {
+        movies?: Suggestion[];
+        series?: Suggestion[];
+      };
+
+      const upcomingMovies = upcomingPayload?.movies ?? [];
+      const upcomingSeries = upcomingPayload?.series ?? [];
+      const popularMovies = popularPayload?.movies ?? [];
+      const popularSeries = popularPayload?.series ?? [];
+      const topRatedMovies = topRatedPayload?.movies ?? [];
+      const topRatedSeries = topRatedPayload?.series ?? [];
+
+      const nextSections = {
+        upcoming: mixSuggestions(upcomingMovies, upcomingSeries),
+        popularMovies,
+        popularSeries,
+        topRated: mixSuggestions(topRatedMovies, topRatedSeries),
+      };
+      setSectionState(nextSections);
+      trendingCountsRef.current = { upcoming: nextSections.upcoming.length };
     } catch {
       // ignore refresh errors; we'll retry on next health check
     } finally {
@@ -101,19 +149,18 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
           headers: { accept: "application/json" },
           cache: "no-store",
         });
-      if (response.ok) {
-        const hadRetries = backendAttemptsRef.current > 1;
-        const { movies, series } = trendingCountsRef.current;
-        const shouldRefreshTrending =
-          hadRetries || (movies === 0 && series === 0);
-        setBackendStatus("ready");
-        backendAttemptsRef.current = 0;
-        if (shouldRefreshTrending) {
-          refreshTrending();
-        }
-        if (backendBannerTimeoutRef.current) {
-          clearTimeout(backendBannerTimeoutRef.current);
-        }
+        if (response.ok) {
+          const hadRetries = backendAttemptsRef.current > 1;
+          const { upcoming } = trendingCountsRef.current;
+          const shouldRefreshTrending = hadRetries || upcoming === 0;
+          setBackendStatus("ready");
+          backendAttemptsRef.current = 0;
+          if (shouldRefreshTrending) {
+            refreshTrending();
+          }
+          if (backendBannerTimeoutRef.current) {
+            clearTimeout(backendBannerTimeoutRef.current);
+          }
           backendBannerTimeoutRef.current = setTimeout(() => {
             setBackendStatus("idle");
           }, 2400);
@@ -172,7 +219,6 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
   );
 
   const shouldShowTrending = !selectedSuggestion;
-
   useEffect(() => {
     if (searchParams.get("view") === "saved") {
       router.push("/saved");
@@ -189,7 +235,7 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
   }, []);
 
   return (
-    <main className="page">
+    <main className="page page--home">
       <Header
         active="home"
         savedCount={saved.length}
@@ -202,7 +248,7 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
       />
       {backendStatus !== "idle" && (
         <div
-          className={`backend-status-banner backend-status-banner--${backendStatus}`}
+          className={`backend-status-toast backend-status-toast--${backendStatus}`}
           role="status"
         >
           <span className="backend-status-dot" aria-hidden="true" />
@@ -236,34 +282,46 @@ function HomeScreenContent({ trendingMovies, trendingSeries }: Props) {
         isSuggestionSaved={isSuggestionSaved}
       />
 
-      <>
-        <section className="hero hero-bleed">
-          <div className="hero-inner">
-            <p className="eyebrow">{copy.hero.eyebrow}</p>
-            <h1>{copy.appName}</h1>
-            <p className="lead">{copy.hero.webLead}</p>
-          </div>
-        </section>
+      <section className="hero hero-bleed">
+        <div className="hero-inner">
+          <p className="eyebrow">{copy.hero.eyebrow}</p>
+          <h1>{copy.appName}</h1>
+          <p className="lead">{copy.hero.webLead}</p>
+        </div>
+      </section>
 
-        {shouldShowTrending && (
-          <>
-            <TrendingCarousel
-              title={copy.sections.trendingMovies}
-              items={trendingMoviesState}
-              isLoading={isTrendingRefreshing}
-              onSelect={handleGallerySelect}
-              getListTypes={getListTypes}
-            />
-            <TrendingCarousel
-              title={copy.sections.trendingSeries}
-              items={trendingSeriesState}
-              isLoading={isTrendingRefreshing}
-              onSelect={handleGallerySelect}
-              getListTypes={getListTypes}
-            />
-          </>
-        )}
-      </>
+      {shouldShowTrending && (
+        <>
+          <TrendingCarousel
+            title={copy.sections.upcoming}
+            items={sectionState.upcoming}
+            isLoading={isTrendingRefreshing}
+            onSelect={handleGallerySelect}
+            getListTypes={getListTypes}
+          />
+          <TrendingCarousel
+            title={copy.sections.popularMovies}
+            items={sectionState.popularMovies}
+            isLoading={isTrendingRefreshing}
+            onSelect={handleGallerySelect}
+            getListTypes={getListTypes}
+          />
+          <TrendingCarousel
+            title={copy.sections.popularSeries}
+            items={sectionState.popularSeries}
+            isLoading={isTrendingRefreshing}
+            onSelect={handleGallerySelect}
+            getListTypes={getListTypes}
+          />
+          <TrendingCarousel
+            title={copy.sections.topRated}
+            items={sectionState.topRated}
+            isLoading={isTrendingRefreshing}
+            onSelect={handleGallerySelect}
+            getListTypes={getListTypes}
+          />
+        </>
+      )}
     </main>
   );
 }

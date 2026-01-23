@@ -28,6 +28,10 @@ export const copy = {
     search: "Пошук",
     nextRelease: "Наступний реліз",
     similarTitles: "Схожі тайтли",
+    upcoming: "Скоро виходять",
+    popularMovies: "Популярні фільми",
+    popularSeries: "Популярні серіали",
+    topRated: "Найвищий рейтинг",
   },
   filters: {
     all: "Усі",
@@ -43,6 +47,8 @@ export const copy = {
     updateAll: "Оновити всі",
     updating: "Оновлюємо…",
     loadMore: "Показати ще",
+    watchNow: "Переглянути",
+    details: "Деталі",
   },
   lists: {
     follow: "Підписка",

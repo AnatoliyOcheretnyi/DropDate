@@ -89,7 +89,7 @@ export function AuthorizedSavedList({
       item.mediaType || (item.type === "movie" ? "movie" : "tv");
 
     return (
-      <div key={item.id} className="saved-card">
+      <div key={item.id} className="saved-banner-card">
         <button
           type="button"
           className="saved-remove"
@@ -101,7 +101,7 @@ export function AuthorizedSavedList({
         </button>
         <button
           type="button"
-          className="saved-card-link"
+          className="saved-banner-link"
           onClick={() => {
             if (item.tmdbId) {
               router.push(`/title/${mediaType}/${item.tmdbId}`);
@@ -110,17 +110,26 @@ export function AuthorizedSavedList({
             }
           }}
         >
-          <div className="saved-card-media">
+          <div className="saved-banner-media">
             {imageUrl ? (
               <img src={imageUrl} alt={item.title} loading="lazy" />
             ) : (
-              <div className="poster-card-fallback">{item.title.slice(0, 1)}</div>
+              <div className="saved-banner-fallback">
+                {item.title.slice(0, 1)}
+              </div>
             )}
           </div>
-          <div className="saved-card-overlay" aria-hidden="true">
-            <span className="saved-card-status">{statusLabel}</span>
+          <div className="saved-banner-overlay" aria-hidden="true" />
+          <div className="saved-banner-content">
+            <div className="saved-banner-meta">
+              <span className="saved-banner-chip saved-banner-chip--rating">
+                {statusLabel}
+              </span>
+              <span className="saved-banner-chip">
+                {formatDate(item.nextRelease)}
+              </span>
+            </div>
             <h4>{item.title}</h4>
-            <p>{formatDate(item.nextRelease)}</p>
           </div>
         </button>
       </div>

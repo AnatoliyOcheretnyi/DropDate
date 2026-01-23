@@ -156,6 +156,81 @@ func (p *tmdbSuggestionProvider) TrendingByType(
 	return out, nil
 }
 
+func (p *tmdbSuggestionProvider) Popular(
+	ctx context.Context,
+	mediaType string,
+	limit int,
+) ([]Suggestion, error) {
+	results, err := p.client.Popular(ctx, mediaType, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Suggestion, 0, len(results))
+	for _, result := range results {
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     result.Title,
+			MediaType: result.MediaType,
+			Year:      result.Year,
+			PosterURL: result.PosterURL,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (p *tmdbSuggestionProvider) TopRated(
+	ctx context.Context,
+	mediaType string,
+	limit int,
+) ([]Suggestion, error) {
+	results, err := p.client.TopRated(ctx, mediaType, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Suggestion, 0, len(results))
+	for _, result := range results {
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     result.Title,
+			MediaType: result.MediaType,
+			Year:      result.Year,
+			PosterURL: result.PosterURL,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (p *tmdbSuggestionProvider) Upcoming(
+	ctx context.Context,
+	mediaType string,
+	limit int,
+) ([]Suggestion, error) {
+	results, err := p.client.Upcoming(ctx, mediaType, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Suggestion, 0, len(results))
+	for _, result := range results {
+		out = append(out, Suggestion{
+			ID:        result.ID,
+			Title:     result.Title,
+			MediaType: result.MediaType,
+			Year:      result.Year,
+			PosterURL: result.PosterURL,
+		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
 func (p *tmdbSuggestionProvider) Search(ctx context.Context, query string, page int) (SearchResults, error) {
 	results, err := p.client.SearchAll(ctx, query, page)
 	if err != nil {

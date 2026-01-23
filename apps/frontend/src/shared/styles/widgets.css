@@ -654,26 +654,32 @@
   border-color: rgba(255, 186, 120, 0.5);
 }
 
-.backend-status-banner {
+.backend-status-toast {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 140;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  align-self: flex-start;
-  padding: 0.55rem 0.9rem;
+  padding: 0.65rem 1.1rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(6, 10, 14, 0.6);
-  color: rgba(245, 245, 245, 0.9);
+  background: rgba(6, 10, 14, 0.85);
+  color: rgba(245, 245, 245, 0.92);
   font-size: 0.85rem;
   letter-spacing: 0.01em;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 
-.backend-status-banner--checking,
-.backend-status-banner--waking {
+.backend-status-toast--checking,
+.backend-status-toast--waking {
   border-color: rgba(255, 186, 120, 0.45);
 }
 
-.backend-status-banner--ready {
+.backend-status-toast--ready {
   border-color: rgba(84, 255, 182, 0.5);
 }
 
@@ -686,7 +692,7 @@
   animation: backendPulse 1.2s ease-in-out infinite;
 }
 
-.backend-status-banner--ready .backend-status-dot {
+.backend-status-toast--ready .backend-status-dot {
   background: rgba(84, 255, 182, 0.9);
   box-shadow: none;
   animation: none;

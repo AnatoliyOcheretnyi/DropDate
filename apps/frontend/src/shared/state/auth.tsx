@@ -248,7 +248,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    if (typeof window !== "undefined") {
+      console.warn("useAuth must be used within AuthProvider");
+    }
+    return {
+      user: null,
+      accessToken: null,
+      isLoading: false,
+      login: async () => {
+        throw new Error("AuthProvider is missing");
+      },
+      register: async () => ({
+        status: "verification_required" as const,
+        message: "AuthProvider is missing",
+      }),
+      logout: async () => {},
+      refresh: async () => {},
+    };
   }
   return context;
 }

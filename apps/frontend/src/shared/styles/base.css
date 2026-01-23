@@ -38,6 +38,11 @@ main.page {
   flex: 1;
 }
 
+main.page--home {
+  padding-top: 0;
+  gap: 0;
+}
+
 main.page--details {
   max-width: none;
   padding: 0 0 4rem;

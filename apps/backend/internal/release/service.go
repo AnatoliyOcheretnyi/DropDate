@@ -84,6 +84,9 @@ type Service struct {
 	suggester      SuggestionProvider
 	trending       TrendingProvider
 	trendingByType TrendingByTypeProvider
+	popular        PopularProvider
+	topRated       TopRatedProvider
+	upcoming       UpcomingProvider
 	searcher       SearchProvider
 	details        DetailsProvider
 	logger         *log.Logger
@@ -107,6 +110,21 @@ type TrendingProvider interface {
 // TrendingByTypeProvider повертає популярні тайтли за типом.
 type TrendingByTypeProvider interface {
 	TrendingByType(ctx context.Context, mediaType string, window string, limit int) ([]Suggestion, error)
+}
+
+// PopularProvider повертає популярні тайтли за типом.
+type PopularProvider interface {
+	Popular(ctx context.Context, mediaType string, limit int) ([]Suggestion, error)
+}
+
+// TopRatedProvider повертає тайтли з найвищим рейтингом за типом.
+type TopRatedProvider interface {
+	TopRated(ctx context.Context, mediaType string, limit int) ([]Suggestion, error)
+}
+
+// UpcomingProvider повертає найближчі релізи за типом.
+type UpcomingProvider interface {
+	Upcoming(ctx context.Context, mediaType string, limit int) ([]Suggestion, error)
 }
 
 // SearchProvider повертає повний список для пошуку з пагінацією.
@@ -147,6 +165,24 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		trendingByType: func() TrendingByTypeProvider {
 			if t, ok := suggester.(TrendingByTypeProvider); ok {
 				return t
+			}
+			return nil
+		}(),
+		popular: func() PopularProvider {
+			if p, ok := suggester.(PopularProvider); ok {
+				return p
+			}
+			return nil
+		}(),
+		topRated: func() TopRatedProvider {
+			if t, ok := suggester.(TopRatedProvider); ok {
+				return t
+			}
+			return nil
+		}(),
+		upcoming: func() UpcomingProvider {
+			if u, ok := suggester.(UpcomingProvider); ok {
+				return u
 			}
 			return nil
 		}(),
@@ -250,6 +286,75 @@ func (s *Service) TrendingByType(
 		return []Suggestion{}, nil
 	}
 	return s.trendingByType.TrendingByType(ctx, mediaType, window, limit)
+}
+
+// Popular повертає популярні тайтли з TMDB.
+func (s *Service) Popular(ctx context.Context, mediaType string, limit int) ([]Suggestion, error) {
+	if s.popular == nil {
+		return []Suggestion{}, nil
+	}
+	return s.popular.Popular(ctx, mediaType, limit)
+}
+
+// TopRated повертає тайтли з найвищим рейтингом.
+func (s *Service) TopRated(ctx context.Context, mediaType string, limit int) ([]Suggestion, error) {
+	if s.topRated == nil {
+		return []Suggestion{}, nil
+	}
+	return s.topRated.TopRated(ctx, mediaType, limit)
+}
+
+// Upcoming повертає найближчі релізи за типом.
+func (s *Service) Upcoming(ctx context.Context, mediaType string, limit int) ([]Suggestion, error) {
+	if s.upcoming == nil {
+		return []Suggestion{}, nil
+	}
+	if limit <= 0 {
+		limit = 18
+	}
+	listLimit := limit * 4
+	if listLimit > 80 {
+		listLimit = 80
+	}
+	results, err := s.upcoming.Upcoming(ctx, mediaType, listLimit)
+	if err != nil {
+		return nil, err
+	}
+	if s.details == nil {
+		if len(results) > limit {
+			return results[:limit], nil
+		}
+		return results, nil
+	}
+
+	out := make([]Suggestion, 0, limit)
+	now := time.Now()
+	for _, item := range results {
+		if len(out) >= limit {
+			break
+		}
+		details, err := s.details.Details(ctx, item.ID, mediaType)
+		if err != nil {
+			continue
+		}
+		dateSource := ""
+		if mediaType == "movie" {
+			dateSource = details.ReleaseDate
+		} else {
+			dateSource = details.FirstAirDate
+		}
+		if dateSource == "" {
+			continue
+		}
+		parsed, err := time.Parse("2006-01-02", dateSource)
+		if err != nil {
+			continue
+		}
+		if parsed.After(now) {
+			out = append(out, item)
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) Search(ctx context.Context, query string, page int) (SearchResults, error) {

@@ -116,6 +116,105 @@ func (s *Server) trendingHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) popularHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+
+	limit := 18
+	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	movies, err := s.releases.Popular(r.Context(), "movie", limit)
+	if err != nil {
+		s.logger.Printf("popular movies failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch popular movies")
+		return
+	}
+
+	series, err := s.releases.Popular(r.Context(), "tv", limit)
+	if err != nil {
+		s.logger.Printf("popular series failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch popular series")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"movies": movies,
+		"series": series,
+	})
+}
+
+func (s *Server) topRatedHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+
+	limit := 18
+	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	movies, err := s.releases.TopRated(r.Context(), "movie", limit)
+	if err != nil {
+		s.logger.Printf("top-rated movies failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch top-rated movies")
+		return
+	}
+
+	series, err := s.releases.TopRated(r.Context(), "tv", limit)
+	if err != nil {
+		s.logger.Printf("top-rated series failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch top-rated series")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"movies": movies,
+		"series": series,
+	})
+}
+
+func (s *Server) upcomingHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+
+	limit := 18
+	if limitStr := strings.TrimSpace(r.URL.Query().Get("limit")); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	movies, err := s.releases.Upcoming(r.Context(), "movie", limit)
+	if err != nil {
+		s.logger.Printf("upcoming movies failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming movies")
+		return
+	}
+
+	series, err := s.releases.Upcoming(r.Context(), "tv", limit)
+	if err != nil {
+		s.logger.Printf("upcoming series failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming series")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"movies": movies,
+		"series": series,
+	})
+}
+
 func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)
