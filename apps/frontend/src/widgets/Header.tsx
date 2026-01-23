@@ -30,6 +30,7 @@ export function Header({
   onSearchClose,
 }: Props) {
   const { user, isLoading: authLoading } = useAuth();
+  const showAuthLoading = authLoading && !user;
   const {
     items: notifications,
     unreadCount,
@@ -160,7 +161,7 @@ export function Header({
               </svg>
             )}
           </button>
-          {user && (
+          {!showAuthLoading && user && (
             <div className="notifications-shell" ref={notificationsRef}>
               <button
                 type="button"
@@ -234,7 +235,7 @@ export function Header({
               )}
             </div>
           )}
-          {!user && (
+          {!showAuthLoading && !user && (
             <button
               type="button"
               className={`header-link${active === "saved" ? " active" : ""}`}
@@ -243,7 +244,9 @@ export function Header({
               {copy.header.savedList} ({savedCount})
             </button>
           )}
-          {!user ? (
+          {showAuthLoading ? (
+            <div className="header-auth-skeleton" aria-hidden="true" />
+          ) : !user ? (
             <button
               type="button"
               className="header-link header-auth"
