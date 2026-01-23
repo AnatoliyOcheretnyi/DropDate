@@ -5,7 +5,6 @@ import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { AuthModal } from "../../../widgets/AuthModal";
 import { AuthorizedSavedList } from "../../saved/components/AuthorizedSavedList";
 import { useProfile } from "../hooks/useProfile";
-import { ProfileCard } from "../components/ProfileCard";
 import { ProfileStats } from "../components/ProfileStats";
 import { ProfileTabs } from "../components/ProfileTabs";
 
@@ -69,15 +68,6 @@ export function ProfileScreen() {
       />
 
       <section className="profile-shell">
-        <ProfileCard
-          initials={initials}
-          email={user?.email ?? null}
-          loginPrompt={listCopy.loginPrompt}
-          authLoading={authLoading}
-          isAuthenticated={Boolean(user)}
-          onSignOut={handleLogout}
-          onSignIn={() => setIsAuthOpen(true)}
-        />
         <ProfileTabs
           tabs={tabs}
           activeTab={activeTab}

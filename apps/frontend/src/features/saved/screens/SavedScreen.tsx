@@ -1,14 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "../../../widgets/Header";
 import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { AuthorizedSavedList } from "../components/AuthorizedSavedList";
+import { ProfileTabs } from "../../profile/components/ProfileTabs";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedPage } from "../hooks/useSavedPage";
+import { useAuth } from "../../../shared/state/auth";
+import type { SavedRelease } from "../../../shared/types/releases";
+import type { TabDefinition, TabKey } from "../../profile/types";
 
 export function SavedScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabKey>("follow");
   const {
     blurTimeoutRef,
     handleRefreshAllClick,
@@ -30,8 +37,27 @@ export function SavedScreen() {
     title,
   } = useSavedPage();
 
+  const tabs: TabDefinition[] = [
+    { key: "follow", label: copy.lists.follow },
+    { key: "watchlist", label: copy.lists.watchlist },
+    { key: "favorite", label: copy.lists.favorite },
+    { key: "watched", label: copy.lists.watched },
+    { key: "disliked", label: copy.lists.disliked },
+  ];
+
+  const normalizeItemLists = (item: SavedRelease): TabKey[] => {
+    if (item.listTypes && item.listTypes.length > 0) {
+      return item.listTypes;
+    }
+    return ["follow"];
+  };
+
+  const tabItems = saved.filter((item) =>
+    normalizeItemLists(item).includes(activeTab)
+  );
+
   return (
-    <main className="page">
+    <main className="page page--saved">
       <Header
         active="saved"
         savedCount={savedCount}
@@ -76,15 +102,22 @@ export function SavedScreen() {
           </button>
           {refreshMessage && <p className="hint">{refreshMessage}</p>}
         </div>
+        <ProfileTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          isAuthenticated={Boolean(user)}
+          onChange={setActiveTab}
+        />
         {!isStorageReady ? (
           <p className="hint">{copy.hints.loadingList}</p>
-        ) : saved.length === 0 ? (
+        ) : tabItems.length === 0 ? (
           <p className="hint">{copy.hints.listEmpty}</p>
         ) : (
           <AuthorizedSavedList
-            items={saved}
+            items={tabItems}
             onRemove={(item) => removeRelease(item.id)}
             actionsDisabled={!isStorageReady}
+            groupByDate={activeTab === "follow"}
           />
         )}
       </section>

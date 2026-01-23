@@ -29,8 +29,9 @@ export function Header({
   onSearchToggle,
   onSearchClose,
 }: Props) {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const showAuthLoading = authLoading && !user;
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const {
     items: notifications,
     unreadCount,
@@ -41,6 +42,7 @@ export function Header({
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const profileRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -61,6 +63,25 @@ export function Header({
       document.removeEventListener("mousedown", handleClick);
     };
   }, [isNotificationsOpen]);
+
+  useEffect(() => {
+    if (!isProfileOpen) {
+      return;
+    }
+    const handleClick = (event: MouseEvent) => {
+      if (!profileRef.current) {
+        return;
+      }
+      if (event.target instanceof Node && profileRef.current.contains(event.target)) {
+        return;
+      }
+      setIsProfileOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [isProfileOpen]);
 
   const formatNotificationDate = (value?: string) => {
     if (!value) {
@@ -107,6 +128,17 @@ export function Header({
     }
     setIsNotificationsOpen(false);
   }, [isNotificationsOpen, markAllRead, refreshNotifications, unreadCount, user]);
+
+  const handleProfileToggle = useCallback(() => {
+    if (!user) {
+      return;
+    }
+    setIsProfileOpen((prev) => !prev);
+  }, [user]);
+
+  const initials = `${(user?.email?.[0] || "U").toUpperCase()}${(
+    user?.email?.[1] || ""
+  ).toUpperCase()}`;
 
   const handleNotificationClick = useCallback(
     (item: NotificationItem) => {
@@ -256,13 +288,47 @@ export function Header({
               {copy.auth.signIn}
             </button>
           ) : (
-            <button
-              type="button"
-              className="header-link header-auth"
-              onClick={() => router.push("/profile")}
-            >
-              {copy.auth.profile}
-            </button>
+            <div className="profile-shell" ref={profileRef}>
+              <button
+                type="button"
+                className={`profile-button${isProfileOpen ? " active" : ""}`}
+                onClick={handleProfileToggle}
+                aria-label={copy.auth.profile}
+              >
+                <span className="profile-initials">{initials}</span>
+              </button>
+              {isProfileOpen && (
+                <div className="profile-popover">
+                  <div className="profile-popover-card">
+                    <div className="profile-avatar">{initials}</div>
+                    <div className="profile-meta">
+                      <strong>{copy.auth.profile}</strong>
+                      <span>{user.email}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="profile-popover-action"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push("/saved");
+                    }}
+                  >
+                    {copy.header.savedList}
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-popover-action profile-popover-action--danger"
+                    onClick={async () => {
+                      setIsProfileOpen(false);
+                      await logout();
+                    }}
+                  >
+                    {copy.auth.signOut}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
