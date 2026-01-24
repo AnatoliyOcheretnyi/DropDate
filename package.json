@@ -8,7 +8,7 @@
     "test": "nx run-many -t test",
     "dev:frontend": "nx run frontend:dev",
     "dev:backend": "nx run backend:serve",
-    "dev:mobile": "nx run mobile:start",
+    "dev:mobile": "bash scripts/mobile-dev.sh",
     "db:migrate": "cd apps/backend && go run ./cmd/migrate",
     "release:front:major": "bash scripts/release-local.sh frontend major",
     "release:front:minor": "bash scripts/release-local.sh frontend minor",
