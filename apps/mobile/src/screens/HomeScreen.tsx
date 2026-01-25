@@ -10,9 +10,19 @@ import { buildFallbackRelease } from '../utils/release';
 import { useSaved } from '../state/SavedContext';
 import { copy } from '../../../../libs/shared/src/strings';
 
-type TrendingPayload = {
-  movies: Suggestion[];
-  series: Suggestion[];
+type HomePayload = {
+  upcoming: {
+    movies: Suggestion[];
+    series: Suggestion[];
+  };
+  popular: {
+    movies: Suggestion[];
+    series: Suggestion[];
+  };
+  topRated: {
+    movies: Suggestion[];
+    series: Suggestion[];
+  };
 };
 
 type DetailsPayload = {
@@ -25,35 +35,64 @@ export default function HomeScreen() {
   const backendURL = useMemo(() => getBackendURL(), []);
   const { addRelease, isSuggestionSaved } = useSaved();
 
-  const [movies, setMovies] = useState<Suggestion[]>([]);
-  const [series, setSeries] = useState<Suggestion[]>([]);
+  const [upcoming, setUpcoming] = useState<Suggestion[]>([]);
+  const [popularMovies, setPopularMovies] = useState<Suggestion[]>([]);
+  const [popularSeries, setPopularSeries] = useState<Suggestion[]>([]);
+  const [topRated, setTopRated] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadTrending = useCallback(async () => {
+  const mixSuggestions = useCallback((movies: Suggestion[], series: Suggestion[]) => {
+    const mixed: Suggestion[] = [];
+    const max = Math.max(movies.length, series.length);
+    for (let i = 0; i < max; i += 1) {
+      if (movies[i]) {
+        mixed.push(movies[i]);
+      }
+      if (series[i]) {
+        mixed.push(series[i]);
+      }
+    }
+    return mixed;
+  }, []);
+
+  const loadHome = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${backendURL}/trending?window=week&limit=16`, {
+      const response = await fetch(`${backendURL}/home?limit=18`, {
         headers: { accept: 'application/json' },
       });
-      const payload = (await response.json()) as TrendingPayload;
+      const payload = (await response.json()) as Partial<HomePayload>;
       if (response.ok) {
-        setMovies(payload.movies ?? []);
-        setSeries(payload.series ?? []);
+        const upcomingMovies = payload.upcoming?.movies ?? [];
+        const upcomingSeries = payload.upcoming?.series ?? [];
+        const popularMoviesPayload = payload.popular?.movies ?? [];
+        const popularSeriesPayload = payload.popular?.series ?? [];
+        const topRatedMovies = payload.topRated?.movies ?? [];
+        const topRatedSeries = payload.topRated?.series ?? [];
+
+        setUpcoming(mixSuggestions(upcomingMovies, upcomingSeries));
+        setPopularMovies(popularMoviesPayload);
+        setPopularSeries(popularSeriesPayload);
+        setTopRated(mixSuggestions(topRatedMovies, topRatedSeries));
       } else {
-        setMovies([]);
-        setSeries([]);
+        setUpcoming([]);
+        setPopularMovies([]);
+        setPopularSeries([]);
+        setTopRated([]);
       }
     } catch {
-      setMovies([]);
-      setSeries([]);
+      setUpcoming([]);
+      setPopularMovies([]);
+      setPopularSeries([]);
+      setTopRated([]);
     } finally {
       setIsLoading(false);
     }
-  }, [backendURL]);
+  }, [backendURL, mixSuggestions]);
 
   useEffect(() => {
-    loadTrending();
-  }, [loadTrending]);
+    loadHome();
+  }, [loadHome]);
 
   const handleAdd = useCallback(
     async (item: Suggestion) => {
@@ -111,13 +150,23 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sections.trendingMoviesShort}</Text>
-          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(movies)}
+          <Text style={styles.sectionTitle}>{copy.sections.upcoming}</Text>
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(upcoming)}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sections.trendingSeriesShort}</Text>
-          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(series)}
+          <Text style={styles.sectionTitle}>{copy.sections.popularMovies}</Text>
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularMovies)}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{copy.sections.popularSeries}</Text>
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularSeries)}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{copy.sections.topRated}</Text>
+          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(topRated)}
         </View>
       </ScrollView>
     </View>
