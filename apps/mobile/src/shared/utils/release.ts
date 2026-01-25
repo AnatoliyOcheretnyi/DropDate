@@ -38,3 +38,17 @@ export function buildFallbackRelease(details: Details, mediaType: Suggestion['me
     status,
   };
 }
+
+export function interleaveSuggestions(movies: Suggestion[], series: Suggestion[]) {
+  const mixed: Suggestion[] = [];
+  const max = Math.max(movies.length, series.length);
+  for (let i = 0; i < max; i += 1) {
+    if (movies[i]) {
+      mixed.push(movies[i]);
+    }
+    if (series[i]) {
+      mixed.push(series[i]);
+    }
+  }
+  return mixed;
+}
