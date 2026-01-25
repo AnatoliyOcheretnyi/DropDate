@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 
 import { colors } from '../theme/colors';
 import { copy } from '../strings';
@@ -26,7 +27,7 @@ export function PosterCard({ item, onPress, onAdd, isSaved = false, size }: Prop
       onPress={() => onPress(item)}
     >
       {item.posterUrl ? (
-        <Image source={{ uri: item.posterUrl }} style={styles.image} />
+        <Image source={{ uri: item.posterUrl }} style={styles.image} contentFit="cover" transition={200} />
       ) : (
         <View style={styles.fallback}>
           <Text style={styles.fallbackText}>{item.title.slice(0, 1)}</Text>

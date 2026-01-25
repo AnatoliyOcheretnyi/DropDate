@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { FlashList } from '@shopify/flash-list';
+import { useQuery } from '@tanstack/react-query';
 
 import { PosterCard } from '../../../shared/ui/PosterCard';
 import { colors } from '../../../shared/theme/colors';
@@ -37,8 +38,8 @@ export default function SearchScreen() {
   const { addRelease, isSuggestionSaved } = useSaved();
 
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [results, setResults] = useState<Suggestion[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -47,41 +48,35 @@ export default function SearchScreen() {
 
   useEffect(() => {
     const trimmed = query.trim();
-    let cancelled = false;
-
-    if (trimmed.length < 2) {
-      setSuggestions([]);
-      setIsSuggesting(false);
-      return;
-    }
-
-    setIsSuggesting(true);
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(
-          `${backendURL}/suggest?query=${encodeURIComponent(trimmed)}&limit=6`,
-          { headers: { accept: 'application/json' } }
-        );
-        const payload = await response.json();
-        if (!cancelled) {
-          setSuggestions(response.ok ? (payload?.results ?? []) : []);
-        }
-      } catch {
-        if (!cancelled) {
-          setSuggestions([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsSuggesting(false);
-        }
+    const timer = setTimeout(() => {
+      setDebouncedQuery(trimmed);
+      if (trimmed.length >= 2) {
+        setSuggestionsHidden(false);
       }
     }, 250);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [backendURL, query]);
+
+  const suggestionsQuery = useQuery<Suggestion[]>({
+    queryKey: ['suggest', debouncedQuery, backendURL],
+    enabled: debouncedQuery.length >= 2 && !suggestionsHidden,
+    queryFn: async () => {
+      const response = await fetch(
+        `${backendURL}/suggest?query=${encodeURIComponent(debouncedQuery)}&limit=6`,
+        { headers: { accept: 'application/json' } }
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        return [];
+      }
+      return Array.isArray(payload?.results) ? payload.results : [];
+    },
+    staleTime: 1000 * 30,
+  });
+
+  const suggestions = suggestionsHidden ? [] : suggestionsQuery.data ?? [];
+  const isSuggesting = suggestionsQuery.isFetching;
 
   const loadResults = useCallback(
     async (nextPage: number, append: boolean) => {
@@ -115,14 +110,14 @@ export default function SearchScreen() {
   );
 
   const handleSearch = useCallback(() => {
-    setSuggestions([]);
+    setSuggestionsHidden(true);
     setPage(1);
     loadResults(1, false);
   }, [loadResults]);
 
   const handleSuggestionPress = (item: Suggestion) => {
     setQuery(item.title);
-    setSuggestions([]);
+    setSuggestionsHidden(true);
     router.push(`/title/${item.mediaType}/${item.id}`);
   };
 
@@ -219,7 +214,7 @@ export default function SearchScreen() {
           ))}
         </View>
 
-        <FlatList
+        <FlashList
           data={filteredResults}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={2}
@@ -234,6 +229,7 @@ export default function SearchScreen() {
               isSaved={isSuggestionSaved(item)}
             />
           )}
+          estimatedItemSize={220}
           ListEmptyComponent={
             isLoading ? (
               <ActivityIndicator color={colors.accent} />

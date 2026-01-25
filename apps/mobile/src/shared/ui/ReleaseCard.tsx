@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { colors } from '../theme/colors';
 import { copy } from '../strings';
 import { getReleaseStatusLabel, type ReleaseInfo } from '../types/release';
@@ -22,7 +23,7 @@ export function ReleaseCard({ release }: Props) {
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.hero, placeholder && styles.heroPlaceholder]}>
         {heroImage ? (
-          <Image source={{ uri: heroImage }} style={styles.heroImage} />
+          <Image source={{ uri: heroImage }} style={styles.heroImage} contentFit="cover" transition={200} />
         ) : (
           <Text style={styles.heroLetter}>{release.title.slice(0, 1)}</Text>
         )}

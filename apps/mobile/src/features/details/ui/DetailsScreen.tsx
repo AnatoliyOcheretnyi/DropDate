@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { FlashList } from "@shopify/flash-list";
+import { useQuery } from "@tanstack/react-query";
 
 import { PosterCard } from "../../../shared/ui/PosterCard";
 import { colors } from "../../../shared/theme/colors";
@@ -49,44 +51,34 @@ export default function DetailsScreen() {
   const backendURL = useMemo(() => getBackendURL(), []);
   const { addRelease, isSuggestionSaved } = useSaved();
 
-  const [details, setDetails] = useState<Details | null>(null);
-  const [release, setRelease] = useState<ReleaseInfo | null>(null);
-  const [recommendations, setRecommendations] = useState<Suggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const isValidRequest = Boolean(id) && (mediaType === "movie" || mediaType === "tv");
 
-  const loadDetails = useCallback(async () => {
-    if (!id || (mediaType !== "movie" && mediaType !== "tv")) {
-      setError(copy.errors.invalidRequest);
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
+  const detailsQuery = useQuery<DetailsPayload>({
+    queryKey: ["details", mediaType, id],
+    enabled: isValidRequest,
+    queryFn: async () => {
       const response = await fetch(
         `${backendURL}/details?tmdbId=${id}&mediaType=${mediaType}`,
-        {
-          headers: { accept: "application/json" },
-        }
+        { headers: { accept: "application/json" } }
       );
       const payload = (await response.json()) as DetailsPayload;
       if (!response.ok) {
-        setError(copy.errors.detailsLoad);
-        return;
+        throw new Error("details_failed");
       }
-      setDetails(payload.details);
-      setRelease(payload.release || null);
-      setRecommendations(payload.recommendations || []);
-    } catch {
-      setError(copy.errors.detailsLoad);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendURL, id, mediaType]);
+      return payload;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
 
-  useEffect(() => {
-    void loadDetails();
-  }, [loadDetails]);
+  const details = detailsQuery.data?.details ?? null;
+  const release = detailsQuery.data?.release ?? null;
+  const recommendations = detailsQuery.data?.recommendations ?? [];
+  const isLoading = detailsQuery.isLoading;
+  const error = !isValidRequest
+    ? copy.errors.invalidRequest
+    : detailsQuery.isError
+    ? copy.errors.detailsLoad
+    : null;
 
   const handleAdd = useCallback(() => {
     if (!details) {
@@ -125,6 +117,8 @@ export default function DetailsScreen() {
             <Image
               source={{ uri: details.backdropUrl }}
               style={styles.bannerImage}
+              contentFit="cover"
+              transition={200}
             />
           ) : (
             <View style={styles.bannerFallback} />
@@ -137,6 +131,8 @@ export default function DetailsScreen() {
               <Image
                 source={{ uri: details.posterUrl }}
                 style={styles.posterImage}
+                contentFit="cover"
+                transition={200}
               />
             ) : (
               <View style={styles.posterFallback} />
@@ -226,21 +222,22 @@ export default function DetailsScreen() {
         {recommendations.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{copy.sections.similarTitles}</Text>
-            <ScrollView
+            <FlashList
               horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.row}
-            >
-              {recommendations.map((item) => (
+              data={recommendations}
+              keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+              renderItem={({ item }) => (
                 <PosterCard
-                  key={`${item.mediaType}-${item.id}`}
                   item={item}
                   onPress={(selected) =>
                     router.push(`/title/${selected.mediaType}/${selected.id}`)
                   }
                 />
-              ))}
-            </ScrollView>
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.row}
+              estimatedItemSize={160}
+            />
           </View>
         ) : null}
       </ScrollView>

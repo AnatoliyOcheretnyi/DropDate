@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { PosterCard } from '../../../shared/ui/PosterCard';
 import { colors } from '../../../shared/theme/colors';
@@ -35,12 +36,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const backendURL = useMemo(() => getBackendURL(), []);
   const { addRelease, isSuggestionSaved } = useSaved();
-
-  const [upcoming, setUpcoming] = useState<Suggestion[]>([]);
-  const [popularMovies, setPopularMovies] = useState<Suggestion[]>([]);
-  const [popularSeries, setPopularSeries] = useState<Suggestion[]>([]);
-  const [topRated, setTopRated] = useState<Suggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const mixSuggestions = useCallback((movies: Suggestion[], series: Suggestion[]) => {
     const mixed: Suggestion[] = [];
@@ -56,44 +52,33 @@ export default function HomeScreen() {
     return mixed;
   }, []);
 
-  const loadHome = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const homeQuery = useQuery<Partial<HomePayload>>({
+    queryKey: ['home', backendURL],
+    queryFn: async () => {
       const response = await fetch(`${backendURL}/home?limit=18`, {
         headers: { accept: 'application/json' },
       });
       const payload = (await response.json()) as Partial<HomePayload>;
-      if (response.ok) {
-        const upcomingMovies = payload.upcoming?.movies ?? [];
-        const upcomingSeries = payload.upcoming?.series ?? [];
-        const popularMoviesPayload = payload.popular?.movies ?? [];
-        const popularSeriesPayload = payload.popular?.series ?? [];
-        const topRatedMovies = payload.topRated?.movies ?? [];
-        const topRatedSeries = payload.topRated?.series ?? [];
-
-        setUpcoming(mixSuggestions(upcomingMovies, upcomingSeries));
-        setPopularMovies(popularMoviesPayload);
-        setPopularSeries(popularSeriesPayload);
-        setTopRated(mixSuggestions(topRatedMovies, topRatedSeries));
-      } else {
-        setUpcoming([]);
-        setPopularMovies([]);
-        setPopularSeries([]);
-        setTopRated([]);
+      if (!response.ok) {
+        throw new Error('home_failed');
       }
-    } catch {
-      setUpcoming([]);
-      setPopularMovies([]);
-      setPopularSeries([]);
-      setTopRated([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendURL, mixSuggestions]);
+      return payload;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
 
-  useEffect(() => {
-    loadHome();
-  }, [loadHome]);
+  const upcoming = useMemo(
+    () =>
+      mixSuggestions(homeQuery.data?.upcoming?.movies ?? [], homeQuery.data?.upcoming?.series ?? []),
+    [homeQuery.data, mixSuggestions]
+  );
+  const popularMovies = homeQuery.data?.popular?.movies ?? [];
+  const popularSeries = homeQuery.data?.popular?.series ?? [];
+  const topRated = useMemo(
+    () =>
+      mixSuggestions(homeQuery.data?.topRated?.movies ?? [], homeQuery.data?.topRated?.series ?? []),
+    [homeQuery.data, mixSuggestions]
+  );
 
   const handleAdd = useCallback(
     async (item: Suggestion) => {
@@ -101,11 +86,23 @@ export default function HomeScreen() {
         return;
       }
       try {
-        const response = await fetch(`${backendURL}/details?tmdbId=${item.id}&mediaType=${item.mediaType}`, {
-          headers: { accept: 'application/json' },
+        const payload = await queryClient.fetchQuery<DetailsPayload>({
+          queryKey: ['details', item.mediaType, item.id],
+          queryFn: async () => {
+            const response = await fetch(
+              `${backendURL}/details?tmdbId=${item.id}&mediaType=${item.mediaType}`,
+              { headers: { accept: 'application/json' } }
+            );
+            const data = (await response.json()) as DetailsPayload;
+            if (!response.ok) {
+              throw new Error('details_failed');
+            }
+            return data;
+          },
+          staleTime: 1000 * 60 * 10,
         });
-        const payload = (await response.json()) as DetailsPayload;
-        if (!response.ok || !payload.details) {
+
+        if (!payload.details) {
           return;
         }
         const release =
@@ -122,7 +119,7 @@ export default function HomeScreen() {
         // ignore network failures for now
       }
     },
-    [addRelease, backendURL, isSuggestionSaved]
+    [addRelease, backendURL, isSuggestionSaved, queryClient]
   );
 
   const renderRow = (items: Suggestion[]) => (
@@ -165,22 +162,22 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{copy.sections.upcoming}</Text>
-          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(upcoming)}
+          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(upcoming)}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{copy.sections.popularMovies}</Text>
-          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularMovies)}
+          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularMovies)}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{copy.sections.popularSeries}</Text>
-          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularSeries)}
+          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularSeries)}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{copy.sections.topRated}</Text>
-          {isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(topRated)}
+          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(topRated)}
         </View>
       </ScrollView>
     </View>
