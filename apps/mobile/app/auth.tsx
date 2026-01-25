@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../src/state/AuthContext';
 import { colors } from '../src/theme/colors';
 import { copy } from '../../../libs/shared/src/strings';
+import { AuthBackdrop } from '../src/components/AuthBackdrop';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -60,54 +61,65 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.card}>
-        <Text style={styles.title}>{title}</Text>
-        <TextInput
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder={copy.auth.emailPlaceholder}
-          placeholderTextColor={colors.textMuted}
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          secureTextEntry
-          placeholder={copy.auth.passwordPlaceholder}
-          placeholderTextColor={colors.textMuted}
-          value={password}
-          onChangeText={setPassword}
-        />
-        {mode === 'register' ? (
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            placeholder={copy.auth.confirmPasswordPlaceholder}
-            placeholderTextColor={colors.textMuted}
-            value={confirm}
-            onChangeText={setConfirm}
-          />
-        ) : null}
-        {message ? <Text style={styles.message}>{message}</Text> : null}
-        <Pressable
-          style={[styles.primary, !canSubmit || busy ? styles.primaryDisabled : null]}
-          onPress={handleSubmit}
-        >
-          {busy || isLoading ? (
-            <ActivityIndicator color="#04140f" />
-          ) : (
-            <Text style={styles.primaryText}>{submitLabel}</Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={styles.switch}
-          onPress={() => setMode(mode === 'login' ? 'register' : 'login')}
-        >
-          <Text style={styles.switchText}>
-            {mode === 'login' ? copy.auth.switchToRegister : copy.auth.switchToLogin}
-          </Text>
-        </Pressable>
+      <AuthBackdrop />
+      <View style={styles.content}>
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>{copy.hero.eyebrow}</Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.lead}>{copy.hero.mobileLead}</Text>
+        </View>
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>{mode === 'login' ? copy.auth.signIn : copy.auth.submitRegister}</Text>
+          <Text style={styles.panelLead}>{copy.auth.helperText}</Text>
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder={copy.auth.emailPlaceholder}
+              placeholderTextColor={colors.textMuted}
+              value={email}
+              onChangeText={setEmail}
+            />
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              placeholder={copy.auth.passwordPlaceholder}
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+            />
+            {mode === 'register' ? (
+              <TextInput
+                style={styles.input}
+                secureTextEntry
+                placeholder={copy.auth.confirmPasswordPlaceholder}
+                placeholderTextColor={colors.textMuted}
+                value={confirm}
+                onChangeText={setConfirm}
+              />
+            ) : null}
+            {message ? <Text style={styles.message}>{message}</Text> : null}
+          </View>
+          <Pressable
+            style={[styles.primary, !canSubmit || busy ? styles.primaryDisabled : null]}
+            onPress={handleSubmit}
+          >
+            {busy || isLoading ? (
+              <ActivityIndicator color="#04140f" />
+            ) : (
+              <Text style={styles.primaryText}>{submitLabel}</Text>
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.switch}
+            onPress={() => setMode(mode === 'login' ? 'register' : 'login')}
+          >
+            <Text style={styles.switchText}>
+              {mode === 'login' ? copy.auth.switchToRegister : copy.auth.switchToLogin}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -117,24 +129,55 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
-  card: {
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  hero: {
+    gap: 12,
+    maxWidth: 320,
+  },
+  eyebrow: {
+    textTransform: 'uppercase',
+    letterSpacing: 5,
+    color: colors.eyebrow,
+    fontSize: 12,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  lead: {
+    color: colors.lead,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  panel: {
     width: '100%',
-    maxWidth: 420,
-    padding: 24,
+    padding: 20,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    gap: 12,
+    gap: 10,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
+  panelTitle: {
     color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  panelLead: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  form: {
+    gap: 10,
   },
   input: {
     borderWidth: 1,

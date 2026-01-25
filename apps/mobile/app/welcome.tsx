@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../src/state/AuthContext';
 import { colors } from '../src/theme/colors';
 import { copy } from '../../../libs/shared/src/strings';
+import { AuthBackdrop } from '../src/components/AuthBackdrop';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -19,8 +20,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.glowTop} />
-      <View style={styles.glowBottom} />
+      <AuthBackdrop />
       <View style={styles.content}>
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>{copy.hero.eyebrow}</Text>
@@ -57,24 +57,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 48,
     paddingBottom: 32,
-  },
-  glowTop: {
-    position: 'absolute',
-    top: -120,
-    right: -80,
-    width: 320,
-    height: 320,
-    borderRadius: 999,
-    backgroundColor: 'rgba(91, 255, 200, 0.08)',
-  },
-  glowBottom: {
-    position: 'absolute',
-    bottom: -140,
-    left: -60,
-    width: 280,
-    height: 280,
-    borderRadius: 999,
-    backgroundColor: 'rgba(33, 150, 243, 0.08)',
   },
   content: {
     flex: 1,
