@@ -235,6 +235,7 @@ export default function DetailsScreen() {
                 />
               )}
               showsHorizontalScrollIndicator={false}
+              removeClippedSubviews={false}
               contentContainerStyle={styles.row}
               estimatedItemSize={160}
             />

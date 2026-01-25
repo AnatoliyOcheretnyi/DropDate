@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -80,6 +80,16 @@ export default function HomeScreen() {
     [homeQuery.data, mixSuggestions]
   );
 
+  const sections = useMemo(
+    () => [
+      { id: 'upcoming', title: copy.sections.upcoming, items: upcoming },
+      { id: 'popularMovies', title: copy.sections.popularMovies, items: popularMovies },
+      { id: 'popularSeries', title: copy.sections.popularSeries, items: popularSeries },
+      { id: 'topRated', title: copy.sections.topRated, items: topRated },
+    ],
+    [popularMovies, popularSeries, topRated, upcoming]
+  );
+
   const handleAdd = useCallback(
     async (item: Suggestion) => {
       if (isSuggestionSaved(item)) {
@@ -138,6 +148,7 @@ export default function HomeScreen() {
         )}
         nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
+        removeClippedSubviews={false}
         contentContainerStyle={styles.row}
         ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
         estimatedItemSize={180}
@@ -147,39 +158,30 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView
-        nestedScrollEnabled
-        directionalLockEnabled
+      <FlashList
+        data={sections}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{item.title}</Text>
+            {homeQuery.isLoading ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              renderRow(item.items)
+            )}
+          </View>
+        )}
+        ListHeaderComponent={
+          <View style={styles.hero}>
+            <Text style={styles.eyebrow}>{copy.hero.eyebrow}</Text>
+            <Text style={styles.title}>{copy.appName}</Text>
+            <Text style={styles.lead}>{copy.hero.mobileLead}</Text>
+          </View>
+        }
         contentContainerStyle={styles.container}
-      >
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>{copy.hero.eyebrow}</Text>
-          <Text style={styles.title}>{copy.appName}</Text>
-          <Text style={styles.lead}>
-            {copy.hero.mobileLead}
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sections.upcoming}</Text>
-          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(upcoming)}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sections.popularMovies}</Text>
-          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularMovies)}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sections.popularSeries}</Text>
-          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(popularSeries)}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sections.topRated}</Text>
-          {homeQuery.isLoading ? <ActivityIndicator color={colors.accent} /> : renderRow(topRated)}
-        </View>
-      </ScrollView>
+        estimatedItemSize={260}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }

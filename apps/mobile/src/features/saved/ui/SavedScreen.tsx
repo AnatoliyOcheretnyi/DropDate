@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 
@@ -131,103 +131,109 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView
-        nestedScrollEnabled
-        directionalLockEnabled
-        contentContainerStyle={styles.container}
-      >
-        <Text style={styles.header}>{copy.header.savedList}</Text>
-        <View style={styles.rowWrap}>
-          <FlashList
-            horizontal
-            data={["follow", "watchlist", "favorite", "watched", "disliked"] as ListType[]}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => {
-              const isActive = item === activeList;
-              return (
-                <Pressable
-                  style={[styles.tab, isActive ? styles.tabActive : null]}
-                  onPress={() => setActiveList(item)}
-                >
-                  <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]}>
-                    {copy.lists[item]}
-                  </Text>
-                </Pressable>
-              );
-            }}
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabs}
-            ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-            estimatedItemSize={90}
-          />
-        </View>
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, styles.statLeft]}>
-            <Text style={styles.statValue}>{stats.left.value}</Text>
-            <Text style={styles.statLabel}>{stats.left.label}</Text>
+      <FlashList
+        data={sections}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{item.title}</Text>
+            <View style={styles.rowWrap}>
+              <FlashList
+                horizontal
+                data={item.items}
+                keyExtractor={(entry) => String(entry.id)}
+                renderItem={({ item: entry }) => (
+                  <View style={styles.savedItem}>
+                    <PosterCard
+                      item={{
+                        id: entry.tmdbId,
+                        title: entry.title,
+                        mediaType: entry.mediaType,
+                        posterUrl: entry.posterUrl,
+                      }}
+                      size={{ width: 140, height: 210 }}
+                      onPress={() =>
+                        router.push(`/title/${entry.mediaType}/${entry.tmdbId}`)
+                      }
+                    />
+                    <Pressable
+                      style={styles.removeButton}
+                      onPress={() => removeRelease(entry.id, activeList)}
+                    >
+                      <Text style={styles.removeText}>×</Text>
+                    </Pressable>
+                  </View>
+                )}
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+                removeClippedSubviews={false}
+                contentContainerStyle={styles.row}
+                ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+                estimatedItemSize={160}
+              />
+            </View>
           </View>
-          <View
-            style={[
-              styles.statCard,
-              styles.statMiddle,
-              stats.middle.tone === "warm" ? styles.statWarm : null,
-            ]}
-          >
-            <Text style={styles.statValue}>{stats.middle.value}</Text>
-            <Text style={styles.statLabel}>{stats.middle.label}</Text>
-          </View>
-          <View style={[styles.statCard, styles.statRight]}>
-            <Text style={styles.statValue}>{stats.right.value}</Text>
-            <Text style={styles.statLabel}>{stats.right.label}</Text>
-          </View>
-        </View>
-        {listItems.length === 0 ? (
-          <Text style={styles.hint}>
-            {copy.hints.listEmpty}
-          </Text>
-        ) : (
-          sections.map((section) => (
-            <View key={section.id} style={styles.section}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              <View style={styles.rowWrap}>
-                <FlashList
-                  horizontal
-                  data={section.items}
-                  keyExtractor={(item) => String(item.id)}
-                  renderItem={({ item }) => (
-                    <View style={styles.savedItem}>
-                      <PosterCard
-                        item={{
-                          id: item.tmdbId,
-                          title: item.title,
-                          mediaType: item.mediaType,
-                          posterUrl: item.posterUrl,
-                        }}
-                        size={{ width: 140, height: 210 }}
-                        onPress={() =>
-                          router.push(`/title/${item.mediaType}/${item.tmdbId}`)
-                        }
-                      />
-                      <Pressable
-                        style={styles.removeButton}
-                        onPress={() => removeRelease(item.id, activeList)}
-                      >
-                        <Text style={styles.removeText}>×</Text>
-                      </Pressable>
-                    </View>
-                  )}
-                  nestedScrollEnabled
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.row}
-                  ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-                  estimatedItemSize={160}
-                />
+        )}
+        ListHeaderComponent={
+          <View style={styles.headerWrap}>
+            <Text style={styles.header}>{copy.header.savedList}</Text>
+            <View style={styles.rowWrap}>
+              <FlashList
+                horizontal
+                data={["follow", "watchlist", "favorite", "watched", "disliked"] as ListType[]}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => {
+                  const isActive = item === activeList;
+                  return (
+                    <Pressable
+                      style={[styles.tab, isActive ? styles.tabActive : null]}
+                      onPress={() => setActiveList(item)}
+                    >
+                      <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]}>
+                        {copy.lists[item]}
+                      </Text>
+                    </Pressable>
+                  );
+                }}
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+                removeClippedSubviews={false}
+                contentContainerStyle={styles.tabs}
+                ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+                estimatedItemSize={90}
+              />
+            </View>
+            <View style={styles.statsRow}>
+              <View style={[styles.statCard, styles.statLeft]}>
+                <Text style={styles.statValue}>{stats.left.value}</Text>
+                <Text style={styles.statLabel}>{stats.left.label}</Text>
+              </View>
+              <View
+                style={[
+                  styles.statCard,
+                  styles.statMiddle,
+                  stats.middle.tone === "warm" ? styles.statWarm : null,
+                ]}
+              >
+                <Text style={styles.statValue}>{stats.middle.value}</Text>
+                <Text style={styles.statLabel}>{stats.middle.label}</Text>
+              </View>
+              <View style={[styles.statCard, styles.statRight]}>
+                <Text style={styles.statValue}>{stats.right.value}</Text>
+                <Text style={styles.statLabel}>{stats.right.label}</Text>
               </View>
             </View>
-          ))
-        )}
-      </ScrollView>
+          </View>
+        }
+        ListEmptyComponent={
+          listItems.length === 0 ? (
+            <Text style={styles.hint}>{copy.hints.listEmpty}</Text>
+          ) : null
+        }
+        contentContainerStyle={styles.container}
+        estimatedItemSize={280}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }
@@ -247,6 +253,9 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "700",
     color: colors.text,
+  },
+  headerWrap: {
+    gap: 18,
   },
   tabs: {
     paddingBottom: 4,
