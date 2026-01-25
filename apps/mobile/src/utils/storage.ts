@@ -5,6 +5,7 @@ const storage = new MMKV({ id: 'dropdate' });
 export const storageKeys = {
   refreshToken: 'dropdate_refresh_token',
   guestSaved: 'dropdate_guest_saved',
+  guestMode: 'dropdate_guest_mode',
 };
 
 export const storageGetString = (key: string): string | null => {

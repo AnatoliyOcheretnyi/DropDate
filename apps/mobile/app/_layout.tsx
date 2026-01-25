@@ -8,7 +8,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <SavedProvider>
-        <Stack screenOptions={{ headerShown: false }} initialRouteName="(tabs)">
+        <Stack screenOptions={{ headerShown: false }} initialRouteName="welcome">
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen name="auth" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="title/[mediaType]/[id]" options={{ headerShown: false }} />
         </Stack>

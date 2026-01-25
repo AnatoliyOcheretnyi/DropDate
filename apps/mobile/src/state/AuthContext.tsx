@@ -20,9 +20,12 @@ type AuthContextValue = {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  isGuest: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (email: string, password: string) => Promise<AuthResult>;
+  continueAsGuest: () => void;
+  resetGuest: () => void;
   logout: () => Promise<void>;
   refresh: () => Promise<boolean>;
   resendVerification: (email: string) => Promise<AuthResult>;
@@ -30,6 +33,7 @@ type AuthContextValue = {
 };
 
 const STORAGE_KEY = storageKeys.refreshToken;
+const GUEST_KEY = storageKeys.guestMode;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -52,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const persistRefresh = useCallback(async (token: string | null) => {
@@ -70,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verified: payload.user.verified,
       });
       setAccessToken(payload.accessToken);
+      setIsGuest(false);
+      storageDelete(GUEST_KEY);
       if (payload.refreshToken) {
         setRefreshToken(payload.refreshToken);
         await persistRefresh(payload.refreshToken);
@@ -108,7 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       const token = storageGetString(STORAGE_KEY);
+      const guestFlag = storageGetString(GUEST_KEY);
       if (cancelled) return;
+      if (guestFlag === '1') {
+        setIsGuest(true);
+      }
       if (!token) {
         setIsLoading(false);
         return;
@@ -159,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ email, password, returnRefresh: true, client: 'mobile' }),
         });
         if (response.status === 202) {
+          setIsGuest(false);
+          storageDelete(GUEST_KEY);
           return { status: 'verification_required' };
         }
         if (!response.ok) {
@@ -210,7 +223,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setAccessToken(null);
     setRefreshToken(null);
+    setIsGuest(false);
+    storageDelete(GUEST_KEY);
   }, [backendURL, persistRefresh, refreshToken]);
+
+  const continueAsGuest = useCallback(() => {
+    storageSetString(GUEST_KEY, '1');
+    setIsGuest(true);
+  }, []);
+
+  const resetGuest = useCallback(() => {
+    storageDelete(GUEST_KEY);
+    setIsGuest(false);
+  }, []);
 
   const setUserVerified = useCallback((value: boolean) => {
     setUser((prev) => (prev ? { ...prev, verified: value } : prev));
@@ -221,9 +246,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       accessToken,
       refreshToken,
+      isGuest,
       isLoading,
       login,
       register,
+      continueAsGuest,
+      resetGuest,
       logout,
       refresh,
       resendVerification,
@@ -236,7 +264,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refresh,
       refreshToken,
+      isGuest,
       register,
+      continueAsGuest,
+      resetGuest,
       resendVerification,
       setUserVerified,
       user,
