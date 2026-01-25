@@ -1,12 +1,14 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { ListPickerModal } from '../../../shared/ui/ListPickerModal';
 import { PosterCard } from '../../../shared/ui/PosterCard';
 import { colors } from '../../../shared/theme/colors';
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
+import type { ListType } from '../../../shared/types/lists';
 import { getBackendURL } from '../../../shared/utils/config';
 import { buildFallbackRelease } from '../../../shared/utils/release';
 import { useSaved } from '../../saved/store/savedStore';
@@ -35,8 +37,10 @@ type DetailsPayload = {
 export default function HomeScreen() {
   const router = useRouter();
   const backendURL = useMemo(() => getBackendURL(), []);
-  const { addRelease, isSuggestionSaved } = useSaved();
+  const { isSuggestionSaved, getListTypes, setListTypes, findByTmdbId } = useSaved();
   const queryClient = useQueryClient();
+  const [pickerItem, setPickerItem] = useState<Suggestion | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const mixSuggestions = useCallback((movies: Suggestion[], series: Suggestion[]) => {
     const mixed: Suggestion[] = [];
@@ -90,17 +94,32 @@ export default function HomeScreen() {
     [popularMovies, popularSeries, topRated, upcoming]
   );
 
-  const handleAdd = useCallback(
-    async (item: Suggestion) => {
-      if (isSuggestionSaved(item)) {
+  const handleAdd = useCallback((item: Suggestion) => {
+    setPickerItem(item);
+    setPickerVisible(true);
+  }, []);
+
+  const applyListTypes = useCallback(
+    async (listTypes: ListType[]) => {
+      if (!pickerItem) {
+        return;
+      }
+      const existing = findByTmdbId(pickerItem.id, pickerItem.mediaType);
+      if (existing) {
+        await setListTypes(
+          pickerItem,
+          listTypes,
+          { release: existing, details: existing.details }
+        );
+        setPickerVisible(false);
         return;
       }
       try {
         const payload = await queryClient.fetchQuery<DetailsPayload>({
-          queryKey: ['details', item.mediaType, item.id],
+          queryKey: ['details', pickerItem.mediaType, pickerItem.id],
           queryFn: async () => {
             const response = await fetch(
-              `${backendURL}/details?tmdbId=${item.id}&mediaType=${item.mediaType}`,
+              `${backendURL}/details?tmdbId=${pickerItem.id}&mediaType=${pickerItem.mediaType}`,
               { headers: { accept: 'application/json' } }
             );
             const data = (await response.json()) as DetailsPayload;
@@ -116,20 +135,22 @@ export default function HomeScreen() {
           return;
         }
         const release =
-          payload.release || buildFallbackRelease(payload.details as Details, item.mediaType);
+          payload.release || buildFallbackRelease(payload.details as Details, pickerItem.mediaType);
         if (!release) {
           return;
         }
-        addRelease(release, {
-          tmdbId: item.id,
-          mediaType: item.mediaType,
-          details: payload.details,
-        });
+        await setListTypes(
+          pickerItem,
+          listTypes,
+          { release, details: payload.details }
+        );
       } catch {
         // ignore network failures for now
+      } finally {
+        setPickerVisible(false);
       }
     },
-    [addRelease, backendURL, isSuggestionSaved, queryClient]
+    [backendURL, findByTmdbId, pickerItem, queryClient, setListTypes]
   );
 
   const renderRow = (items: Suggestion[]) => (
@@ -181,6 +202,12 @@ export default function HomeScreen() {
         contentContainerStyle={styles.container}
         estimatedItemSize={260}
         showsVerticalScrollIndicator={false}
+      />
+      <ListPickerModal
+        visible={pickerVisible}
+        value={pickerItem ? getListTypes(pickerItem) : []}
+        onClose={() => setPickerVisible(false)}
+        onApply={applyListTypes}
       />
     </View>
   );

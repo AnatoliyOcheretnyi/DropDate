@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,9 +12,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
 
+import { ListPickerModal } from "../../../shared/ui/ListPickerModal";
 import { PosterCard } from "../../../shared/ui/PosterCard";
 import { colors } from "../../../shared/theme/colors";
 import type { Details, ReleaseInfo, Suggestion } from "../../../shared/types/release";
+import type { ListType } from "../../../shared/types/lists";
 import { getReleaseStatusLabel } from "../../../shared/types/release";
 import { getBackendURL } from "../../../shared/utils/config";
 import { buildFallbackRelease } from "../../../shared/utils/release";
@@ -49,7 +51,8 @@ export default function DetailsScreen() {
   }>();
   const router = useRouter();
   const backendURL = useMemo(() => getBackendURL(), []);
-  const { addRelease, isSuggestionSaved } = useSaved();
+  const { isSuggestionSaved, getListTypes, setListTypes } = useSaved();
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const isValidRequest = Boolean(id) && (mediaType === "movie" || mediaType === "tv");
 
@@ -80,21 +83,34 @@ export default function DetailsScreen() {
     ? copy.errors.detailsLoad
     : null;
 
-  const handleAdd = useCallback(() => {
-    if (!details) {
-      return;
-    }
-    const releaseInfo =
-      release || buildFallbackRelease(details, details.mediaType);
-    if (!releaseInfo) {
-      return;
-    }
-    addRelease(releaseInfo, {
-      tmdbId: details.id,
-      mediaType: details.mediaType,
-      details,
-    });
-  }, [addRelease, details, release]);
+  const applyListTypes = useCallback(
+    async (listTypes: ListType[]) => {
+      if (!details) {
+        return;
+      }
+      const releaseInfo =
+        release || buildFallbackRelease(details, details.mediaType);
+      if (!releaseInfo) {
+        return;
+      }
+      await setListTypes(
+        {
+          id: details.id,
+          title: details.title,
+          mediaType: details.mediaType,
+          posterUrl: details.posterUrl,
+          backdropUrl: details.backdropUrl,
+          year: details.year,
+          source: details.source,
+          type: details.type,
+        } as Suggestion,
+        listTypes,
+        { release: releaseInfo, details }
+      );
+      setPickerVisible(false);
+    },
+    [details, release, setListTypes]
+  );
 
   if (isLoading && !details) {
     return (
@@ -150,7 +166,7 @@ export default function DetailsScreen() {
               {details?.overview || copy.hints.noOverview}
             </Text>
             <View style={styles.actionRow}>
-              <Pressable style={styles.actionButton} onPress={handleAdd}>
+              <Pressable style={styles.actionButton} onPress={() => setPickerVisible(true)}>
                 <Text style={styles.actionButtonText}>
                   {details &&
                   isSuggestionSaved({
@@ -242,6 +258,20 @@ export default function DetailsScreen() {
           </View>
         ) : null}
       </ScrollView>
+      <ListPickerModal
+        visible={pickerVisible}
+        value={
+          details
+            ? getListTypes({
+                id: details.id,
+                title: details.title,
+                mediaType: details.mediaType,
+              } as Suggestion)
+            : []
+        }
+        onClose={() => setPickerVisible(false)}
+        onApply={applyListTypes}
+      />
     </View>
   );
 }

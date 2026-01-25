@@ -10,9 +10,11 @@ import {
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 
+import { ListPickerModal } from '../../../shared/ui/ListPickerModal';
 import { PosterCard } from '../../../shared/ui/PosterCard';
 import { colors } from '../../../shared/theme/colors';
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
+import type { ListType } from '../../../shared/types/lists';
 import { getBackendURL } from '../../../shared/utils/config';
 import { buildFallbackRelease } from '../../../shared/utils/release';
 import { useSaved } from '../../saved/store/savedStore';
@@ -33,7 +35,9 @@ type DetailsPayload = {
 export default function SearchScreen() {
   const router = useRouter();
   const backendURL = useMemo(() => getBackendURL(), []);
-  const { addRelease, isSuggestionSaved } = useSaved();
+  const { isSuggestionSaved, setListTypes, getListTypes, findByTmdbId } = useSaved();
+  const [pickerItem, setPickerItem] = useState<Suggestion | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -97,34 +101,50 @@ export default function SearchScreen() {
     loadResults(1, false);
   }, [debouncedQuery, loadResults]);
 
-  const handleAdd = useCallback(
-    async (item: Suggestion) => {
-      if (isSuggestionSaved(item)) {
+  const handleAdd = useCallback((item: Suggestion) => {
+    setPickerItem(item);
+    setPickerVisible(true);
+  }, []);
+
+  const applyListTypes = useCallback(
+    async (listTypes: ListType[]) => {
+      if (!pickerItem) {
+        return;
+      }
+      const existing = findByTmdbId(pickerItem.id, pickerItem.mediaType);
+      if (existing) {
+        await setListTypes(pickerItem, listTypes, {
+          release: existing,
+          details: existing.details,
+        });
+        setPickerVisible(false);
         return;
       }
       try {
-        const response = await fetch(`${backendURL}/details?tmdbId=${item.id}&mediaType=${item.mediaType}`, {
-          headers: { accept: 'application/json' },
-        });
+        const response = await fetch(
+          `${backendURL}/details?tmdbId=${pickerItem.id}&mediaType=${pickerItem.mediaType}`,
+          { headers: { accept: 'application/json' } }
+        );
         const payload = (await response.json()) as DetailsPayload;
         if (!response.ok || !payload.details) {
           return;
         }
         const release =
-          payload.release || buildFallbackRelease(payload.details as Details, item.mediaType);
+          payload.release || buildFallbackRelease(payload.details as Details, pickerItem.mediaType);
         if (!release) {
           return;
         }
-        addRelease(release, {
-          tmdbId: item.id,
-          mediaType: item.mediaType,
+        await setListTypes(pickerItem, listTypes, {
+          release,
           details: payload.details,
         });
       } catch {
         // ignore network failures for now
+      } finally {
+        setPickerVisible(false);
       }
     },
-    [addRelease, backendURL, isSuggestionSaved]
+    [backendURL, findByTmdbId, pickerItem, setListTypes]
   );
 
   const filteredResults = useMemo(() => {
@@ -207,6 +227,12 @@ export default function SearchScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+      />
+      <ListPickerModal
+        visible={pickerVisible}
+        value={pickerItem ? getListTypes(pickerItem) : []}
+        onClose={() => setPickerVisible(false)}
+        onApply={applyListTypes}
       />
     </View>
   );
