@@ -6,7 +6,7 @@ Expo Router (TypeScript) client that mirrors the DropDate web design. This is a 
 
 - Expo SDK 54 + React Native 0.81
 - Expo Router with tabs (`app/(tabs)`)
-- Screens + UI in `src/` (components, screens, theme, state)
+- Screens + UI in `src/` (feature‑based + shared)
 - Backend URL configured via `EXPO_PUBLIC_BACKEND_URL`
 
 ## Quick start
@@ -26,10 +26,8 @@ Expo CLI will give you QR codes and simulator options. The UI expects the backen
 apps/mobile
 ├── app/            # Expo Router entry (`(tabs)` + layout)
 ├── src/
-│   ├── components/ # UI blocks (ReleaseCard, etc.)
-│   ├── screens/    # Home/Search/Saved/Details
-│   ├── state/      # SavedContext (in‑memory for now)
-│   └── theme/      # shared colors/typography tokens
+│   ├── features/   # auth/home/search/saved/details/profile (UI + store)
+│   └── shared/     # theme, types, utils, ui, hooks
 └── assets/         # icons + splash art
 ```
 

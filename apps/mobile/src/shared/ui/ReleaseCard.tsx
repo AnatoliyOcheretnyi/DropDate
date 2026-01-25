@@ -1,6 +1,6 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { copy } from '../../../../libs/shared/src/strings';
+import { copy } from '../strings';
 import { getReleaseStatusLabel, type ReleaseInfo } from '../types/release';
 
 const formatter = new Intl.DateTimeFormat('uk-UA', {

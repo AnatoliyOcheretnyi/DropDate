@@ -1,4 +1,4 @@
-import DetailsScreen from '../../../src/screens/DetailsScreen';
+import DetailsScreen from '../../../src/features/details/ui/DetailsScreen';
 
 export default function TitleDetailsRoute() {
   return <DetailsScreen />;

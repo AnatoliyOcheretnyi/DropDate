@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { PosterCard } from '../components/PosterCard';
-import { colors } from '../theme/colors';
-import type { Details, ReleaseInfo, Suggestion } from '../types/release';
-import { getBackendURL } from '../utils/config';
-import { buildFallbackRelease } from '../utils/release';
-import { useSaved } from '../state/SavedContext';
-import { copy } from '../../../../libs/shared/src/strings';
+import { PosterCard } from '../../../shared/ui/PosterCard';
+import { colors } from '../../../shared/theme/colors';
+import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
+import { getBackendURL } from '../../../shared/utils/config';
+import { buildFallbackRelease } from '../../../shared/utils/release';
+import { useSaved } from '../../saved/store/savedStore';
+import { copy } from '../../../shared/strings';
 
 type HomePayload = {
   upcoming: {

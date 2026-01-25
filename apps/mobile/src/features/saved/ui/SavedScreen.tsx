@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { PosterCard } from "../components/PosterCard";
-import { colors } from "../theme/colors";
-import { useSaved } from "../state/SavedContext";
-import { copy } from "../../../../libs/shared/src/strings";
-import type { ListType } from "../types/lists";
+import { PosterCard } from "../../../shared/ui/PosterCard";
+import { colors } from "../../../shared/theme/colors";
+import { useSaved } from "../store/savedStore";
+import { copy } from "../../../shared/strings";
+import type { ListType } from "../../../shared/types/lists";
 
 type Section = {
   id: string;

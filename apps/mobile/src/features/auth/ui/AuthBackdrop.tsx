@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet } from 'react-native';
 
-import { colors } from '../theme/colors';
 
 export function AuthBackdrop() {
   const glowOne = useRef(new Animated.Value(0)).current;

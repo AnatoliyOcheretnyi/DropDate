@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReleaseInfo } from '../types/release';
 import { getBackendURL } from '../utils/config';
-import { copy } from '../../../../libs/shared/src/strings';
+import { copy } from '../strings';
 
 type SearchParams = {
   title: string;

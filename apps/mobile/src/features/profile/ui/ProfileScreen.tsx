@@ -1,10 +1,10 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { colors } from '../theme/colors';
-import { useAuth } from '../state/AuthContext';
-import { copy } from '../../../../libs/shared/src/strings';
-import { ActionButton } from '../components/ActionButton';
+import { colors } from '../../../shared/theme/colors';
+import { useAuth } from '../../auth/store/authStore';
+import { copy } from '../../../shared/strings';
+import { ActionButton } from '../../../shared/ui/ActionButton';
 
 export default function ProfileScreen() {
   const router = useRouter();

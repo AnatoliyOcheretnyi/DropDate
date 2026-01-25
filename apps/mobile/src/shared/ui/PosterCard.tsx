@@ -1,7 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
-import { copy } from '../../../../libs/shared/src/strings';
+import { copy } from '../strings';
 import type { Suggestion } from '../types/release';
 
 type Props = {
