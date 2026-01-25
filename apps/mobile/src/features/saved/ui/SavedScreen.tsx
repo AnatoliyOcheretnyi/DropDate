@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 
 import { PosterCard } from "../../../shared/ui/PosterCard";
@@ -130,36 +131,37 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        nestedScrollEnabled
+        directionalLockEnabled
+        contentContainerStyle={styles.container}
+      >
         <Text style={styles.header}>{copy.header.savedList}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabs}
-        >
-          {(
-            [
-              "follow",
-              "watchlist",
-              "favorite",
-              "watched",
-              "disliked",
-            ] as ListType[]
-          ).map((type) => {
-            const isActive = type === activeList;
-            return (
-              <Pressable
-                key={type}
-                style={[styles.tab, isActive ? styles.tabActive : null]}
-                onPress={() => setActiveList(type)}
-              >
-                <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]}>
-                  {copy.lists[type]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <View style={styles.rowWrap}>
+          <FlashList
+            horizontal
+            data={["follow", "watchlist", "favorite", "watched", "disliked"] as ListType[]}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => {
+              const isActive = item === activeList;
+              return (
+                <Pressable
+                  style={[styles.tab, isActive ? styles.tabActive : null]}
+                  onPress={() => setActiveList(item)}
+                >
+                  <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]}>
+                    {copy.lists[item]}
+                  </Text>
+                </Pressable>
+              );
+            }}
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabs}
+            ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+            estimatedItemSize={90}
+          />
+        </View>
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.statLeft]}>
             <Text style={styles.statValue}>{stats.left.value}</Text>
@@ -188,34 +190,40 @@ export default function SavedScreen() {
           sections.map((section) => (
             <View key={section.id} style={styles.section}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.row}
-              >
-                {section.items.map((item) => (
-                  <View key={item.id} style={styles.savedItem}>
-                    <PosterCard
-                      item={{
-                        id: item.tmdbId,
-                        title: item.title,
-                        mediaType: item.mediaType,
-                        posterUrl: item.posterUrl,
-                      }}
-                      size={{ width: 140, height: 210 }}
-                      onPress={() =>
-                        router.push(`/title/${item.mediaType}/${item.tmdbId}`)
-                      }
-                    />
-                    <Pressable
-                      style={styles.removeButton}
-                      onPress={() => removeRelease(item.id, activeList)}
-                    >
-                      <Text style={styles.removeText}>×</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </ScrollView>
+              <View style={styles.rowWrap}>
+                <FlashList
+                  horizontal
+                  data={section.items}
+                  keyExtractor={(item) => String(item.id)}
+                  renderItem={({ item }) => (
+                    <View style={styles.savedItem}>
+                      <PosterCard
+                        item={{
+                          id: item.tmdbId,
+                          title: item.title,
+                          mediaType: item.mediaType,
+                          posterUrl: item.posterUrl,
+                        }}
+                        size={{ width: 140, height: 210 }}
+                        onPress={() =>
+                          router.push(`/title/${item.mediaType}/${item.tmdbId}`)
+                        }
+                      />
+                      <Pressable
+                        style={styles.removeButton}
+                        onPress={() => removeRelease(item.id, activeList)}
+                      >
+                        <Text style={styles.removeText}>×</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  nestedScrollEnabled
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.row}
+                  ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+                  estimatedItemSize={160}
+                />
+              </View>
             </View>
           ))
         )}
@@ -241,8 +249,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   tabs: {
-    gap: 10,
     paddingBottom: 4,
+    paddingHorizontal: 20,
   },
   tab: {
     paddingHorizontal: 16,
@@ -312,9 +320,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  rowWrap: {
+    marginHorizontal: -20,
+  },
   row: {
-    gap: 12,
-    paddingRight: 12,
+    paddingHorizontal: 20,
+    paddingRight: 28,
+  },
+  rowSeparator: {
+    width: 12,
   },
   savedItem: {
     position: "relative",

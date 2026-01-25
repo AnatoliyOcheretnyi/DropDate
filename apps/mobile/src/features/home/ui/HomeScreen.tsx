@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 
 import { PosterCard } from '../../../shared/ui/PosterCard';
@@ -125,22 +126,35 @@ export default function HomeScreen() {
   );
 
   const renderRow = (items: Suggestion[]) => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-      {items.map((item) => (
-        <PosterCard
-          key={`${item.mediaType}-${item.id}`}
-          item={item}
-          onPress={(selected) => router.push(`/title/${selected.mediaType}/${selected.id}`)}
-          onAdd={handleAdd}
-          isSaved={isSuggestionSaved(item)}
-        />
-      ))}
-    </ScrollView>
+    <View style={styles.rowWrap}>
+      <FlashList
+        horizontal
+        data={items}
+        keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+        renderItem={({ item }) => (
+          <PosterCard
+            item={item}
+            onPress={(selected) => router.push(`/title/${selected.mediaType}/${selected.id}`)}
+            onAdd={handleAdd}
+            isSaved={isSuggestionSaved(item)}
+          />
+        )}
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+        ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+        estimatedItemSize={180}
+      />
+    </View>
   );
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        nestedScrollEnabled
+        directionalLockEnabled
+        contentContainerStyle={styles.container}
+      >
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>{copy.hero.eyebrow}</Text>
           <Text style={styles.title}>{copy.appName}</Text>
@@ -211,8 +225,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  rowWrap: {
+    marginHorizontal: -20,
+  },
   row: {
-    gap: 14,
-    paddingRight: 12,
+    paddingHorizontal: 20,
+    paddingRight: 28,
+  },
+  rowSeparator: {
+    width: 14,
   },
 });
