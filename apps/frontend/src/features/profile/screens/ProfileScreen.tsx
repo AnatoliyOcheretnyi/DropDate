@@ -7,6 +7,7 @@ import { AuthorizedSavedList } from "../../saved/components/AuthorizedSavedList"
 import { useProfile } from "../hooks/useProfile";
 import { ProfileStats } from "../components/ProfileStats";
 import { ProfileTabs } from "../components/ProfileTabs";
+import { ProfileCard } from "../components/ProfileCard";
 
 export function ProfileScreen() {
   const {
@@ -68,31 +69,56 @@ export function ProfileScreen() {
       />
 
       <section className="profile-shell">
-        <ProfileTabs
-          tabs={tabs}
-          activeTab={activeTab}
-          isAuthenticated={Boolean(user)}
-          onChange={setActiveTab}
-        />
+        <div className="profile-hero">
+          <div className="profile-hero-copy">
+            <p className="eyebrow">Твій простір</p>
+            <h1>{user ? "Профіль і бібліотека" : "Персональний профіль"}</h1>
+            <p>
+              Керуй списками, оцінками та історією переглядів в одному місці.
+            </p>
+          </div>
+          <ProfileCard
+            initials={initials}
+            email={user?.email || null}
+            loginPrompt={listCopy.loginPrompt}
+            authLoading={authLoading}
+            isAuthenticated={Boolean(user)}
+            onSignOut={handleLogout}
+            onSignIn={() => setIsAuthOpen(true)}
+          />
+        </div>
+
+        <div className="profile-dashboard">
+          <ProfileTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            isAuthenticated={Boolean(user)}
+            onChange={setActiveTab}
+          />
+          <ProfileStats
+            total={tabItems.length}
+            middleStat={middleStat}
+            seriesCount={seriesCount}
+            statsCopy={{ total: statsCopy.total, series: statsCopy.series }}
+          />
+        </div>
 
         {tabItems.length === 0 ? (
           <div className="profile-empty">
+            <span aria-hidden="true">＋</span>
+            <h2>Список порожній</h2>
             <p>{listCopy.empty}</p>
+            <button type="button" onClick={() => handleNav("home")}>
+              Знайти тайтли
+            </button>
           </div>
-        ) : null}
-
-        <ProfileStats
-          total={tabItems.length}
-          middleStat={middleStat}
-          seriesCount={seriesCount}
-          statsCopy={{ total: statsCopy.total, series: statsCopy.series }}
-        />
-
-        <AuthorizedSavedList
-          items={tabItems}
-          onRemove={handleRemoveFromTab}
-          groupByDate={activeTab === "follow"}
-        />
+        ) : (
+          <AuthorizedSavedList
+            items={tabItems}
+            onRemove={handleRemoveFromTab}
+            groupByDate={activeTab === "follow"}
+          />
+        )}
       </section>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

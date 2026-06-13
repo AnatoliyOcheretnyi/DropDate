@@ -73,14 +73,40 @@ export function useProfile() {
   const statsCopy = copy.listStats ?? fallbackStatsCopy;
 
   const tabs = useMemo<TabDefinition[]>(
-    () => [
-      { key: "follow", label: listCopy.follow },
-      { key: "watchlist", label: listCopy.watchlist },
-      { key: "favorite", label: listCopy.favorite },
-      { key: "watched", label: listCopy.watched },
-      { key: "disliked", label: listCopy.disliked },
-    ],
-    [listCopy]
+    () => {
+      const countFor = (key: TabKey) =>
+        saved.filter((item) => {
+          const lists =
+            item.listTypes && item.listTypes.length > 0
+              ? item.listTypes
+              : ["follow"];
+          return lists.includes(key);
+        }).length;
+      return [
+        { key: "follow", label: listCopy.follow, count: countFor("follow") },
+        {
+          key: "watchlist",
+          label: listCopy.watchlist,
+          count: countFor("watchlist"),
+        },
+        {
+          key: "favorite",
+          label: listCopy.favorite,
+          count: countFor("favorite"),
+        },
+        {
+          key: "watched",
+          label: listCopy.watched,
+          count: countFor("watched"),
+        },
+        {
+          key: "disliked",
+          label: listCopy.disliked,
+          count: countFor("disliked"),
+        },
+      ];
+    },
+    [listCopy, saved]
   );
 
   const normalizeItemLists = useCallback((item: SavedRelease): TabKey[] => {

@@ -159,6 +159,7 @@ export function useSearchPage() {
   };
 
   return {
+    allResults: results,
     blurTimeoutRef,
     currentQuery,
     error,

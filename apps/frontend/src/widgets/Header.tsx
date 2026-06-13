@@ -224,6 +224,7 @@ export function Header({
                 className={`notifications-button${isNotificationsOpen ? " active" : ""}`}
                 onClick={() => void handleNotificationsToggle()}
                 aria-label="Сповіщення"
+                aria-expanded={isNotificationsOpen}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path
@@ -303,12 +304,13 @@ export function Header({
               {copy.auth.signIn}
             </button>
           ) : (
-            <div className="profile-shell" ref={profileRef}>
+            <div className="header-profile-shell" ref={profileRef}>
               <button
                 type="button"
                 className={`profile-button${isProfileOpen ? " active" : ""}`}
                 onClick={handleProfileToggle}
                 aria-label={copy.auth.profile}
+                aria-expanded={isProfileOpen}
               >
                 <span className="profile-initials">{initials}</span>
               </button>
@@ -321,6 +323,16 @@ export function Header({
                       <span>{user.email}</span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="profile-popover-action"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push("/profile");
+                    }}
+                  >
+                    {copy.auth.profile}
+                  </button>
                   <button
                     type="button"
                     className="profile-popover-action"
@@ -347,6 +359,61 @@ export function Header({
           )}
         </div>
       </div>
+      <nav className="mobile-nav" aria-label="Мобільна навігація">
+        <button
+          type="button"
+          className={active === "home" ? "active" : ""}
+          onClick={() => onChange("home")}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 11.2 12 4l9 7.2V21h-6v-6H9v6H3v-9.8Z" fill="currentColor" />
+          </svg>
+          <span>Головна</span>
+        </button>
+        <button
+          type="button"
+          className={isSearchOpen ? "active" : ""}
+          onClick={isSearchOpen ? onSearchClose : onSearchToggle}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0-2a9 9 0 1 0 5.66 15.99l4.68 4.68 1.41-1.41-4.68-4.68A9 9 0 0 0 11 2Z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>Пошук</span>
+        </button>
+        {user ? (
+          <>
+            <button
+              type="button"
+              className={active === "saved" ? "active" : ""}
+              onClick={() => onChange("saved")}
+            >
+              <span className="mobile-nav-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 3h12a2 2 0 0 1 2 2v16l-8-4-8 4V5a2 2 0 0 1 2-2Z" fill="currentColor" />
+                </svg>
+                {savedCount > 0 ? <b>{savedCount}</b> : null}
+              </span>
+              <span>Список</span>
+            </button>
+            <button type="button" onClick={() => router.push("/profile")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5C21 16.5 17 14 12 14Z" fill="currentColor" />
+              </svg>
+              <span>Профіль</span>
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setIsAuthOpen(true)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5C21 16.5 17 14 12 14Z" fill="currentColor" />
+            </svg>
+            <span>Увійти</span>
+          </button>
+        )}
+      </nav>
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </header>
   );

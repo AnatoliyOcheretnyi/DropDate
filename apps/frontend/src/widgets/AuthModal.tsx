@@ -46,8 +46,17 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
       return;
     }
     document.body.classList.add("modal-open");
-    return () => document.body.classList.remove("modal-open");
-  }, [isOpen]);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   const submitLabel = useMemo(
     () => (mode === "login" ? copy.auth.submitLogin : copy.auth.submitRegister),
@@ -157,110 +166,135 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
   return (
     <div className="auth-modal">
       <button type="button" className="auth-overlay" onClick={onClose} aria-hidden />
-      <div className="auth-card" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="auth-header">
-          <h2>{title}</h2>
-          <button
-            type="button"
-            className="auth-close"
-            onClick={onClose}
-            aria-label={copy.auth.closeLabel}
-          >
-            ✕
-          </button>
-        </div>
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={mode === "login" ? "active" : ""}
-            onClick={() => setMode("login")}
-          >
-            {copy.auth.loginTitle}
-          </button>
-          <button
-            type="button"
-            className={mode === "register" ? "active" : ""}
-            onClick={() => setMode("register")}
-          >
-            {copy.auth.registerTitle}
-          </button>
-        </div>
-        {verificationMessage ? (
-          <div className="auth-verify">
-            <h3>{copy.auth.verifyTitle}</h3>
-            <p>{verificationMessage}</p>
-            <span className="auth-verify-hint">{copy.auth.verifyHint}</span>
-            {resendMessage ? <span className="auth-verify-hint">{resendMessage}</span> : null}
-            <div className="auth-verify-actions">
-              <button
-                type="button"
-                className="auth-submit"
-                onClick={handleResend}
-                disabled={isResending || resendCooldown > 0}
-              >
-                {isResending
-                  ? copy.auth.loading
-                  : resendCooldown > 0
-                  ? copy.auth.verifyResendCooldown(resendCooldown)
-                  : copy.auth.verifyResend}
-              </button>
-              <button type="button" className="auth-submit" onClick={() => setMode("login")}>
-                {copy.auth.verifyBackLogin}
-              </button>
-              <button type="button" className="auth-secondary" onClick={onClose}>
-                {copy.auth.closeLabel}
-              </button>
-            </div>
+      <div
+        className="auth-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-title"
+      >
+        <aside className="auth-brand-panel">
+          <span className="auth-brand-mark">DD</span>
+          <div>
+            <p className="eyebrow">Твій release radar</p>
+            <h2>Не пропускай те, що хочеш подивитися.</h2>
+            <p>
+              Зберігай тайтли, отримуй дати нових релізів і веди власну
+              бібліотеку в одному місці.
+            </p>
           </div>
-        ) : (
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <label>
-              <span>{copy.auth.emailLabel}</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder={copy.auth.emailPlaceholder}
-                autoComplete="email"
-                required
-              />
-            </label>
-            <label>
-              <span>{copy.auth.passwordLabel}</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={copy.auth.passwordPlaceholder}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                required
-              />
-            </label>
-            {mode === "register" && (
+          <div className="auth-brand-points">
+            <span>Дати релізів</span>
+            <span>Персональні списки</span>
+            <span>Сповіщення</span>
+          </div>
+        </aside>
+
+        <div className="auth-panel">
+          <div className="auth-header">
+            <div>
+              <p className="eyebrow">Обліковий запис</p>
+              <h2 id="auth-title">{title}</h2>
+            </div>
+            <button
+              type="button"
+              className="auth-close"
+              onClick={onClose}
+              aria-label={copy.auth.closeLabel}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={mode === "login" ? "active" : ""}
+              onClick={() => setMode("login")}
+            >
+              {copy.auth.loginTitle}
+            </button>
+            <button
+              type="button"
+              className={mode === "register" ? "active" : ""}
+              onClick={() => setMode("register")}
+            >
+              {copy.auth.registerTitle}
+            </button>
+          </div>
+          {verificationMessage ? (
+            <div className="auth-verify">
+              <span className="auth-verify-icon" aria-hidden="true">✓</span>
+              <h3>{copy.auth.verifyTitle}</h3>
+              <p>{verificationMessage}</p>
+              <span className="auth-verify-hint">{copy.auth.verifyHint}</span>
+              {resendMessage ? <span className="auth-verify-hint">{resendMessage}</span> : null}
+              <div className="auth-verify-actions">
+                <button
+                  type="button"
+                  className="auth-submit"
+                  onClick={handleResend}
+                  disabled={isResending || resendCooldown > 0}
+                >
+                  {isResending
+                    ? copy.auth.loading
+                    : resendCooldown > 0
+                    ? copy.auth.verifyResendCooldown(resendCooldown)
+                    : copy.auth.verifyResend}
+                </button>
+                <button type="button" className="auth-secondary" onClick={() => setMode("login")}>
+                  {copy.auth.verifyBackLogin}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form className="auth-form" onSubmit={handleSubmit}>
               <label>
-                <span>{copy.auth.confirmPasswordLabel}</span>
+                <span>{copy.auth.emailLabel}</span>
                 <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder={copy.auth.confirmPasswordPlaceholder}
-                  autoComplete="new-password"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder={copy.auth.emailPlaceholder}
+                  autoComplete="email"
                   required
                 />
               </label>
-            )}
-            {mode === "register" && (
-              <p className="auth-helper">
-                <strong>{copy.auth.helperTitle}</strong>
-                <span>{copy.auth.helperText}</span>
-              </p>
-            )}
-            {error && <p className="auth-error">{error}</p>}
-            <button type="submit" className="auth-submit" disabled={isSubmitting}>
-              {isSubmitting ? copy.auth.loading : submitLabel}
-            </button>
-          </form>
-        )}
+              <label>
+                <span>{copy.auth.passwordLabel}</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={copy.auth.passwordPlaceholder}
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  required
+                />
+              </label>
+              {mode === "register" && (
+                <label>
+                  <span>{copy.auth.confirmPasswordLabel}</span>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder={copy.auth.confirmPasswordPlaceholder}
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+              )}
+              {mode === "register" && (
+                <p className="auth-helper">
+                  <strong>{copy.auth.helperTitle}</strong>
+                  <span>{copy.auth.helperText}</span>
+                </p>
+              )}
+              {error && <p className="auth-error" role="alert">{error}</p>}
+              <button type="submit" className="auth-submit" disabled={isSubmitting}>
+                {isSubmitting ? copy.auth.loading : submitLabel}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
