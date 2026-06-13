@@ -21,6 +21,12 @@ type Props = {
 
 type BackendStatus = "idle" | "checking" | "waking" | "ready";
 
+type HomeSectionMeta = {
+  title: string;
+  kicker: string;
+  items: Suggestion[];
+};
+
 const mixSuggestions = (movies: Suggestion[], series: Suggestion[]) => {
   const mixed: Suggestion[] = [];
   const max = Math.max(movies.length, series.length);
@@ -35,9 +41,21 @@ const mixSuggestions = (movies: Suggestion[], series: Suggestion[]) => {
   return mixed;
 };
 
+const uniqueSuggestions = (items: Suggestion[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.mediaType}-${item.id}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 function HomeScreenContent({ sections }: Props) {
   const [title, setTitle] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = false;
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
   const [sectionState, setSectionState] = useState(sections);
@@ -214,6 +232,37 @@ function HomeScreenContent({ sections }: Props) {
     setIsInputFocused(false);
   }, []);
 
+  const heroItems = uniqueSuggestions([
+    ...sectionState.upcoming,
+    ...sectionState.popularMovies,
+    ...sectionState.popularSeries,
+    ...sectionState.topRated,
+  ]);
+  const spotlight = heroItems[0] ?? null;
+  const supportingSpotlightItems = heroItems.slice(1, 7);
+  const curatedSections: HomeSectionMeta[] = [
+    {
+      title: copy.sections.upcoming,
+      kicker: "Календар релізів",
+      items: sectionState.upcoming,
+    },
+    {
+      title: copy.sections.popularMovies,
+      kicker: "Що дивляться зараз",
+      items: sectionState.popularMovies,
+    },
+    {
+      title: copy.sections.popularSeries,
+      kicker: "Серіальний потік",
+      items: sectionState.popularSeries,
+    },
+    {
+      title: copy.sections.topRated,
+      kicker: "Високі оцінки",
+      items: sectionState.topRated,
+    },
+  ];
+
   return (
     <main className="page page--home">
       <Header
@@ -262,44 +311,95 @@ function HomeScreenContent({ sections }: Props) {
         isSuggestionSaved={isSuggestionSaved}
       />
 
-      <section className="hero hero-bleed">
-        <div className="hero-inner">
-          <p className="eyebrow">{copy.hero.eyebrow}</p>
-          <h1>{copy.appName}</h1>
-          <p className="lead">{copy.hero.webLead}</p>
+      <section className="home-showcase hero-bleed">
+        <div className="home-showcase-inner">
+          <div className="home-showcase-head">
+            <div>
+              <p className="eyebrow">Зараз на радарі</p>
+              <h1>Нові релізи</h1>
+            </div>
+            <button type="button" className="primary" onClick={handleSearchToggle}>
+              Знайти фільм
+            </button>
+          </div>
+
+          <div className="home-showcase-grid">
+            {spotlight ? (
+              <button
+                type="button"
+                className="showcase-feature"
+                onClick={() => handleGallerySelect(spotlight)}
+              >
+                <div className="showcase-feature__media">
+                  {spotlight.posterUrl ? (
+                    <img src={spotlight.posterUrl} alt={spotlight.title} loading="eager" />
+                  ) : (
+                    <div className="showcase-feature__fallback">
+                      {spotlight.title.slice(0, 1)}
+                    </div>
+                  )}
+                </div>
+                <div className="showcase-feature__shade" />
+                <div className="showcase-feature__content">
+                  <span>Головна премʼєра</span>
+                  <strong>{spotlight.title}</strong>
+                  <small>
+                    {spotlight.mediaType === "movie"
+                      ? copy.mediaType.movie
+                      : copy.mediaType.series}
+                    {spotlight.year ? ` · ${spotlight.year}` : ""}
+                  </small>
+                </div>
+              </button>
+            ) : null}
+
+            <div className="showcase-posters">
+              {supportingSpotlightItems.map((item) => (
+                <button
+                  key={`${item.mediaType}-${item.id}`}
+                  type="button"
+                  className="showcase-poster"
+                  onClick={() => handleGallerySelect(item)}
+                >
+                  <div className="showcase-poster__media">
+                    {item.posterUrl ? (
+                      <img src={item.posterUrl} alt={item.title} loading="eager" />
+                    ) : (
+                      <div className="showcase-poster__fallback">
+                        {item.title.slice(0, 1)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="showcase-poster__shade" />
+                  <div className="showcase-poster__content">
+                    <strong>{item.title}</strong>
+                    <span>
+                      {item.mediaType === "movie"
+                        ? copy.mediaType.movie
+                        : copy.mediaType.series}
+                      {item.year ? ` · ${item.year}` : ""}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       {shouldShowTrending && (
         <>
-          <TrendingCarousel
-            title={copy.sections.upcoming}
-            items={sectionState.upcoming}
-            isLoading={isTrendingRefreshing}
-            onSelect={handleGallerySelect}
-            getListTypes={getListTypes}
-          />
-          <TrendingCarousel
-            title={copy.sections.popularMovies}
-            items={sectionState.popularMovies}
-            isLoading={isTrendingRefreshing}
-            onSelect={handleGallerySelect}
-            getListTypes={getListTypes}
-          />
-          <TrendingCarousel
-            title={copy.sections.popularSeries}
-            items={sectionState.popularSeries}
-            isLoading={isTrendingRefreshing}
-            onSelect={handleGallerySelect}
-            getListTypes={getListTypes}
-          />
-          <TrendingCarousel
-            title={copy.sections.topRated}
-            items={sectionState.topRated}
-            isLoading={isTrendingRefreshing}
-            onSelect={handleGallerySelect}
-            getListTypes={getListTypes}
-          />
+          {curatedSections.map((section) => (
+            <TrendingCarousel
+              key={section.title}
+              title={section.title}
+              kicker={section.kicker}
+              items={section.items}
+              isLoading={isTrendingRefreshing}
+              onSelect={handleGallerySelect}
+              getListTypes={getListTypes}
+            />
+          ))}
         </>
       )}
     </main>

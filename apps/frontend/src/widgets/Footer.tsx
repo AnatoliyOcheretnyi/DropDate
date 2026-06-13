@@ -9,7 +9,10 @@ export function Footer() {
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
-        <div className="footer-year">© {year}</div>
+        <div className="footer-brand">
+          <strong>{copy.appName}</strong>
+          <span>{copy.tagline}</span>
+        </div>
         <div className="footer-actions">
           <span className="store-badge">
             <Image
@@ -28,6 +31,7 @@ export function Footer() {
             />
           </span>
         </div>
+        <div className="footer-year">© {year} Release radar for film and TV drops</div>
       </div>
     </footer>
   );

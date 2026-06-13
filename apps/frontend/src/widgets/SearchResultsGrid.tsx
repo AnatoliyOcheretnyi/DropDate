@@ -43,28 +43,32 @@ export function SearchResultsGrid({
             const saved = listTypes.length > 0;
 
             return (
-              <div
+              <button
                 key={`${item.mediaType}-${item.id}`}
+                type="button"
                 className={`poster-card${saved ? " saved" : ""}`}
                 onClick={() => onSelect(item)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(item);
-                  }
-                }}
               >
-                {item.posterUrl ? (
-                  <img src={item.posterUrl} alt={item.title} loading="lazy" />
-                ) : (
-                  <div className="poster-card-fallback">
-                    {item.title.slice(0, 1)}
-                  </div>
-                )}
+                <div className="poster-card__media">
+                  {item.posterUrl ? (
+                    <img src={item.posterUrl} alt={item.title} loading="lazy" />
+                  ) : (
+                    <div className="poster-card-fallback">
+                      {item.title.slice(0, 1)}
+                    </div>
+                  )}
+                </div>
                 <ListBadges listTypes={listTypes} />
-              </div>
+                <div className="poster-card__content">
+                  <span className="poster-card__title">{item.title}</span>
+                  <span className="poster-card__meta">
+                    {item.mediaType === "movie"
+                      ? copy.mediaType.movie
+                      : copy.mediaType.series}
+                    {item.year ? ` · ${item.year}` : ""}
+                  </span>
+                </div>
+              </button>
             );
           })}
         </div>

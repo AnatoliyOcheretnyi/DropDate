@@ -33,7 +33,7 @@ Adjust the backend URL via `.env.local`. Autosuggest shows up to 5 TMDB matches 
 
 ## Scripts
 
-- `yarn dev` – Next.js dev server with hot reload.
+- `yarn dev` – Next.js dev server with hot reload (outputs `.next-dev`).
 - `yarn build` – production build (outputs `.next`).
 - `yarn start` – serve the production build.
 - `yarn lint` – ESLint with `next/core-web-vitals`.

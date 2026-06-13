@@ -154,24 +154,48 @@ export function Header({
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/" className="header-brand" aria-label={copy.appName}>
-          <Image
-            src="/logo.png"
-            alt={copy.appName}
-            className="brand-logo"
-            width={80}
-            height={80}
-            priority
-          />
-          <div className="brand-text">
-            <span className="brand-title">{copy.appName}</span>
-            <span className="brand-subtitle">{copy.tagline}</span>
-          </div>
-        </Link>
+        <div className="header-brand-cluster">
+          <Link href="/" className="header-brand" aria-label={copy.appName}>
+            <span className="brand-mark">
+              <Image
+                src="/logo.png"
+                alt={copy.appName}
+                className="brand-logo"
+                width={56}
+                height={56}
+                priority
+              />
+            </span>
+            <div className="brand-text">
+              <span className="brand-kicker">Release radar</span>
+              <span className="brand-title">{copy.appName}</span>
+              <span className="brand-subtitle">{copy.tagline}</span>
+            </div>
+          </Link>
+          <nav className="header-nav" aria-label="Основна навігація">
+            <button
+              type="button"
+              className={`header-nav-link${active === "home" ? " active" : ""}`}
+              onClick={() => onChange("home")}
+            >
+              Головна
+            </button>
+            {user ? (
+              <button
+                type="button"
+                className={`header-nav-link${active === "saved" ? " active" : ""}`}
+                onClick={() => onChange("saved")}
+              >
+                <span>{copy.header.savedList}</span>
+                <span className="header-nav-count">{savedCount}</span>
+              </button>
+            ) : null}
+          </nav>
+        </div>
         <div className="header-actions">
           <button
             type="button"
-            className="header-icon"
+            className="header-icon header-icon--search"
             aria-label={
               isSearchOpen ? copy.header.searchCloseLabel : copy.header.searchOpenLabel
             }
@@ -266,15 +290,6 @@ export function Header({
                 </div>
               )}
             </div>
-          )}
-          {!showAuthLoading && !user && (
-            <button
-              type="button"
-              className={`header-link${active === "saved" ? " active" : ""}`}
-              onClick={() => onChange("saved")}
-            >
-              {copy.header.savedList} ({savedCount})
-            </button>
           )}
           {showAuthLoading ? (
             <div className="header-auth-skeleton" aria-hidden="true" />

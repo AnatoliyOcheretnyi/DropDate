@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Manrope, Rubik } from "next/font/google";
 import "./globals.css";
 import { Footer } from "../src/widgets/Footer";
 import { Providers } from "./providers";
 
-const inter = Inter({ subsets: ["latin", "cyrillic"] });
+const manrope = Manrope({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-body",
+});
+const rubik = Rubik({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-display",
+});
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://drop-date.com";
 
 export const viewport: Viewport = {
@@ -72,7 +79,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uk">
-      <body className={inter.className}>
+      <body className={`${manrope.variable} ${rubik.variable}`}>
         <Providers>{children}</Providers>
         <Footer />
       </body>
