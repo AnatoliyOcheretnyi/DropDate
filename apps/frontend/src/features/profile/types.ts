@@ -3,6 +3,7 @@ export type TabKey = "follow" | "watchlist" | "favorite" | "watched" | "disliked
 export type TabDefinition = {
   key: TabKey;
   label: string;
+  count?: number;
 };
 
 export type ProfileStatTone = "green" | "amber" | "blue";

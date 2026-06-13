@@ -13,6 +13,13 @@ import { useAuth } from "../../../shared/state/auth";
 import type { SavedRelease } from "../../../shared/types/releases";
 import type { ProfileStat, TabDefinition, TabKey } from "../../profile/types";
 
+const normalizeItemLists = (item: SavedRelease): TabKey[] => {
+  if (item.listTypes && item.listTypes.length > 0) {
+    return item.listTypes;
+  }
+  return ["follow"];
+};
+
 export function SavedScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -38,31 +45,63 @@ export function SavedScreen() {
     title,
   } = useSavedPage();
 
+  const tabCounts = useMemo(
+    () =>
+      saved.reduce<Record<TabKey, number>>(
+        (counts, item) => {
+          normalizeItemLists(item).forEach((listType) => {
+            counts[listType] += 1;
+          });
+          return counts;
+        },
+        {
+          follow: 0,
+          watchlist: 0,
+          favorite: 0,
+          watched: 0,
+          disliked: 0,
+        }
+      ),
+    [saved]
+  );
   const tabs: TabDefinition[] = [
-    { key: "follow", label: copy.lists.follow },
-    { key: "watchlist", label: copy.lists.watchlist },
-    { key: "favorite", label: copy.lists.favorite },
-    { key: "watched", label: copy.lists.watched },
-    { key: "disliked", label: copy.lists.disliked },
+    { key: "follow", label: copy.lists.follow, count: tabCounts.follow },
+    {
+      key: "watchlist",
+      label: copy.lists.watchlist,
+      count: tabCounts.watchlist,
+    },
+    {
+      key: "favorite",
+      label: copy.lists.favorite,
+      count: tabCounts.favorite,
+    },
+    { key: "watched", label: copy.lists.watched, count: tabCounts.watched },
+    {
+      key: "disliked",
+      label: copy.lists.disliked,
+      count: tabCounts.disliked,
+    },
   ];
-  const statsCopy = copy.listStats ?? {
-    total: "Всього у списку",
-    thisWeek: "Цього тижня",
-    rewatches: "Повторні перегляди",
-    series: "Серіалів",
-    views: "Переглядів",
-    avgRating: "Середня оцінка",
-  };
+  const statsCopy = useMemo(
+    () =>
+      copy.listStats ?? {
+        total: "Всього у списку",
+        thisWeek: "Цього тижня",
+        rewatches: "Повторні перегляди",
+        series: "Серіалів",
+        views: "Переглядів",
+        avgRating: "Середня оцінка",
+      },
+    []
+  );
 
-  const normalizeItemLists = (item: SavedRelease): TabKey[] => {
-    if (item.listTypes && item.listTypes.length > 0) {
-      return item.listTypes;
-    }
-    return ["follow"];
-  };
-
-  const tabItems = saved.filter((item) =>
-    normalizeItemLists(item).includes(activeTab)
+  const tabItems = useMemo(
+    () =>
+      saved.filter((item) =>
+        normalizeItemLists(item).includes(activeTab)
+      ),
+    [activeTab, saved]
   );
 
   const weekCount = useMemo(() => {
@@ -205,33 +244,63 @@ export function SavedScreen() {
       />
 
       <section className="saved">
-        <div className="saved-actions">
-          <button
-            type="button"
-            className="secondary"
-            onClick={handleRefreshAllClick}
-            disabled={!isStorageReady || saved.length === 0 || isRefreshing}
-          >
-            {isRefreshing ? copy.actions.updating : copy.actions.updateAll}
-          </button>
-          {refreshMessage && <p className="hint">{refreshMessage}</p>}
+        <div className="saved-hero">
+          <div className="saved-hero-copy">
+            <p className="eyebrow">Персональна бібліотека</p>
+            <h1>Мій список</h1>
+            <p>
+              Усе, що ти відстежуєш, плануєш подивитися або вже оцінив.
+            </p>
+          </div>
+          <div className="saved-hero-side">
+            <div className="saved-total">
+              <strong>{savedCount}</strong>
+              <span>тайтлів у бібліотеці</span>
+            </div>
+            <button
+              type="button"
+              className="saved-refresh"
+              onClick={handleRefreshAllClick}
+              disabled={!isStorageReady || saved.length === 0 || isRefreshing}
+            >
+              <span aria-hidden="true">↻</span>
+              {isRefreshing ? copy.actions.updating : copy.actions.updateAll}
+            </button>
+          </div>
         </div>
-        <ProfileTabs
-          tabs={tabs}
-          activeTab={activeTab}
-          isAuthenticated={Boolean(user)}
-          onChange={setActiveTab}
-        />
-        <ProfileStats
-          total={tabItems.length}
-          middleStat={middleStat}
-          seriesCount={seriesCount}
-          statsCopy={{ total: statsCopy.total, series: statsCopy.series }}
-        />
+
+        {refreshMessage ? (
+          <p className="saved-refresh-message">{refreshMessage}</p>
+        ) : null}
+
+        <div className="saved-dashboard">
+          <ProfileTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            isAuthenticated={Boolean(user)}
+            onChange={setActiveTab}
+          />
+          <ProfileStats
+            total={tabItems.length}
+            middleStat={middleStat}
+            seriesCount={seriesCount}
+            statsCopy={{ total: statsCopy.total, series: statsCopy.series }}
+          />
+        </div>
+
         {!isStorageReady ? (
-          <p className="hint">{copy.hints.loadingList}</p>
+          <div className="saved-empty">
+            <p>{copy.hints.loadingList}</p>
+          </div>
         ) : tabItems.length === 0 ? (
-          <p className="hint">{copy.hints.listEmpty}</p>
+          <div className="saved-empty">
+            <span aria-hidden="true">＋</span>
+            <h2>Тут поки порожньо</h2>
+            <p>{copy.hints.listEmpty}</p>
+            <button type="button" onClick={() => router.push("/")}>
+              Знайти тайтли
+            </button>
+          </div>
         ) : (
           <AuthorizedSavedList
             items={tabItems}

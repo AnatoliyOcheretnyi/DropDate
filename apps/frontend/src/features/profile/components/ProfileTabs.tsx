@@ -64,6 +64,9 @@ export function ProfileTabs({ tabs, activeTab, isAuthenticated, onChange }: Prop
             )}
           </span>
           <span className="tab-label">{tab.label}</span>
+          {typeof tab.count === "number" ? (
+            <span className="tab-count">{tab.count}</span>
+          ) : null}
         </button>
       ))}
     </div>

@@ -84,7 +84,8 @@ export function AuthorizedSavedList({
 
   const renderCard = (item: SavedRelease) => {
     const statusLabel = getReleaseStatusLabel(item.status, item.type);
-    const imageUrl = item.posterUrl || item.backdropUrl;
+    const imageUrl = item.backdropUrl || item.posterUrl;
+    const usesPoster = !item.backdropUrl && Boolean(item.posterUrl);
     const mediaType: Suggestion["mediaType"] =
       item.mediaType || (item.type === "movie" ? "movie" : "tv");
 
@@ -110,7 +111,9 @@ export function AuthorizedSavedList({
             }
           }}
         >
-          <div className="saved-banner-media">
+          <div
+            className={`saved-banner-media${usesPoster ? " is-poster" : ""}`}
+          >
             {imageUrl ? (
               <img src={imageUrl} alt={item.title} loading="lazy" />
             ) : (
@@ -130,6 +133,9 @@ export function AuthorizedSavedList({
               </span>
             </div>
             <h4>{item.title}</h4>
+            <span className="saved-banner-type">
+              {mediaType === "movie" ? "Фільм" : "Серіал"}
+            </span>
           </div>
         </button>
       </div>
@@ -162,6 +168,7 @@ export function AuthorizedSavedList({
           <section key={key} className="saved-section">
             <div className="saved-section-head">
               <h3>{SECTION_TITLES[key]}</h3>
+              <span>{sectionItems.length}</span>
             </div>
             <div className={gridClass}>{sectionItems.map(renderCard)}</div>
           </section>
