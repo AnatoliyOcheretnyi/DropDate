@@ -173,6 +173,96 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 	return items, nil
 }
 
+// ListAllRows returns every saved row for a user without grouping by title.
+// Unlike ListByUser, each list membership stays a separate Title so callers
+// can reason about per-list signals such as rating, watch count and recency.
+func (s *Store) ListAllRows(ctx context.Context, userID string) ([]Title, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
+		       poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
+		       runtime_minutes, episode_count, tmdb_rating, created_at, updated_at
+		from saved_titles
+		where user_id = $1
+		order by updated_at desc
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Title, 0)
+	for rows.Next() {
+		var item Title
+		var nextRelease sql.NullTime
+		var poster sql.NullString
+		var backdrop sql.NullString
+		var rowListType sql.NullString
+		var userRating sql.NullInt32
+		var lastWatched sql.NullTime
+		var runtime sql.NullInt32
+		var episodeCount sql.NullInt32
+		var tmdbRating sql.NullFloat64
+		if err := rows.Scan(
+			&item.ID,
+			&item.UserID,
+			&item.TMDBID,
+			&item.MediaType,
+			&rowListType,
+			&item.Title,
+			&nextRelease,
+			&item.Status,
+			&poster,
+			&backdrop,
+			&userRating,
+			&item.WatchCount,
+			&lastWatched,
+			&runtime,
+			&episodeCount,
+			&tmdbRating,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if nextRelease.Valid {
+			item.NextRelease = &nextRelease.Time
+		}
+		if poster.Valid {
+			item.PosterURL = poster.String
+		}
+		if backdrop.Valid {
+			item.BackdropURL = backdrop.String
+		}
+		if userRating.Valid {
+			rating := int(userRating.Int32)
+			item.UserRating = &rating
+		}
+		if lastWatched.Valid {
+			item.LastWatched = &lastWatched.Time
+		}
+		if runtime.Valid {
+			value := int(runtime.Int32)
+			item.RuntimeMinutes = &value
+		}
+		if episodeCount.Valid {
+			value := int(episodeCount.Int32)
+			item.EpisodeCount = &value
+		}
+		if tmdbRating.Valid {
+			value := tmdbRating.Float64
+			item.TMDBRating = &value
+		}
+		if rowListType.Valid {
+			item.ListTypes = []string{rowListType.String}
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (s *Store) ListFollowSubscriptions(ctx context.Context) ([]FollowItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		select user_id, tmdb_id, media_type, title, poster_url, backdrop_url

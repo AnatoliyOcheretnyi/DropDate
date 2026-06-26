@@ -9,6 +9,7 @@ import { TrendingCarousel } from "../components/TrendingCarousel";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
+import { useRecommendations } from "../hooks/useRecommendations";
 
 type Props = {
   sections: {
@@ -76,6 +77,10 @@ function HomeScreenContent({ sections }: Props) {
   }, []);
 
   const { saved, isSuggestionSaved, getListTypes } = useSavedReleases();
+  const {
+    items: recommendations,
+    isLoading: isRecommendationsLoading,
+  } = useRecommendations();
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
@@ -389,6 +394,16 @@ function HomeScreenContent({ sections }: Props) {
 
       {shouldShowTrending && (
         <>
+          {recommendations.length > 0 && (
+            <TrendingCarousel
+              title={copy.sections.recommendations}
+              kicker="На основі ваших улюблених і переглянутих"
+              items={recommendations}
+              isLoading={isRecommendationsLoading}
+              onSelect={handleGallerySelect}
+              getListTypes={getListTypes}
+            />
+          )}
           {curatedSections.map((section) => (
             <TrendingCarousel
               key={section.title}

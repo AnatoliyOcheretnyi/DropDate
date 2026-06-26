@@ -17,6 +17,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/bulk-next-release", s.bulkNextReleaseHandler)
 	mux.HandleFunc("/saved", s.savedHandler)
 	mux.HandleFunc("/saved/items", s.savedItemHandler)
+	mux.HandleFunc("/recommendations/me", s.recommendationsHandler)
 	mux.HandleFunc("/notifications", s.notificationsHandler)
 	mux.HandleFunc("/notifications/read", s.notificationsReadHandler)
 	mux.HandleFunc("/jobs/notifications", s.notificationsJobHandler)
