@@ -254,6 +254,10 @@ dd.date span:last-child {
   z-index: 4;
 }
 
+.poster-card {
+  contain: layout paint;
+}
+
 .poster-card:hover::after,
 .poster-card:focus-visible::after {
   border-color: rgba(115, 240, 193, 0.65);
@@ -316,7 +320,7 @@ dd.date span:last-child {
   background: rgba(5, 10, 18, 0.68);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(245, 248, 252, 0.88);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(4px);
 }
 
 .list-badge svg {

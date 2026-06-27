@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
 import { Header } from "../../../widgets/Header";
@@ -237,36 +237,46 @@ function HomeScreenContent({ sections }: Props) {
     setIsInputFocused(false);
   }, []);
 
-  const heroItems = uniqueSuggestions([
-    ...sectionState.upcoming,
-    ...sectionState.popularMovies,
-    ...sectionState.popularSeries,
-    ...sectionState.topRated,
-  ]);
+  const heroItems = useMemo(
+    () =>
+      uniqueSuggestions([
+        ...sectionState.upcoming,
+        ...sectionState.popularMovies,
+        ...sectionState.popularSeries,
+        ...sectionState.topRated,
+      ]),
+    [sectionState]
+  );
   const spotlight = heroItems[0] ?? null;
-  const supportingSpotlightItems = heroItems.slice(1, 7);
-  const curatedSections: HomeSectionMeta[] = [
-    {
-      title: copy.sections.upcoming,
-      kicker: "Календар релізів",
-      items: sectionState.upcoming,
-    },
-    {
-      title: copy.sections.popularMovies,
-      kicker: "Що дивляться зараз",
-      items: sectionState.popularMovies,
-    },
-    {
-      title: copy.sections.popularSeries,
-      kicker: "Серіальний потік",
-      items: sectionState.popularSeries,
-    },
-    {
-      title: copy.sections.topRated,
-      kicker: "Високі оцінки",
-      items: sectionState.topRated,
-    },
-  ];
+  const supportingSpotlightItems = useMemo(
+    () => heroItems.slice(1, 7),
+    [heroItems]
+  );
+  const curatedSections: HomeSectionMeta[] = useMemo(
+    () => [
+      {
+        title: copy.sections.upcoming,
+        kicker: "Календар релізів",
+        items: sectionState.upcoming,
+      },
+      {
+        title: copy.sections.popularMovies,
+        kicker: "Що дивляться зараз",
+        items: sectionState.popularMovies,
+      },
+      {
+        title: copy.sections.popularSeries,
+        kicker: "Серіальний потік",
+        items: sectionState.popularSeries,
+      },
+      {
+        title: copy.sections.topRated,
+        kicker: "Високі оцінки",
+        items: sectionState.topRated,
+      },
+    ],
+    [sectionState]
+  );
 
   return (
     <main className="page page--home">
@@ -368,7 +378,7 @@ function HomeScreenContent({ sections }: Props) {
                 >
                   <div className="showcase-poster__media">
                     {item.posterUrl ? (
-                      <img src={item.posterUrl} alt={item.title} loading="eager" />
+                      <img src={item.posterUrl} alt={item.title} loading="lazy" />
                     ) : (
                       <div className="showcase-poster__fallback">
                         {item.title.slice(0, 1)}

@@ -6,7 +6,7 @@
 
 .home-showcase-inner,
 .trend-inner {
-  width: min(var(--page-max), calc(100vw - (var(--page-padding) * 2)));
+  width: min(var(--home-max), calc(100vw - (var(--home-padding) * 2)));
   margin: 0 auto;
 }
 
@@ -27,8 +27,8 @@
 
 .home-showcase-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 1.15fr) minmax(0, 1.85fr);
-  gap: 1rem;
+  grid-template-columns: minmax(360px, 1.22fr) minmax(0, 1.78fr);
+  gap: 1.1rem;
   min-height: 590px;
 }
 
@@ -36,6 +36,7 @@
 .showcase-poster {
   position: relative;
   overflow: hidden;
+  contain: layout paint;
   border: 1px solid var(--border);
   background: var(--surface-strong);
   color: var(--text);
@@ -136,7 +137,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .showcase-poster {
@@ -176,6 +177,8 @@
 
 .trend-section {
   margin-top: 1rem;
+  content-visibility: auto;
+  contain-intrinsic-size: 620px;
 }
 
 .trend-bleed {
@@ -184,6 +187,7 @@
 }
 
 .trend-shell {
+  contain: layout paint;
   border-radius: 1.6rem;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(12, 20, 31, 0.84), rgba(8, 13, 22, 0.94));
@@ -252,6 +256,11 @@
 }
 
 @media (max-width: 700px) {
+  .home-showcase-inner,
+  .trend-inner {
+    width: min(var(--home-max), calc(100vw - (var(--page-padding) * 2)));
+  }
+
   .home-showcase {
     padding-top: 1rem;
   }

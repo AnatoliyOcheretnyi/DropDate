@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
@@ -14,7 +15,7 @@ type Props = {
   getListTypes: (suggestion: Suggestion) => ListType[];
 };
 
-export function TrendingCarousel({
+function TrendingCarouselComponent({
   title,
   kicker,
   items,
@@ -81,3 +82,5 @@ export function TrendingCarousel({
     </section>
   );
 }
+
+export const TrendingCarousel = memo(TrendingCarouselComponent);

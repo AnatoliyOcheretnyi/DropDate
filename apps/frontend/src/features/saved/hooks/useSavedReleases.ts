@@ -166,6 +166,13 @@ export function useSavedReleases() {
   }, []);
 
   const isAuthed = Boolean(user && accessToken);
+  const savedById = useMemo(() => {
+    const index = new Map<string, SavedRelease>();
+    saved.forEach((item) => {
+      index.set(item.id, item);
+    });
+    return index;
+  }, [saved]);
 
   const queueRemoteAction = useCallback(
     (entry: {
@@ -560,35 +567,35 @@ export function useSavedReleases() {
         tmdbId: meta?.tmdbId,
         mediaType: meta?.mediaType,
       });
-      return saved.some((item) => item.id === id);
+      return savedById.has(id);
     },
-    [saved]
+    [savedById]
   );
 
   const isSuggestionSaved = useCallback(
     (suggestion: Suggestion) => {
       const id = getSuggestionId(suggestion);
-      const match = saved.find((item) => item.id === id);
+      const match = savedById.get(id);
       return Boolean(match && normalizeListTypes(match.listTypes).length > 0);
     },
-    [saved]
+    [savedById]
   );
 
   const getListTypes = useCallback(
     (suggestion: Suggestion) => {
       const id = getSuggestionId(suggestion);
-      const match = saved.find((item) => item.id === id);
+      const match = savedById.get(id);
       return match ? normalizeListTypes(match.listTypes) : [];
     },
-    [saved]
+    [savedById]
   );
 
   const getSavedItem = useCallback(
     (suggestion: Suggestion) => {
       const id = getSuggestionId(suggestion);
-      return saved.find((item) => item.id === id);
+      return savedById.get(id);
     },
-    [saved]
+    [savedById]
   );
 
   const updateListStats = useCallback(
