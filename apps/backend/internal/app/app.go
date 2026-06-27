@@ -10,6 +10,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
@@ -86,6 +87,8 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		recommendationsService = recommendations.NewService(savedService, releaseService, logger)
 	}
 
+	gamesService := games.NewService(releaseService, logger)
+
 	var readiness httpapi.ReadinessChecker
 	if db != nil || tmdbClient != nil {
 		readiness = readinessChecker{
@@ -100,6 +103,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		savedService,
 		notificationsService,
 		recommendationsService,
+		gamesService,
 		logger,
 		httpapi.ServerOptions{
 			Readiness:        readiness,

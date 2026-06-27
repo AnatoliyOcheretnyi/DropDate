@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
@@ -40,6 +41,7 @@ type Server struct {
 	saved            *saved.Service
 	notifications    *notifications.Service
 	recommendations  *recommendations.Service
+	games            *games.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -52,6 +54,7 @@ func NewServer(
 	savedSvc *saved.Service,
 	notificationsSvc *notifications.Service,
 	recommendationsSvc *recommendations.Service,
+	gamesSvc *games.Service,
 	logger *log.Logger,
 	options ServerOptions,
 ) *Server {
@@ -67,6 +70,7 @@ func NewServer(
 		saved:            savedSvc,
 		notifications:    notificationsSvc,
 		recommendations:  recommendationsSvc,
+		games:            gamesSvc,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,
