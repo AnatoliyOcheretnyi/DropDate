@@ -203,6 +203,13 @@ export const copy = {
     resetGuest: "Скинути гостьовий режим",
     errorGeneric: "Не вдалося виконати запит. Спробуй ще раз.",
     errorPasswordMismatch: "Паролі не збігаються.",
+    errorInvalidCredentials: "Невірний email або пароль.",
+    errorEmailExists: "Акаунт із таким email уже існує.",
+    errorWeakPassword:
+      "Пароль не відповідає вимогам: мінімум 8 символів, великі/малі літери, цифра та спецсимвол.",
+    errorServiceUnavailable: "Сервіс тимчасово недоступний. Спробуй пізніше.",
+    showPassword: "Показати пароль",
+    hidePassword: "Сховати пароль",
     loading: "Обробляємо…",
     closeLabel: "Закрити",
   },

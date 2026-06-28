@@ -6,6 +6,7 @@ import type { Suggestion } from "../../../shared/lib/release";
 import { Header } from "../../../widgets/Header";
 import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { TrendingCarousel } from "../components/TrendingCarousel";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
@@ -370,11 +371,18 @@ function HomeScreenContent({ sections }: Props) {
 
             <div className="showcase-posters">
               {supportingSpotlightItems.map((item) => (
-                <button
+                <div
                   key={`${item.mediaType}-${item.id}`}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className="showcase-poster"
                   onClick={() => handleGallerySelect(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleGallerySelect(item);
+                    }
+                  }}
                 >
                   <div className="showcase-poster__media">
                     {item.posterUrl ? (
@@ -385,6 +393,12 @@ function HomeScreenContent({ sections }: Props) {
                       </div>
                     )}
                   </div>
+                  <MovieInfoButton
+                    tmdbId={item.id}
+                    mediaType={item.mediaType}
+                    title={item.title}
+                    onActivate={() => handleGallerySelect(item)}
+                  />
                   <div className="showcase-poster__shade" />
                   <div className="showcase-poster__content">
                     <strong>{item.title}</strong>
@@ -395,7 +409,7 @@ function HomeScreenContent({ sections }: Props) {
                       {item.year ? ` · ${item.year}` : ""}
                     </span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>

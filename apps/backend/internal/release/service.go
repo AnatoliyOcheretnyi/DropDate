@@ -89,6 +89,7 @@ type Service struct {
 	upcoming       UpcomingProvider
 	searcher       SearchProvider
 	details        DetailsProvider
+	discover       DiscoverProvider
 	logger         *log.Logger
 
 	cache    map[string]cacheEntry
@@ -135,6 +136,37 @@ type SearchProvider interface {
 type DetailsProvider interface {
 	Details(ctx context.Context, id int, mediaType string) (Details, error)
 	Recommendations(ctx context.Context, id int, mediaType string, limit int) ([]Suggestion, error)
+}
+
+// DiscoverParams mirrors tmdb.DiscoverParams so callers depend on release, not tmdb.
+type DiscoverParams struct {
+	WithGenres       []int
+	WithoutGenres    []int
+	RuntimeLTE       int
+	RuntimeGTE       int
+	ReleaseDateGTE   string
+	ReleaseDateLTE   string
+	SortBy           string
+	VoteCountGTE     int
+	CertificationLTE string
+	CertCountry      string
+	Page             int
+}
+
+// DiscoverItem is a discover result enriched with rating and genre ids.
+type DiscoverItem struct {
+	TMDBID    int     `json:"tmdbId"`
+	Title     string  `json:"title"`
+	MediaType string  `json:"mediaType"`
+	Year      string  `json:"year,omitempty"`
+	PosterURL string  `json:"posterUrl,omitempty"`
+	Rating    float64 `json:"rating,omitempty"`
+	GenreIDs  []int   `json:"genreIds,omitempty"`
+}
+
+// DiscoverProvider runs TMDB /discover queries for movies.
+type DiscoverProvider interface {
+	Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem, error)
 }
 
 type cacheEntry struct {
@@ -194,6 +226,12 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		}(),
 		details: func() DetailsProvider {
 			if d, ok := suggester.(DetailsProvider); ok {
+				return d
+			}
+			return nil
+		}(),
+		discover: func() DiscoverProvider {
+			if d, ok := suggester.(DiscoverProvider); ok {
 				return d
 			}
 			return nil
@@ -294,6 +332,14 @@ func (s *Service) Popular(ctx context.Context, mediaType string, limit int) ([]S
 		return []Suggestion{}, nil
 	}
 	return s.popular.Popular(ctx, mediaType, limit)
+}
+
+// Discover повертає фільми з TMDB /discover за заданими фільтрами.
+func (s *Service) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem, error) {
+	if s.discover == nil {
+		return []DiscoverItem{}, nil
+	}
+	return s.discover.Discover(ctx, p)
 }
 
 // TopRated повертає тайтли з найвищим рейтингом.

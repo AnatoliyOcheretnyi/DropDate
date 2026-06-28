@@ -15,6 +15,30 @@ type Props = {
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
+const friendlyAuthMessage = (err: unknown): string => {
+  if (err instanceof AuthError) {
+    switch (err.code) {
+      case "invalid_credentials":
+        return copy.auth.errorInvalidCredentials;
+      case "email_exists":
+      case "email_taken":
+        return copy.auth.errorEmailExists;
+      case "weak_password":
+      case "invalid_password":
+        return copy.auth.errorWeakPassword;
+    }
+    // Service down, wrong server on the port, or any unmapped 5xx → keep it generic
+    // instead of leaking raw backend/proxy text to the user.
+    if (err.status && err.status >= 500) {
+      return copy.auth.errorServiceUnavailable;
+    }
+    if (err.message) {
+      return err.message;
+    }
+  }
+  return err instanceof Error && err.message ? err.message : copy.auth.errorGeneric;
+};
+
 export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
   const { login, register } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
@@ -22,6 +46,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +62,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
     setEmail("");
     setPassword("");
     setConfirmPassword("");
+    setShowPassword(false);
     setError(null);
     setVerificationMessage(null);
     setResendMessage(null);
@@ -110,7 +136,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
         setResendMessage(null);
         return;
       }
-      setError(err instanceof Error ? err.message : copy.auth.errorGeneric);
+      setError(friendlyAuthMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -275,20 +301,33 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
                   </label>
                   <label>
                     <span>{copy.auth.passwordLabel}</span>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder={copy.auth.passwordPlaceholder}
-                      autoComplete={mode === "login" ? "current-password" : "new-password"}
-                      required
-                    />
+                    <div className="auth-password-field">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder={copy.auth.passwordPlaceholder}
+                        autoComplete={mode === "login" ? "current-password" : "new-password"}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="auth-password-toggle"
+                        onClick={() => setShowPassword((value) => !value)}
+                        aria-pressed={showPassword}
+                        aria-label={
+                          showPassword ? copy.auth.hidePassword : copy.auth.showPassword
+                        }
+                      >
+                        {showPassword ? copy.auth.hidePassword : copy.auth.showPassword}
+                      </button>
+                    </div>
                   </label>
                   {mode === "register" && (
                     <label>
                       <span>{copy.auth.confirmPasswordLabel}</span>
                       <input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         value={confirmPassword}
                         onChange={(event) => setConfirmPassword(event.target.value)}
                         placeholder={copy.auth.confirmPasswordPlaceholder}

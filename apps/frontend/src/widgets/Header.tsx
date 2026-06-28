@@ -10,7 +10,7 @@ import { useNotifications } from "../features/notifications/hooks/useNotificatio
 import type { NotificationItem } from "../features/notifications/types/notifications";
 import { AuthModal } from "./AuthModal";
 
-export type ViewKey = "home" | "saved" | "games";
+export type ViewKey = "home" | "saved" | "games" | "mood";
 
 type Props = {
   active: ViewKey;
@@ -180,6 +180,12 @@ export function Header({
             >
               Головна
             </button>
+            <Link
+              href="/mood"
+              className={`header-nav-link${active === "mood" ? " active" : ""}`}
+            >
+              Настрій
+            </Link>
             <Link
               href="/games"
               className={`header-nav-link${active === "games" ? " active" : ""}`}
@@ -388,6 +394,19 @@ export function Header({
             />
           </svg>
           <span>Пошук</span>
+        </button>
+        <button
+          type="button"
+          className={active === "mood" ? "active" : ""}
+          onClick={() => router.push("/mood")}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16ZM8.5 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM7.6 14.4a5.5 5.5 0 0 0 8.8 0l1.6 1.2a7.5 7.5 0 0 1-12 0l1.6-1.2Z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>Настрій</span>
         </button>
         <button
           type="button"

@@ -11,6 +11,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
@@ -88,6 +89,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 	}
 
 	gamesService := games.NewService(releaseService, logger)
+	moodService := moodpicker.NewService(releaseService, savedService, logger)
 
 	var readiness httpapi.ReadinessChecker
 	if db != nil || tmdbClient != nil {
@@ -104,6 +106,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		notificationsService,
 		recommendationsService,
 		gamesService,
+		moodService,
 		logger,
 		httpapi.ServerOptions{
 			Readiness:        readiness,

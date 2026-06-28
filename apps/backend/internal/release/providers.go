@@ -206,6 +206,41 @@ func (p *tmdbSuggestionProvider) TopRated(
 	return out, nil
 }
 
+func (p *tmdbSuggestionProvider) Discover(
+	ctx context.Context,
+	params DiscoverParams,
+) ([]DiscoverItem, error) {
+	results, err := p.client.Discover(ctx, tmdb.DiscoverParams{
+		WithGenres:       params.WithGenres,
+		WithoutGenres:    params.WithoutGenres,
+		RuntimeLTE:       params.RuntimeLTE,
+		RuntimeGTE:       params.RuntimeGTE,
+		ReleaseDateGTE:   params.ReleaseDateGTE,
+		ReleaseDateLTE:   params.ReleaseDateLTE,
+		SortBy:           params.SortBy,
+		VoteCountGTE:     params.VoteCountGTE,
+		CertificationLTE: params.CertificationLTE,
+		CertCountry:      params.CertCountry,
+		Page:             params.Page,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]DiscoverItem, 0, len(results))
+	for _, result := range results {
+		out = append(out, DiscoverItem{
+			TMDBID:    result.ID,
+			Title:     result.Title,
+			MediaType: "movie",
+			Year:      result.Year,
+			PosterURL: result.PosterURL,
+			Rating:    result.Rating,
+			GenreIDs:  result.GenreIDs,
+		})
+	}
+	return out, nil
+}
+
 func (p *tmdbSuggestionProvider) Upcoming(
 	ctx context.Context,
 	mediaType string,

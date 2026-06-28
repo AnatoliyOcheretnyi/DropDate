@@ -172,7 +172,7 @@ export function useTitleDetails() {
     [router]
   );
 
-  const handleNav = (view: "home" | "saved" | "games") => {
+  const handleNav = (view: string) => {
     if (view === "saved") {
       router.push("/saved");
       return;

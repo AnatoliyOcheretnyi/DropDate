@@ -8,6 +8,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
@@ -42,6 +43,7 @@ type Server struct {
 	notifications    *notifications.Service
 	recommendations  *recommendations.Service
 	games            *games.Service
+	mood             *moodpicker.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -55,6 +57,7 @@ func NewServer(
 	notificationsSvc *notifications.Service,
 	recommendationsSvc *recommendations.Service,
 	gamesSvc *games.Service,
+	moodSvc *moodpicker.Service,
 	logger *log.Logger,
 	options ServerOptions,
 ) *Server {
@@ -71,6 +74,7 @@ func NewServer(
 		notifications:    notificationsSvc,
 		recommendations:  recommendationsSvc,
 		games:            gamesSvc,
+		mood:             moodSvc,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,

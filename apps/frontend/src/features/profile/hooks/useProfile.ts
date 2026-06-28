@@ -309,7 +309,7 @@ export function useProfile() {
     router.push("/");
   };
 
-  const handleNav = (view: "home" | "saved" | "games") => {
+  const handleNav = (view: string) => {
     if (view === "saved") {
       router.push("/saved");
       return;

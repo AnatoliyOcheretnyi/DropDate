@@ -5,6 +5,7 @@ import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { ListBadges } from "../../../shared/ui/ListBadges";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 type Props = {
   title: string;
@@ -47,11 +48,18 @@ function TrendingCarouselComponent({
                 const saved = listTypes.length > 0;
 
                 return (
-                  <button
+                  <div
                     key={`${item.mediaType}-${item.id}`}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className={`poster-card${saved ? " saved" : ""}`}
                     onClick={() => onSelect(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelect(item);
+                      }
+                    }}
                   >
                     <div className="poster-card__media">
                       {item.posterUrl ? (
@@ -62,6 +70,12 @@ function TrendingCarouselComponent({
                         </div>
                       )}
                     </div>
+                    <MovieInfoButton
+                      tmdbId={item.id}
+                      mediaType={item.mediaType}
+                      title={item.title}
+                      onActivate={() => onSelect(item)}
+                    />
                     <ListBadges listTypes={listTypes} />
                     <div className="poster-card__content">
                       <span className="poster-card__title">{item.title}</span>
@@ -72,7 +86,7 @@ function TrendingCarouselComponent({
                         {item.year ? ` · ${item.year}` : ""}
                       </span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

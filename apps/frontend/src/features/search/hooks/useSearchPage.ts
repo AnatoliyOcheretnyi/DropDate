@@ -143,7 +143,7 @@ export function useSearchPage() {
     setIsInputFocused(false);
   }, []);
 
-  const handleNav = (view: "home" | "saved" | "games") => {
+  const handleNav = (view: string) => {
     if (view === "saved") {
       router.push("/saved");
       return;

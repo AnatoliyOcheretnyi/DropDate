@@ -617,6 +617,36 @@
   border-color: rgba(115, 240, 193, 0.45);
 }
 
+.auth-password-field {
+  position: relative;
+  display: flex;
+}
+
+.auth-password-field input {
+  flex: 1;
+  padding-right: 5.25rem;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.6rem;
+}
+
+.auth-password-toggle:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .auth-helper {
   margin: 0;
   padding: 0.75rem;

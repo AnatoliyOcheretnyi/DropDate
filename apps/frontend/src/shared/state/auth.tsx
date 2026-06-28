@@ -24,11 +24,13 @@ type AuthResult = {
 
 class AuthError extends Error {
   code?: string;
+  status?: number;
 
-  constructor(message: string, code?: string) {
+  constructor(message: string, code?: string, status?: number) {
     super(message);
     this.name = "AuthError";
     this.code = code;
+    this.status = status;
   }
 }
 
@@ -60,8 +62,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const parseAuthResponse = async (response: Response): Promise<AuthResult> => {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const message = payload?.message || "Auth request failed";
-    throw new AuthError(message, payload?.code);
+    // Backend errors use the `error` key; the proxy/other services may use `message`.
+    const message =
+      payload?.message || payload?.error || "Auth request failed";
+    throw new AuthError(message, payload?.code, response.status);
   }
   return payload as AuthResult;
 };
@@ -203,8 +207,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { status: "verification_required", message };
       }
       if (!response.ok) {
-        const message = payload?.message || "Auth request failed";
-        throw new Error(message);
+        const message =
+          payload?.message || payload?.error || "Auth request failed";
+        throw new AuthError(message, payload?.code, response.status);
       }
       setSyncFlag("1");
       applyAuth(payload as AuthResult);
