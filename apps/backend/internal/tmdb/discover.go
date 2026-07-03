@@ -8,26 +8,33 @@ import (
 	"strings"
 )
 
-// DiscoverParams describes a TMDB /discover/movie query. Zero-valued fields are
-// omitted from the request.
+// DiscoverParams describes a TMDB /discover query. Zero-valued fields are
+// omitted from the request. MediaType selects /discover/movie (default) or
+// /discover/tv.
 type DiscoverParams struct {
-	WithGenres       []int  // OR-joined (any of)
-	WithoutGenres    []int  // excluded
-	RuntimeLTE       int    // 0 = unset
-	RuntimeGTE       int    // 0 = unset
-	ReleaseDateGTE   string // "YYYY-MM-DD", "" = unset
-	ReleaseDateLTE   string // "YYYY-MM-DD", "" = unset
-	SortBy           string // default "popularity.desc"
-	VoteCountGTE     int    // 0 = unset
-	CertificationLTE string // e.g. "PG-13"
-	CertCountry      string // e.g. "US"
-	Page             int    // 1-based; 0 -> 1
+	MediaType        string  // "movie" (default) or "tv"
+	WithGenres       []int   // OR-joined (any of)
+	WithoutGenres    []int   // excluded
+	OriginalLanguage string  // ISO 639-1, e.g. "ja", "ko", "en"
+	RuntimeLTE       int     // 0 = unset
+	RuntimeGTE       int     // 0 = unset
+	ReleaseDateGTE   string  // "YYYY-MM-DD", "" = unset
+	ReleaseDateLTE   string  // "YYYY-MM-DD", "" = unset
+	SortBy           string  // default "popularity.desc"
+	VoteCountGTE     int     // 0 = unset
+	VoteAverageGTE   float64 // 0 = unset
+	CertificationLTE string  // movie only, e.g. "PG-13"
+	CertCountry      string  // movie only, e.g. "US"
+	WithType         string  // tv only, e.g. "2" (miniseries), "4" (scripted)
+	WithStatus       string  // tv only, e.g. "0" (returning), "3" (ended)
+	Page             int     // 1-based; 0 -> 1
 }
 
-// DiscoverItem is one /discover result, enriched with the fields the mood picker
-// needs (rating and genre ids) on top of the basic suggestion shape.
+// DiscoverItem is one /discover result, enriched with the fields the pickers
+// need (rating and genre ids) on top of the basic suggestion shape.
 type DiscoverItem struct {
 	ID        int
+	MediaType string
 	Title     string
 	Year      string
 	PosterURL string
@@ -40,17 +47,29 @@ type discoverResponse struct {
 }
 
 type discoverEntry struct {
-	ID          int     `json:"id"`
-	Title       string  `json:"title"`
-	ReleaseDate string  `json:"release_date"`
-	PosterPath  string  `json:"poster_path"`
-	VoteAverage float64 `json:"vote_average"`
-	GenreIDs    []int   `json:"genre_ids"`
+	ID           int     `json:"id"`
+	Title        string  `json:"title"`
+	Name         string  `json:"name"`
+	ReleaseDate  string  `json:"release_date"`
+	FirstAirDate string  `json:"first_air_date"`
+	PosterPath   string  `json:"poster_path"`
+	VoteAverage  float64 `json:"vote_average"`
+	GenreIDs     []int   `json:"genre_ids"`
 }
 
-// Discover queries TMDB /discover/movie with the given filters.
+// Discover queries TMDB /discover/{movie,tv} with the given filters.
 func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/discover/movie", c.baseURL), nil)
+	mediaType := p.MediaType
+	if mediaType != "tv" {
+		mediaType = "movie"
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/discover/%s", c.baseURL, mediaType),
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +84,9 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 	if len(p.WithoutGenres) > 0 {
 		q.Set("without_genres", joinInts(p.WithoutGenres, ","))
 	}
+	if p.OriginalLanguage != "" {
+		q.Set("with_original_language", p.OriginalLanguage)
+	}
 	if p.RuntimeLTE > 0 {
 		q.Set("with_runtime.lte", strconv.Itoa(p.RuntimeLTE))
 	}
@@ -72,17 +94,34 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 		q.Set("with_runtime.gte", strconv.Itoa(p.RuntimeGTE))
 	}
 	if p.ReleaseDateGTE != "" {
-		q.Set("primary_release_date.gte", p.ReleaseDateGTE)
+		if mediaType == "tv" {
+			q.Set("first_air_date.gte", p.ReleaseDateGTE)
+		} else {
+			q.Set("primary_release_date.gte", p.ReleaseDateGTE)
+		}
 	}
 	if p.ReleaseDateLTE != "" {
-		q.Set("primary_release_date.lte", p.ReleaseDateLTE)
+		if mediaType == "tv" {
+			q.Set("first_air_date.lte", p.ReleaseDateLTE)
+		} else {
+			q.Set("primary_release_date.lte", p.ReleaseDateLTE)
+		}
 	}
 	if p.VoteCountGTE > 0 {
 		q.Set("vote_count.gte", strconv.Itoa(p.VoteCountGTE))
 	}
-	if p.CertificationLTE != "" && p.CertCountry != "" {
+	if p.VoteAverageGTE > 0 {
+		q.Set("vote_average.gte", strconv.FormatFloat(p.VoteAverageGTE, 'f', -1, 64))
+	}
+	if mediaType == "movie" && p.CertificationLTE != "" && p.CertCountry != "" {
 		q.Set("certification_country", p.CertCountry)
 		q.Set("certification.lte", p.CertificationLTE)
+	}
+	if mediaType == "tv" && p.WithType != "" {
+		q.Set("with_type", p.WithType)
+	}
+	if mediaType == "tv" && p.WithStatus != "" {
+		q.Set("with_status", p.WithStatus)
 	}
 	sortBy := p.SortBy
 	if sortBy == "" {
@@ -103,8 +142,16 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 
 	out := make([]DiscoverItem, 0, len(payload.Results))
 	for _, result := range payload.Results {
-		if result.Title == "" {
+		title := result.Title
+		if title == "" {
+			title = result.Name
+		}
+		if title == "" {
 			continue
+		}
+		date := result.ReleaseDate
+		if date == "" {
+			date = result.FirstAirDate
 		}
 		poster := ""
 		if result.PosterPath != "" {
@@ -112,8 +159,9 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 		}
 		out = append(out, DiscoverItem{
 			ID:        result.ID,
-			Title:     result.Title,
-			Year:      yearFromDate(result.ReleaseDate),
+			MediaType: mediaType,
+			Title:     title,
+			Year:      yearFromDate(date),
 			PosterURL: poster,
 			Rating:    result.VoteAverage,
 			GenreIDs:  result.GenreIDs,

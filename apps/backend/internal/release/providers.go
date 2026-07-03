@@ -211,16 +211,21 @@ func (p *tmdbSuggestionProvider) Discover(
 	params DiscoverParams,
 ) ([]DiscoverItem, error) {
 	results, err := p.client.Discover(ctx, tmdb.DiscoverParams{
+		MediaType:        params.MediaType,
 		WithGenres:       params.WithGenres,
 		WithoutGenres:    params.WithoutGenres,
+		OriginalLanguage: params.OriginalLanguage,
 		RuntimeLTE:       params.RuntimeLTE,
 		RuntimeGTE:       params.RuntimeGTE,
 		ReleaseDateGTE:   params.ReleaseDateGTE,
 		ReleaseDateLTE:   params.ReleaseDateLTE,
 		SortBy:           params.SortBy,
 		VoteCountGTE:     params.VoteCountGTE,
+		VoteAverageGTE:   params.VoteAverageGTE,
 		CertificationLTE: params.CertificationLTE,
 		CertCountry:      params.CertCountry,
+		WithType:         params.WithType,
+		WithStatus:       params.WithStatus,
 		Page:             params.Page,
 	})
 	if err != nil {
@@ -228,10 +233,14 @@ func (p *tmdbSuggestionProvider) Discover(
 	}
 	out := make([]DiscoverItem, 0, len(results))
 	for _, result := range results {
+		mediaType := result.MediaType
+		if mediaType == "" {
+			mediaType = "movie"
+		}
 		out = append(out, DiscoverItem{
 			TMDBID:    result.ID,
 			Title:     result.Title,
-			MediaType: "movie",
+			MediaType: mediaType,
 			Year:      result.Year,
 			PosterURL: result.PosterURL,
 			Rating:    result.Rating,

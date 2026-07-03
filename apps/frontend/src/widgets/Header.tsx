@@ -10,7 +10,7 @@ import { useNotifications } from "../features/notifications/hooks/useNotificatio
 import type { NotificationItem } from "../features/notifications/types/notifications";
 import { AuthModal } from "./AuthModal";
 
-export type ViewKey = "home" | "saved" | "games" | "mood";
+export type ViewKey = "home" | "saved" | "games" | "mood" | "match" | "calendar";
 
 type Props = {
   active: ViewKey;
@@ -187,11 +187,25 @@ export function Header({
               Настрій
             </Link>
             <Link
+              href="/match"
+              className={`header-nav-link${active === "match" ? " active" : ""}`}
+            >
+              Підбір
+            </Link>
+            <Link
               href="/games"
               className={`header-nav-link${active === "games" ? " active" : ""}`}
             >
               Ігри
             </Link>
+            {user ? (
+              <Link
+                href="/calendar"
+                className={`header-nav-link${active === "calendar" ? " active" : ""}`}
+              >
+                Календар
+              </Link>
+            ) : null}
             {user ? (
               <button
                 type="button"
@@ -354,6 +368,16 @@ export function Header({
                     }}
                   >
                     {copy.header.savedList}
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-popover-action"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push("/calendar");
+                    }}
+                  >
+                    Календар релізів
                   </button>
                   <button
                     type="button"

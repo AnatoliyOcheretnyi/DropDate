@@ -103,7 +103,8 @@ main.page--details {
 }
 
 main.page--profile,
-main.page--saved {
+main.page--saved,
+main.page--calendar {
   width: min(var(--page-max), calc(100vw - (var(--page-padding) * 2)));
   max-width: none;
 }

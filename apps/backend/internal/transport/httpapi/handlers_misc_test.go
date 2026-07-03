@@ -20,7 +20,7 @@ func (s stubReadiness) Readiness(_ context.Context) map[string]error {
 }
 
 func TestHealthHandler(t *testing.T) {
-	server := NewServer(nil, nil, nil, nil, nil, nil, nil, log.New(io.Discard, "", 0), ServerOptions{})
+	server := NewServer(nil, nil, nil, nil, nil, nil, nil, nil, log.New(io.Discard, "", 0), ServerOptions{})
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -42,6 +42,7 @@ func TestHealthHandler(t *testing.T) {
 
 func TestReadyHandlerWithFailures(t *testing.T) {
 	server := NewServer(
+		nil,
 		nil,
 		nil,
 		nil,

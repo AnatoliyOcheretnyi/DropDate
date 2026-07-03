@@ -140,16 +140,21 @@ type DetailsProvider interface {
 
 // DiscoverParams mirrors tmdb.DiscoverParams so callers depend on release, not tmdb.
 type DiscoverParams struct {
+	MediaType        string
 	WithGenres       []int
 	WithoutGenres    []int
+	OriginalLanguage string
 	RuntimeLTE       int
 	RuntimeGTE       int
 	ReleaseDateGTE   string
 	ReleaseDateLTE   string
 	SortBy           string
 	VoteCountGTE     int
+	VoteAverageGTE   float64
 	CertificationLTE string
 	CertCountry      string
+	WithType         string
+	WithStatus       string
 	Page             int
 }
 
