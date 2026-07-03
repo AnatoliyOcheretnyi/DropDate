@@ -31,6 +31,14 @@ const (
 	defaultLimit           = 18
 	maxLimit               = 30
 	defaultCacheTTL        = 6 * time.Hour
+	// defaultRefreshDebounce is how long after a saved-list change we keep
+	// serving the cached feed before regenerating. Bounds staleness while
+	// avoiding a fresh model call on every edit.
+	defaultRefreshDebounce = 5 * time.Minute
+
+	// aiVariant marks AI-enhanced cache entries so they don't collide with the
+	// deterministic feed.
+	aiVariant = "ai"
 )
 
 // Service generates a personalized recommendation feed from a user's saved
@@ -41,9 +49,14 @@ type Service struct {
 	logger     *log.Logger
 	now        func() time.Time
 
-	cacheTTL time.Duration
-	cacheMu  sync.Mutex
-	cache    map[string]cacheEntry
+	cacheTTL        time.Duration
+	refreshDebounce time.Duration
+	cacheMu         sync.Mutex
+	cache           map[string]cacheEntry
+	// dirty maps a userID to the time after which its cached feeds must be
+	// regenerated. Set on a saved-list change (debounced), cleared once the
+	// grace window elapses and the caches are purged.
+	dirty map[string]time.Time
 }
 
 type cacheEntry struct {
@@ -59,13 +72,50 @@ func NewService(savedSvc savedReader, candidateSvc candidateReader, logger *log.
 		logger = log.Default()
 	}
 	return &Service{
-		saved:      savedSvc,
-		candidates: candidateSvc,
-		logger:     logger,
-		now:        time.Now,
-		cacheTTL:   defaultCacheTTL,
-		cache:      make(map[string]cacheEntry),
+		saved:           savedSvc,
+		candidates:      candidateSvc,
+		logger:          logger,
+		now:             time.Now,
+		cacheTTL:        defaultCacheTTL,
+		refreshDebounce: defaultRefreshDebounce,
+		cache:           make(map[string]cacheEntry),
+		dirty:           make(map[string]time.Time),
 	}
+}
+
+// SetRefreshDebounce overrides how long cached feeds keep serving after a
+// saved-list change before regenerating. A non-positive value invalidates
+// immediately (no debounce).
+func (s *Service) SetRefreshDebounce(d time.Duration) {
+	s.cacheMu.Lock()
+	s.refreshDebounce = d
+	s.cacheMu.Unlock()
+}
+
+// MarkDirty schedules a refresh of the user's cached feeds. The first change
+// starts the debounce window; subsequent changes within it do not extend it, so
+// staleness is bounded by refreshDebounce from the first edit.
+func (s *Service) MarkDirty(userID string) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	if s.refreshDebounce <= 0 {
+		s.purgeUserLocked(userID)
+		return
+	}
+	if _, ok := s.dirty[userID]; !ok {
+		s.dirty[userID] = s.now().Add(s.refreshDebounce)
+	}
+}
+
+// CachedAI returns a cached AI-enhanced feed if one is fresh.
+func (s *Service) CachedAI(userID string, limit int) (Result, bool) {
+	return s.lookupCache(userID, NormalizeLimit(limit), aiVariant)
+}
+
+// StoreAI caches an AI-enhanced feed. Only successful results should be stored
+// so a degraded fallback never sticks for the debounce window.
+func (s *Service) StoreAI(userID string, limit int, result Result) {
+	s.saveCache(userID, NormalizeLimit(limit), aiVariant, result)
 }
 
 // NormalizeLimit clamps a requested limit into the supported range.
@@ -86,7 +136,7 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 	limit = NormalizeLimit(limit)
 	start := s.now()
 
-	if cached, ok := s.lookupCache(userID, limit); ok {
+	if cached, ok := s.lookupCache(userID, limit, ""); ok {
 		s.logf("recommendations cache hit user=%s limit=%d", userID, limit)
 		return cached, nil
 	}
@@ -105,7 +155,7 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 	seeds := selectSeeds(rows, s.now())
 	if len(seeds) == 0 {
 		s.logf("recommendations no seeds user=%s rows=%d", userID, len(rows))
-		s.saveCache(userID, limit, empty)
+		s.saveCache(userID, limit, "", empty)
 		return empty, nil
 	}
 
@@ -125,7 +175,7 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 		userID, len(seeds), len(candidates), failed, len(candidates)-len(ranked), len(ranked), s.now().Sub(start),
 	)
 
-	s.saveCache(userID, limit, result)
+	s.saveCache(userID, limit, "", result)
 	return result, nil
 }
 
@@ -341,13 +391,22 @@ func candidateKey(tmdbID int, mediaType string) string {
 	return fmt.Sprintf("%s:%d", strings.ToLower(strings.TrimSpace(mediaType)), tmdbID)
 }
 
-func (s *Service) lookupCache(userID string, limit int) (Result, bool) {
+func (s *Service) lookupCache(userID string, limit int, variant string) (Result, bool) {
 	if s.cacheTTL <= 0 {
 		return Result{}, false
 	}
-	key := cacheKey(userID, limit)
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
+
+	// A pending change whose debounce window has elapsed purges every cached
+	// feed for the user, so both variants regenerate exactly once.
+	if deadline, ok := s.dirty[userID]; ok && !s.now().Before(deadline) {
+		s.purgeUserLocked(userID)
+		delete(s.dirty, userID)
+		return Result{}, false
+	}
+
+	key := cacheKey(userID, limit, variant)
 	entry, ok := s.cache[key]
 	if !ok || s.now().After(entry.expires) {
 		if ok {
@@ -358,18 +417,32 @@ func (s *Service) lookupCache(userID string, limit int) (Result, bool) {
 	return entry.result, true
 }
 
-func (s *Service) saveCache(userID string, limit int, result Result) {
+func (s *Service) saveCache(userID string, limit int, variant string, result Result) {
 	if s.cacheTTL <= 0 {
 		return
 	}
-	key := cacheKey(userID, limit)
+	key := cacheKey(userID, limit, variant)
 	s.cacheMu.Lock()
 	s.cache[key] = cacheEntry{result: result, expires: s.now().Add(s.cacheTTL)}
 	s.cacheMu.Unlock()
 }
 
-func cacheKey(userID string, limit int) string {
-	return fmt.Sprintf("recommendations:user:%s:v1:%d", userID, limit)
+// purgeUserLocked removes every cached feed for a user. Callers must hold cacheMu.
+func (s *Service) purgeUserLocked(userID string) {
+	prefix := fmt.Sprintf("recommendations:user:%s:", userID)
+	for key := range s.cache {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.cache, key)
+		}
+	}
+}
+
+func cacheKey(userID string, limit int, variant string) string {
+	key := fmt.Sprintf("recommendations:user:%s:v1:%d", userID, limit)
+	if variant != "" {
+		key += ":" + variant
+	}
+	return key
 }
 
 func (s *Service) logf(format string, args ...any) {

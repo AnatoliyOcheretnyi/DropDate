@@ -1,12 +1,19 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
+
+// aiPoolLimit is the candidate pool size handed to the model when ?ai=1. Larger
+// than the returned limit so the model has room to re-rank.
+const aiPoolLimit = 30
 
 func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -30,8 +37,23 @@ func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) 
 			limit = parsed
 		}
 	}
+	limit = recommendations.NormalizeLimit(limit)
 
-	result, err := s.recommendations.Generate(r.Context(), userID, recommendations.NormalizeLimit(limit))
+	wantAI := parseBoolParam(r.URL.Query().Get("ai"))
+	if wantAI && s.ai != nil && s.saved != nil {
+		if cached, ok := s.recommendations.CachedAI(userID, limit); ok {
+			writeJSON(w, http.StatusOK, cached)
+			return
+		}
+		if result, ok := s.aiRecommendations(r.Context(), userID, limit); ok {
+			s.recommendations.StoreAI(userID, limit, result)
+			writeJSON(w, http.StatusOK, result)
+			return
+		}
+		// Any failure falls through to the deterministic path below (not cached).
+	}
+
+	result, err := s.recommendations.Generate(r.Context(), userID, limit)
 	if err != nil {
 		// Degrade gracefully: never block the home page on a recommendation failure.
 		s.logger.Printf("recommendations generation failed: %v", err)
@@ -40,4 +62,129 @@ func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+// aiRecommendations builds a candidate pool with the deterministic engine, then
+// asks Gemini to select and explain the best picks. Returns ok=false on any
+// failure so the caller can fall back to the deterministic feed.
+func (s *Server) aiRecommendations(ctx context.Context, userID string, limit int) (recommendations.Result, bool) {
+	pool, err := s.recommendations.Generate(ctx, userID, recommendations.NormalizeLimit(aiPoolLimit))
+	if err != nil || len(pool.Items) == 0 {
+		return recommendations.Result{}, false
+	}
+
+	rows, err := s.saved.SeedRows(ctx, userID)
+	if err != nil {
+		s.logger.Printf("ai recommendations: load saved rows failed: %v", err)
+		return recommendations.Result{}, false
+	}
+
+	candidates := candidatesFromItems(pool.Items)
+	profile := tasteSignals(rows)
+
+	selections, err := s.ai.Rerank(ctx, profile, candidates, limit)
+	if err != nil {
+		s.logger.Printf("ai recommendations: rerank failed: %v", err)
+		return recommendations.Result{}, false
+	}
+	if len(selections) == 0 {
+		return recommendations.Result{}, false
+	}
+
+	byKey := make(map[string]recommendations.Item, len(pool.Items))
+	for _, item := range pool.Items {
+		byKey[recKey(item.TMDBID, item.MediaType)] = item
+	}
+
+	ordered := make([]recommendations.Item, 0, len(selections))
+	for _, sel := range selections {
+		item, ok := byKey[recKey(sel.TMDBID, sel.MediaType)]
+		if !ok {
+			continue
+		}
+		item.Reason.Text = sel.Reason
+		ordered = append(ordered, item)
+	}
+	if len(ordered) == 0 {
+		return recommendations.Result{}, false
+	}
+
+	result := pool
+	result.Items = ordered
+	return result, true
+}
+
+func candidatesFromItems(items []recommendations.Item) []airecs.Candidate {
+	candidates := make([]airecs.Candidate, 0, len(items))
+	for _, item := range items {
+		candidates = append(candidates, airecs.Candidate{
+			TMDBID:    item.TMDBID,
+			MediaType: item.MediaType,
+			Title:     item.Title,
+			Year:      item.Year,
+		})
+	}
+	return candidates
+}
+
+// tasteSignals distils a user's saved rows into a compact taste profile the
+// model can reason over. Status lists carry the strongest signal.
+func tasteSignals(rows []saved.Title) []airecs.TasteSignal {
+	signals := make([]airecs.TasteSignal, 0, len(rows))
+	for _, row := range rows {
+		sentiment := sentimentFor(row)
+		if sentiment == "" {
+			continue
+		}
+		signal := airecs.TasteSignal{
+			Title:     row.Title,
+			MediaType: row.MediaType,
+			Sentiment: sentiment,
+		}
+		if row.UserRating != nil {
+			signal.Rating = *row.UserRating
+		}
+		signals = append(signals, signal)
+	}
+	return signals
+}
+
+// sentimentFor picks the single strongest sentiment for a saved row.
+func sentimentFor(row saved.Title) string {
+	has := func(target string) bool {
+		for _, lt := range row.ListTypes {
+			if strings.EqualFold(strings.TrimSpace(lt), target) {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case has("favorite"):
+		return "favorite"
+	case has("disliked"):
+		return "disliked"
+	case has("watched"):
+		if row.UserRating != nil && *row.UserRating >= 8 {
+			return "loved"
+		}
+		return "watched"
+	case has("watchlist"):
+		return "watchlist"
+	default:
+		return ""
+	}
+}
+
+func recKey(id int, mediaType string) string {
+	return strings.ToLower(strings.TrimSpace(mediaType)) + ":" + strconv.Itoa(id)
+}
+
+func parseBoolParam(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }

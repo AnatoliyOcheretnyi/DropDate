@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
@@ -35,6 +36,7 @@ type ServerOptions struct {
 	Readiness        ReadinessChecker
 	ReadinessTimeout time.Duration
 	RequestTimeout   time.Duration
+	AI               *airecs.Service
 }
 
 type Server struct {
@@ -46,6 +48,7 @@ type Server struct {
 	games            *games.Service
 	mood             *moodpicker.Service
 	match            *cinematch.Service
+	ai               *airecs.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -79,6 +82,7 @@ func NewServer(
 		games:            gamesSvc,
 		mood:             moodSvc,
 		match:            matchSvc,
+		ai:               options.AI,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,

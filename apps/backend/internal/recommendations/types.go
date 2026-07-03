@@ -34,6 +34,9 @@ type Item struct {
 type Reason struct {
 	SeedCount     int    `json:"seedCount"`
 	PrimarySource string `json:"primarySource"`
+	// Text is an optional AI-written, human-readable explanation of why the
+	// title was recommended. Populated only for AI-enhanced responses.
+	Text string `json:"text,omitempty"`
 }
 
 // Meta describes the generation run.

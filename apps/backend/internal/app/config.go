@@ -17,6 +17,19 @@ type Config struct {
 	Auth          AuthConfig
 	Notifications NotificationsConfig
 	Email         EmailConfig
+	AI            AIConfig
+	Recommendations RecommendationsConfig
+}
+
+type AIConfig struct {
+	GeminiAPIKey string
+	GeminiModel  string
+}
+
+type RecommendationsConfig struct {
+	// RefreshDebounce delays regenerating cached feeds after a saved-list
+	// change, so rapid edits don't trigger a model call each time.
+	RefreshDebounce time.Duration
 }
 
 type HTTPConfig struct {
@@ -104,6 +117,13 @@ func LoadConfig() (Config, error) {
 			ResendSender:  config.String("RESEND_SENDER", ""),
 			AppBaseURL:    config.String("APP_BASE_URL", ""),
 			VerifyBaseURL: config.String("AUTH_VERIFY_BASE_URL", ""),
+		},
+		AI: AIConfig{
+			GeminiAPIKey: config.String("GEMINI_API_KEY", ""),
+			GeminiModel:  config.String("GEMINI_MODEL", ""),
+		},
+		Recommendations: RecommendationsConfig{
+			RefreshDebounce: config.Duration("RECOMMENDATIONS_REFRESH_DEBOUNCE", 5*time.Minute),
 		},
 	}
 

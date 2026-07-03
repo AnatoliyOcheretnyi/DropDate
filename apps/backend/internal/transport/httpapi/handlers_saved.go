@@ -114,6 +114,7 @@ func (s *Server) handleSavedDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.invalidateRecommendations(userID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -165,6 +166,7 @@ func (s *Server) handleSavedUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.invalidateRecommendations(userID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -291,7 +293,17 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.invalidateRecommendations(userID)
 	writeJSON(w, http.StatusOK, mapSavedItem(item))
+}
+
+// invalidateRecommendations schedules a debounced refresh of the user's cached
+// recommendation feeds after a saved-list change.
+func (s *Server) invalidateRecommendations(userID string) {
+	if s.recommendations == nil {
+		return
+	}
+	s.recommendations.MarkDirty(userID)
 }
 
 func (s *Server) requireUserID(r *http.Request) (string, error) {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
@@ -87,11 +88,25 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 	var recommendationsService *recommendations.Service
 	if savedService != nil {
 		recommendationsService = recommendations.NewService(savedService, releaseService, logger)
+		recommendationsService.SetRefreshDebounce(cfg.Recommendations.RefreshDebounce)
 	}
 
 	gamesService := games.NewService(releaseService, logger)
 	moodService := moodpicker.NewService(releaseService, savedService, logger)
 	matchService := cinematch.NewService(releaseService, savedService, logger)
+
+	var aiService *airecs.Service
+	if cfg.AI.GeminiAPIKey != "" {
+		svc, err := airecs.NewService(context.Background(), cfg.AI.GeminiAPIKey, cfg.AI.GeminiModel, logger)
+		if err != nil {
+			logger.Printf("gemini recommendations disabled: %v", err)
+		} else {
+			aiService = svc
+			logger.Printf("gemini recommendations enabled (model=%s)", airecs.ModelOrDefault(cfg.AI.GeminiModel))
+		}
+	} else {
+		logger.Printf("GEMINI_API_KEY not set, AI recommendations disabled")
+	}
 
 	var readiness httpapi.ReadinessChecker
 	if db != nil || tmdbClient != nil {
@@ -115,6 +130,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			Readiness:        readiness,
 			ReadinessTimeout: cfg.Readiness.Timeout,
 			RequestTimeout:   cfg.HTTP.RequestTimeout,
+			AI:               aiService,
 		},
 	)
 
