@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type {
-  NotificationItem,
-  NotificationsResponse,
-} from "../types/notifications";
+import { useCallback, useEffect } from "react";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type { NotificationsResponse } from "../types/notifications";
+import { requestApi, webApi } from "../../../shared/api/http";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
 import { STORAGE_KEY } from "../../../shared/types/releases";
 
@@ -35,92 +39,100 @@ const hasFollowItems = () => {
 
 export function useNotifications() {
   const { user, accessToken } = useAuth();
-  const [items, setItems] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const enabled = Boolean(user && accessToken && hasFollowItems());
 
-  const refresh = useCallback(async () => {
-    if (!user || !accessToken || !hasFollowItems()) {
-      setItems([]);
-      setUnreadCount(0);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/notifications", {
+  const notificationsQuery = useQuery({
+    queryKey: webQueryKeys.notifications(user?.id ?? "guest"),
+    enabled,
+    queryFn: async ({ signal }) => {
+      const response = await requestApi<NotificationsResponse>({
+        url: "/api/notifications",
+        method: "GET",
         headers: {
-          accept: "application/json",
           authorization: `Bearer ${accessToken}`,
         },
-        cache: "no-store",
+        signal,
       });
+
       if (!response.ok) {
-        setItems([]);
-        setUnreadCount(0);
+        return emptyState;
+      }
+
+      return {
+        items: response.payload?.items || [],
+        unreadCount: response.payload?.unreadCount || 0,
+      };
+    },
+    staleTime: 1000 * 30,
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !accessToken) {
         return;
       }
-      const payload = (await response.json()) as NotificationsResponse;
-      setItems(payload.items || []);
-      setUnreadCount(payload.unreadCount || 0);
-    } catch {
-      setItems([]);
-      setUnreadCount(0);
-    } finally {
-      setIsLoading(false);
+
+      await webApi.post(
+        "/api/notifications/read",
+        { all: true },
+        {
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+    },
+    onSuccess: () => {
+      const readAt = new Date().toISOString();
+      queryClient.setQueryData<NotificationsResponse>(
+        webQueryKeys.notifications(user?.id ?? "guest"),
+        (previous) => ({
+          items:
+            previous?.items.map((item) =>
+              item.readAt ? item : { ...item, readAt }
+            ) ?? [],
+          unreadCount: 0,
+        })
+      );
+    },
+  });
+
+  const refresh = useCallback(async () => {
+    if (!enabled) {
+      return emptyState;
     }
-  }, [accessToken, user]);
+    const result = await notificationsQuery.refetch();
+    return result.data ?? emptyState;
+  }, [enabled, notificationsQuery]);
 
   const markAllRead = useCallback(async () => {
-    if (!user || !accessToken) {
+    if (!enabled) {
       return;
     }
-    try {
-      await fetch("/api/notifications/read", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ all: true }),
-      });
-      const readAt = new Date().toISOString();
-      setItems((prev) =>
-        prev.map((item) =>
-          item.readAt ? item : { ...item, readAt }
-        )
-      );
-      setUnreadCount(0);
-    } catch {
-      // ignore
-    }
-  }, [accessToken, user]);
+    await markAllReadMutation.mutateAsync();
+  }, [enabled, markAllReadMutation]);
 
   useEffect(() => {
-    if (!user || !accessToken || !hasFollowItems()) {
-      setItems(emptyState.items);
-      setUnreadCount(emptyState.unreadCount);
-      return;
-    }
-    refresh();
-  }, [accessToken, refresh, user]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
+    if (!enabled) {
       return;
     }
     const handleUpdate = () => {
-      refresh();
+      void notificationsQuery.refetch();
     };
     window.addEventListener("saved:updated", handleUpdate);
     return () => {
       window.removeEventListener("saved:updated", handleUpdate);
     };
-  }, [refresh]);
+  }, [enabled, notificationsQuery]);
 
   return {
-    items,
-    unreadCount,
-    isLoading,
+    items: enabled ? notificationsQuery.data?.items ?? [] : emptyState.items,
+    unreadCount: enabled
+      ? notificationsQuery.data?.unreadCount ?? 0
+      : emptyState.unreadCount,
+    isLoading: notificationsQuery.isLoading || markAllReadMutation.isPending,
     refresh,
     markAllRead,
   };

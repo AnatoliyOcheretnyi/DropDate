@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
@@ -36,13 +44,9 @@ export function useTitleDetails() {
   const router = useRouter();
   const mediaType = params?.mediaType || "";
   const id = Number(params?.id || 0);
+  const isValidRequest = Boolean(id) && (mediaType === "movie" || mediaType === "tv");
 
   const [title, setTitle] = useState("");
-  const [details, setDetails] = useState<Details | null>(null);
-  const [release, setRelease] = useState<ReleaseInfo | null>(null);
-  const [recommendations, setRecommendations] = useState<Suggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -65,7 +69,7 @@ export function useTitleDetails() {
   const [localWatchCount, setLocalWatchCount] = useState<number>(0);
 
   const handleClearSelection = useCallback(() => {
-    setError(null);
+    // Search overlay should only clear local selection; details errors come from the query.
   }, []);
 
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
@@ -74,28 +78,28 @@ export function useTitleDetails() {
     handleClearSelection
   );
 
-  const loadDetails = useCallback(async () => {
-    if (!id || (mediaType !== "movie" && mediaType !== "tv")) {
-      setError(copy.errors.invalidRequest);
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const { ok, payload } = await fetchDetails(id, mediaType);
+  const detailsQuery = useQuery({
+    queryKey: webQueryKeys.details(mediaType, id),
+    enabled: isValidRequest,
+    queryFn: async ({ signal }) => {
+      const { ok, payload } = await fetchDetails(id, mediaType, signal);
       if (!ok || !payload) {
-        setError(copy.errors.detailsLoad);
-        return;
+        throw new Error(copy.errors.detailsLoad);
       }
-      setDetails(payload.details);
-      setRelease(payload.release || null);
-      setRecommendations(payload.recommendations || []);
-    } catch {
-      setError(copy.errors.detailsLoad);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id, mediaType]);
+      return payload;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const details = detailsQuery.data?.details ?? null;
+  const release = detailsQuery.data?.release ?? null;
+  const recommendations = detailsQuery.data?.recommendations ?? [];
+  const isLoading = detailsQuery.isLoading;
+  const error = !isValidRequest
+    ? copy.errors.invalidRequest
+    : detailsQuery.isError
+    ? copy.errors.detailsLoad
+    : null;
 
   const buildFallbackRelease = useCallback(
     (payload: Details, media: Suggestion["mediaType"]): ReleaseInfo | null => {
@@ -138,10 +142,6 @@ export function useTitleDetails() {
     },
     []
   );
-
-  useEffect(() => {
-    void loadDetails();
-  }, [loadDetails]);
 
   const handleSearchToggle = () => {
     setIsSearchOpen((prev) => !prev);
@@ -193,9 +193,10 @@ export function useTitleDetails() {
     } satisfies Suggestion;
   }, [details]);
 
-  const currentListTypes = currentSuggestion
-    ? getListTypes(currentSuggestion)
-    : [];
+  const currentListTypes = useMemo(
+    () => (currentSuggestion ? getListTypes(currentSuggestion) : []),
+    [currentSuggestion, getListTypes]
+  );
   const currentSavedItem = useMemo(
     () => (currentSuggestion ? getSavedItem(currentSuggestion) : undefined),
     [currentSuggestion, getSavedItem]

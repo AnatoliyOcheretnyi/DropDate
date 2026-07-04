@@ -1,24 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { requestApi } from "../api/http";
+import { webQueryKeys } from "../api/queryKeys";
 import type { Suggestion } from "../lib/release";
+import { useDebouncedValue } from "./useDebouncedValue";
 
 export function useSuggestions(
   title: string,
   selected: Suggestion | null,
   onClearSelection: () => void
 ) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [isFetching, setIsFetching] = useState(false);
-  const controllerRef = useRef<AbortController | null>(null);
+  const trimmedTitle = title.trim();
+  const debouncedTitle = useDebouncedValue(trimmedTitle, 250);
+  const selectedMatchesInput = Boolean(
+    selected && selected.title.toLowerCase() === trimmedTitle.toLowerCase()
+  );
 
   useEffect(() => {
-    const trimmed = title.trim();
-    if (!trimmed || trimmed.length < 2) {
-      setSuggestions([]);
-      if (controllerRef.current) {
-        controllerRef.current.abort();
-      }
+    if (!trimmedTitle || trimmedTitle.length < 2) {
       if (selected) {
         onClearSelection();
       }
@@ -26,45 +27,38 @@ export function useSuggestions(
     }
 
     if (selected) {
-      if (selected.title.toLowerCase() === trimmed.toLowerCase()) {
-        setSuggestions([]);
+      if (selected.title.toLowerCase() === trimmedTitle.toLowerCase()) {
         return;
       }
       onClearSelection();
     }
+  }, [onClearSelection, selected, trimmedTitle]);
 
-    setIsFetching(true);
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    controllerRef.current = controller;
-
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/suggest?query=${encodeURIComponent(trimmed)}`, {
-          signal: controller.signal,
-        });
-        const payload = await response.json();
-        if (response.ok) {
-          setSuggestions((payload?.results as Suggestion[]) || []);
-        } else {
-          setSuggestions([]);
-        }
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          setSuggestions([]);
-        }
-      } finally {
-        setIsFetching(false);
+  const suggestionsQuery = useQuery({
+    queryKey: webQueryKeys.suggestions(debouncedTitle),
+    enabled:
+      debouncedTitle.length >= 2 &&
+      !(selected && selected.title.toLowerCase() === debouncedTitle.toLowerCase()),
+    queryFn: async ({ signal }) => {
+      const response = await requestApi<{ results?: Suggestion[] }>({
+        url: "/api/suggest",
+        method: "GET",
+        params: { query: debouncedTitle },
+        signal,
+      });
+      if (!response.ok) {
+        return [];
       }
-    }, 250);
+      return Array.isArray(response.payload?.results) ? response.payload.results : [];
+    },
+    staleTime: 1000 * 30,
+  });
 
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [selected, title, onClearSelection]);
-
-  return { suggestions, isFetching };
+  return {
+    suggestions:
+      debouncedTitle.length >= 2 && !selectedMatchesInput
+        ? suggestionsQuery.data ?? []
+        : [],
+    isFetching: suggestionsQuery.isFetching,
+  };
 }

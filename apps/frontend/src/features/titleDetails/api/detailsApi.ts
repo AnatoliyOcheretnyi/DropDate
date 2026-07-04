@@ -1,5 +1,6 @@
 "use client";
 
+import { requestApi } from "../../../shared/api/http";
 import type { Details, ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 
 export type DetailsPayload = {
@@ -15,11 +16,18 @@ type DetailsResponse = {
 
 export async function fetchDetails(
   id: number,
-  mediaType: string
+  mediaType: string,
+  signal?: AbortSignal
 ): Promise<DetailsResponse> {
-  const response = await fetch(`/api/details?tmdbId=${id}&mediaType=${mediaType}`, {
-    cache: "no-store",
+  const response = await requestApi<DetailsPayload>({
+    url: "/api/details",
+    method: "GET",
+    params: { tmdbId: id, mediaType },
+    signal,
   });
-  const payload = (await response.json().catch(() => null)) as DetailsPayload | null;
-  return { ok: response.ok, payload };
+
+  return {
+    ok: response.ok,
+    payload: response.payload,
+  };
 }

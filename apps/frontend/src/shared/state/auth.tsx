@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
+import { webApi } from "../api/http";
 import { SYNC_ON_AUTH_KEY } from "../types/releases";
 
 type AuthUser = {
@@ -41,10 +37,13 @@ class AuthTransientError extends Error {
   }
 }
 
-type AuthContextValue = {
+type AuthStore = {
   user: AuthUser | null;
   accessToken: string | null;
   isLoading: boolean;
+  isVerifyRoute: boolean;
+  setVerifyRoute: (value: boolean) => void;
+  boot: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
@@ -57,221 +56,238 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-const parseAuthResponse = async (response: Response): Promise<AuthResult> => {
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    // Backend errors use the `error` key; the proxy/other services may use `message`.
-    const message =
-      payload?.message || payload?.error || "Auth request failed";
-    throw new AuthError(message, payload?.code, response.status);
-  }
-  return payload as AuthResult;
+type AuthPayload = Partial<AuthResult> & {
+  status?: string;
+  message?: string;
+  error?: string;
+  code?: string;
 };
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const isVerifyRoute = pathname?.startsWith("/auth/verify");
+const getAuthMessage = (payload: AuthPayload | null, fallback: string) =>
+  payload?.message || payload?.error || fallback;
 
-  const applyAuth = useCallback((result: AuthResult) => {
-    setUser(result.user);
-    setAccessToken(result.accessToken);
-  }, []);
+const toAuthResult = (payload: AuthPayload | null): AuthResult | null => {
+  if (
+    !payload ||
+    typeof payload.accessToken !== "string" ||
+    !payload.user ||
+    typeof payload.user.id !== "string" ||
+    typeof payload.user.email !== "string"
+  ) {
+    return null;
+  }
+  return {
+    accessToken: payload.accessToken,
+    expiresAt: typeof payload.expiresAt === "string" ? payload.expiresAt : "",
+    user: {
+      id: payload.user.id,
+      email: payload.user.email,
+    },
+  };
+};
 
-  const setSyncFlag = useCallback((value: "1" | "0") => {
-    if (typeof window === "undefined") {
+const setSyncFlag = (value: "1" | "0") => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(SYNC_ON_AUTH_KEY, value);
+  } catch {
+    // ignore storage issues
+  }
+};
+
+const clearSyncFlag = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(SYNC_ON_AUTH_KEY);
+  } catch {
+    // ignore storage issues
+  }
+};
+
+const useAuthStore = create<AuthStore>((set, get) => ({
+  user: null,
+  accessToken: null,
+  isLoading: true,
+  isVerifyRoute: false,
+  setVerifyRoute: (value) => {
+    set({ isVerifyRoute: value });
+  },
+  boot: async () => {
+    set({ isLoading: true });
+    if (get().isVerifyRoute) {
+      set({ isLoading: false });
       return;
     }
-    try {
-      window.localStorage.setItem(SYNC_ON_AUTH_KEY, value);
-    } catch {
-      // ignore storage issues
-    }
-  }, []);
 
-  const clearSyncFlag = useCallback(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    try {
-      window.localStorage.removeItem(SYNC_ON_AUTH_KEY);
-    } catch {
-      // ignore storage issues
-    }
-  }, []);
+    const maxAttempts = 4;
+    const baseDelay = 600;
 
-  const clearAuth = useCallback(() => {
-    setUser(null);
-    setAccessToken(null);
-  }, []);
-
-  const refresh = useCallback(async () => {
-    if (isVerifyRoute) {
-      return;
-    }
-    try {
-      const response = await fetch("/api/auth/refresh", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-      });
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          clearAuth();
-          return;
-        }
-        throw new AuthTransientError(`refresh failed with ${response.status}`);
-      }
-      const result = await response.json().catch(() => null);
-      if (!result) {
-        throw new AuthTransientError("refresh returned invalid JSON");
-      }
-      applyAuth(result);
-    } catch {
-      // Transient errors (cold starts, network) should not wipe auth state.
-      throw new AuthTransientError("refresh failed");
-    }
-  }, [applyAuth, clearAuth, isVerifyRoute]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const boot = async () => {
-      setIsLoading(true);
-      if (isVerifyRoute) {
-        setIsLoading(false);
-        return;
-      }
-      const maxAttempts = 4;
-      const baseDelay = 600;
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        try {
-          await refresh();
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        await get().refresh();
+        break;
+      } catch (error) {
+        if (!(error instanceof AuthTransientError)) {
           break;
-        } catch (error) {
-          if (!(error instanceof AuthTransientError)) {
-            break;
-          }
-          if (attempt === maxAttempts - 1) {
-            break;
-          }
-          await new Promise((resolve) =>
-            setTimeout(resolve, baseDelay * 2 ** attempt)
-          );
         }
+        if (attempt === maxAttempts - 1) {
+          break;
+        }
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, baseDelay * 2 ** attempt)
+        );
       }
-      if (isMounted) {
-        setIsLoading(false);
-      }
-    };
-    boot();
-    return () => {
-      isMounted = false;
-    };
-  }, [isVerifyRoute, refresh]);
+    }
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
+    set({ isLoading: false });
+  },
+  login: async (email: string, password: string) => {
+    const response = await webApi.post<AuthPayload>(
+      "/api/auth/login",
+      { email, password },
+      {
         headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
-      const result = await parseAuthResponse(response);
-      setSyncFlag("0");
-      applyAuth(result);
-    },
-    [applyAuth, setSyncFlag]
-  );
+        validateStatus: () => true,
+      }
+    );
 
-  const register = useCallback(
-    async (
-      email: string,
-      password: string
-    ): Promise<{ status: "ok" | "verification_required"; message?: string }> => {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
+    if (response.status < 200 || response.status >= 300) {
+      throw new AuthError(
+        getAuthMessage(response.data, "Auth request failed"),
+        response.data?.code,
+        response.status
+      );
+    }
+
+    const result = toAuthResult(response.data);
+    if (!result) {
+      throw new AuthError("Auth request failed", undefined, response.status);
+    }
+
+    setSyncFlag("0");
+    set({ user: result.user, accessToken: result.accessToken });
+  },
+  register: async (email: string, password: string) => {
+    const response = await webApi.post<AuthPayload>(
+      "/api/auth/register",
+      { email, password },
+      {
         headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (response.status === 202 && payload?.status === "verification_required") {
-        setSyncFlag("1");
-        const message =
-          typeof payload?.message === "string" ? payload.message : undefined;
-        return { status: "verification_required", message };
+        validateStatus: () => true,
       }
-      if (!response.ok) {
-        const message =
-          payload?.message || payload?.error || "Auth request failed";
-        throw new AuthError(message, payload?.code, response.status);
-      }
+    );
+
+    if (response.status === 202 && response.data?.status === "verification_required") {
       setSyncFlag("1");
-      applyAuth(payload as AuthResult);
-      return { status: "ok" };
-    },
-    [applyAuth, setSyncFlag]
-  );
+      return {
+        status: "verification_required" as const,
+        message:
+          typeof response.data?.message === "string"
+            ? response.data.message
+            : undefined,
+      };
+    }
 
-  const logout = useCallback(async () => {
+    if (response.status < 200 || response.status >= 300) {
+      throw new AuthError(
+        getAuthMessage(response.data, "Auth request failed"),
+        response.data?.code,
+        response.status
+      );
+    }
+
+    const result = toAuthResult(response.data);
+    if (!result) {
+      throw new AuthError("Auth request failed", undefined, response.status);
+    }
+
+    setSyncFlag("1");
+    set({ user: result.user, accessToken: result.accessToken });
+    return { status: "ok" as const };
+  },
+  logout: async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-      });
+      await webApi.post(
+        "/api/auth/logout",
+        {},
+        {
+          headers: { "content-type": "application/json" },
+          validateStatus: () => true,
+        }
+      );
     } finally {
-      clearAuth();
+      set({ user: null, accessToken: null });
       clearSyncFlag();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("saved:clear"));
       }
     }
-  }, [clearAuth, clearSyncFlag]);
+  },
+  refresh: async () => {
+    if (get().isVerifyRoute) {
+      return;
+    }
 
-  const value = useMemo(
-    () => ({
-      user,
-      accessToken,
-      isLoading,
-      login,
-      register,
-      logout,
-      refresh,
-    }),
-    [user, accessToken, isLoading, login, register, logout, refresh]
-  );
+    let response;
+    try {
+      response = await webApi.post<AuthPayload>(
+        "/api/auth/refresh",
+        {},
+        {
+          headers: { "content-type": "application/json" },
+          validateStatus: () => true,
+        }
+      );
+    } catch {
+      throw new AuthTransientError("refresh failed");
+    }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    if (response.status === 401 || response.status === 403) {
+      set({ user: null, accessToken: null });
+      return;
+    }
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new AuthTransientError(`refresh failed with ${response.status}`);
+    }
+
+    const result = toAuthResult(response.data);
+    if (!result) {
+      throw new AuthTransientError("refresh returned invalid JSON");
+    }
+
+    set({ user: result.user, accessToken: result.accessToken });
+  },
+}));
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isVerifyRoute = pathname?.startsWith("/auth/verify") ?? false;
+
+  useEffect(() => {
+    useAuthStore.getState().setVerifyRoute(isVerifyRoute);
+    void useAuthStore.getState().boot();
+  }, [isVerifyRoute]);
+
+  return <>{children}</>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    if (typeof window !== "undefined") {
-      console.warn("useAuth must be used within AuthProvider");
-    }
-    return {
-      user: null,
-      accessToken: null,
-      isLoading: false,
-      login: async () => {
-        throw new Error("AuthProvider is missing");
-      },
-      register: async () => ({
-        status: "verification_required" as const,
-        message: "AuthProvider is missing",
-      }),
-      logout: async () => {},
-      refresh: async () => {},
-    };
-  }
-  return context;
+  return useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      accessToken: state.accessToken,
+      isLoading: state.isLoading,
+      login: state.login,
+      register: state.register,
+      logout: state.logout,
+      refresh: state.refresh,
+    }))
+  );
 }
 
 export { AuthError };

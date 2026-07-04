@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { requestApi } from "../../../shared/api/http";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
 import type { Suggestion } from "../../../shared/lib/release";
 import { useAuth } from "../../../shared/state/auth";
 
@@ -29,61 +31,39 @@ const toSuggestion = (item: RecommendationItem): Suggestion => ({
  * users so the home page degrades to the generic experience.
  */
 export function useRecommendations() {
-  const { accessToken } = useAuth();
-  const [items, setItems] = useState<Suggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { accessToken, user } = useAuth();
+  const enabled = Boolean(accessToken && user?.id);
 
-  useEffect(() => {
-    if (!accessToken) {
-      setItems([]);
-      return;
-    }
-
-    let isMounted = true;
-    const controller = new AbortController();
-    setIsLoading(true);
-
-    fetch("/api/recommendations/me?limit=18", {
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          return [] as RecommendationItem[];
-        }
-        const payload = (await response.json().catch(() => null)) as {
-          items?: RecommendationItem[];
-        } | null;
-        return Array.isArray(payload?.items) ? payload!.items : [];
-      })
-      .then((rawItems) => {
-        if (!isMounted) {
-          return;
-        }
-        const suggestions =
-          rawItems.length >= MIN_VISIBLE ? rawItems.map(toSuggestion) : [];
-        setItems(suggestions);
-      })
-      .catch(() => {
-        if (isMounted) {
-          setItems([]);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+  const recommendationsQuery = useQuery({
+    queryKey: webQueryKeys.recommendations(user?.id ?? "guest"),
+    enabled,
+    queryFn: async ({ signal }) => {
+      const response = await requestApi<{ items?: RecommendationItem[] }>({
+        url: "/api/recommendations/me",
+        method: "GET",
+        params: { limit: 18 },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        signal,
       });
 
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, [accessToken]);
+      if (!response.ok) {
+        return [];
+      }
 
-  return { items, isLoading };
+      return Array.isArray(response.payload?.items) ? response.payload.items : [];
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const items =
+    enabled && (recommendationsQuery.data?.length ?? 0) >= MIN_VISIBLE
+      ? (recommendationsQuery.data ?? []).map(toSuggestion)
+      : [];
+
+  return {
+    items,
+    isLoading: recommendationsQuery.isLoading,
+  };
 }

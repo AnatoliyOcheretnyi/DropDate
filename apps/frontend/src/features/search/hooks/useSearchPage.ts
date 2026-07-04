@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
@@ -13,13 +21,7 @@ export function useSearchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
-  const [results, setResults] = useState<Suggestion[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalResults, setTotalResults] = useState(0);
   const [filter, setFilter] = useState<SearchFilter>("all");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
   const [, setIsInputFocused] = useState(false);
@@ -30,7 +32,6 @@ export function useSearchPage() {
 
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
-    setError(null);
   }, []);
 
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
@@ -41,60 +42,42 @@ export function useSearchPage() {
 
   const currentQuery = (searchParams.get("query") || "").trim();
 
-  const loadResults = useCallback(
-    async (query: string, pageToLoad: number, append: boolean) => {
-      const trimmed = query.trim();
-      if (!trimmed) {
-        setResults([]);
-        setPage(1);
-        setTotalPages(1);
-        setTotalResults(0);
-        setError(null);
-        return;
+  const searchQuery = useInfiniteQuery({
+    queryKey: webQueryKeys.search(currentQuery),
+    enabled: Boolean(currentQuery),
+    initialPageParam: 1,
+    queryFn: async ({ pageParam, signal }) => {
+      const { ok, payload } = await fetchSearchResults(
+        currentQuery,
+        pageParam,
+        signal
+      );
+      if (!ok || !payload) {
+        throw new Error(copy.errors.searchFailed);
       }
-
-      setIsLoading(true);
-      setError(null);
-      try {
-        const { ok, payload } = await fetchSearchResults(trimmed, pageToLoad);
-        if (!ok || !payload) {
-          setResults([]);
-          setPage(1);
-          setTotalPages(1);
-          setTotalResults(0);
-          setError(copy.errors.searchFailed);
-          return;
-        }
-
-        setResults((prev) =>
-          append ? [...prev, ...payload.results] : payload.results
-        );
-        setPage(payload.page || pageToLoad);
-        setTotalPages(payload.totalPages || 1);
-        setTotalResults(payload.totalResults || 0);
-      } catch {
-        setResults([]);
-        setPage(1);
-        setTotalPages(1);
-        setTotalResults(0);
-        setError(copy.errors.searchFailed);
-      } finally {
-        setIsLoading(false);
-      }
+      return payload;
     },
-    []
-  );
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+  });
 
   useEffect(() => {
     setTitle(currentQuery);
     setFilter("all");
     handleClearSelection();
-    if (!currentQuery) {
-      setResults([]);
-      return;
-    }
-    loadResults(currentQuery, 1, false);
-  }, [currentQuery, handleClearSelection, loadResults]);
+  }, [currentQuery, handleClearSelection]);
+
+  const results = useMemo(
+    () => searchQuery.data?.pages.flatMap((payload) => payload.results) ?? [],
+    [searchQuery.data]
+  );
+
+  const pages = searchQuery.data?.pages ?? [];
+  const totalPages = pages[0]?.totalPages ?? 1;
+  const totalResults = pages[0]?.totalResults ?? 0;
+  const page = pages[pages.length - 1]?.page ?? 1;
+  const error = searchQuery.isError ? copy.errors.searchFailed : null;
+  const isLoading = searchQuery.isLoading || searchQuery.isFetchingNextPage;
 
   const filteredResults = useMemo(() => {
     if (filter === "all") {
@@ -152,10 +135,10 @@ export function useSearchPage() {
   };
 
   const handleLoadMore = () => {
-    if (isLoading || page >= totalPages) {
+    if (isLoading || !searchQuery.hasNextPage) {
       return;
     }
-    loadResults(currentQuery, page + 1, true);
+    void searchQuery.fetchNextPage();
   };
 
   return {

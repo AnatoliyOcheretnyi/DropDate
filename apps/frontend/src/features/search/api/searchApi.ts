@@ -1,5 +1,6 @@
 "use client";
 
+import { requestApi } from "../../../shared/api/http";
 import type { SearchPayload } from "../types";
 
 type SearchResponse = {
@@ -9,12 +10,18 @@ type SearchResponse = {
 
 export async function fetchSearchResults(
   query: string,
-  page: number
+  page: number,
+  signal?: AbortSignal
 ): Promise<SearchResponse> {
-  const response = await fetch(
-    `/api/search?query=${encodeURIComponent(query)}&page=${page}`,
-    { cache: "no-store" }
-  );
-  const payload = (await response.json().catch(() => null)) as SearchPayload | null;
-  return { ok: response.ok, payload };
+  const response = await requestApi<SearchPayload>({
+    url: "/api/search",
+    method: "GET",
+    params: { query, page },
+    signal,
+  });
+
+  return {
+    ok: response.ok,
+    payload: response.payload,
+  };
 }
