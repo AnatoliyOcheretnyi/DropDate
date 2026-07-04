@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import {
   useMutation,
   useQuery,
@@ -10,37 +10,16 @@ import type { NotificationsResponse } from "../types/notifications";
 import { requestApi, webApi } from "../../../shared/api/http";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
-import { STORAGE_KEY } from "../../../shared/types/releases";
+import { useSavedStore } from "../../saved/store/savedStore";
+import { hasFollowItems } from "../../saved/utils/savedState";
 
 const emptyState = { items: [], unreadCount: 0 } satisfies NotificationsResponse;
 
-const hasFollowItems = () => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return false;
-    }
-    const parsed = JSON.parse(raw) as Array<{
-      listTypes?: string[];
-    }>;
-    return parsed.some((item) => {
-      if (!item.listTypes || item.listTypes.length === 0) {
-        return true;
-      }
-      return item.listTypes.includes("follow");
-    });
-  } catch {
-    return false;
-  }
-};
-
 export function useNotifications() {
   const { user, accessToken } = useAuth();
+  const saved = useSavedStore((state) => state.saved);
   const queryClient = useQueryClient();
-  const enabled = Boolean(user && accessToken && hasFollowItems());
+  const enabled = Boolean(user && accessToken && hasFollowItems(saved));
 
   const notificationsQuery = useQuery({
     queryKey: webQueryKeys.notifications(user?.id ?? "guest"),
@@ -113,19 +92,6 @@ export function useNotifications() {
     }
     await markAllReadMutation.mutateAsync();
   }, [enabled, markAllReadMutation]);
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    const handleUpdate = () => {
-      void notificationsQuery.refetch();
-    };
-    window.addEventListener("saved:updated", handleUpdate);
-    return () => {
-      window.removeEventListener("saved:updated", handleUpdate);
-    };
-  }, [enabled, notificationsQuery]);
 
   return {
     items: enabled ? notificationsQuery.data?.items ?? [] : emptyState.items,

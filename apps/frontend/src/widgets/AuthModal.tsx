@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { requestApi } from "../shared/api/http";
 import { copy } from "../shared/lib/strings";
 import { AuthError, useAuth } from "../shared/state/auth";
 
@@ -164,25 +165,29 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: Props) {
     setIsResending(true);
     setResendMessage(null);
     try {
-      const response = await fetch("/api/auth/verify/resend", {
+      const response = await requestApi<{
+        status?: string;
+        message?: string;
+        details?: { retryAfterSeconds?: number };
+      }>({
+        url: "/api/auth/verify/resend",
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail }),
+        data: { email: trimmedEmail },
       });
-      const payload = await response.json().catch(() => null);
       if (response.status === 429) {
-        const retryAfter = Number(payload?.details?.retryAfterSeconds || 0);
+        const retryAfter = Number(response.payload?.details?.retryAfterSeconds || 0);
         const cooldown = retryAfter > 0 ? retryAfter : 60;
         setResendCooldown(cooldown);
         setResendMessage(copy.auth.verifyResendCooldown(cooldown));
         return;
       }
-      if (payload?.status === "already_verified") {
+      if (response.payload?.status === "already_verified") {
         setResendMessage(copy.auth.verifyAlreadyVerified);
         return;
       }
       if (!response.ok) {
-        setError(payload?.message || copy.auth.errorGeneric);
+        setError(response.payload?.message || copy.auth.errorGeneric);
         return;
       }
       setResendCooldown(60);

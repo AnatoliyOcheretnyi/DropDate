@@ -1,3 +1,5 @@
+import { requestApi } from "../../../shared/api/http";
+
 export type MoodOption = {
   id: string;
   label: string;
@@ -50,19 +52,16 @@ export async function fetchMoodQuestions(
   depth: string,
   signal?: AbortSignal
 ): Promise<MoodQuestion[]> {
-  const params = new URLSearchParams({ depth });
-  const response = await fetch(`/api/mood/questions?${params.toString()}`, {
-    headers: { accept: "application/json" },
-    cache: "no-store",
+  const response = await requestApi<MoodQuestionsResponse>({
+    url: "/api/mood/questions",
+    method: "GET",
+    params: { depth },
     signal,
   });
-  if (!response.ok) {
+  if (!response.ok || !response.payload) {
     throw new Error("Не вдалося завантажити питання");
   }
-  const payload = (await response.json().catch(() => null)) as
-    | MoodQuestionsResponse
-    | null;
-  return Array.isArray(payload?.items) ? payload!.items : [];
+  return Array.isArray(response.payload.items) ? response.payload.items : [];
 }
 
 /** fetchMoodNext asks the backend for the next adaptive question (or done). */
@@ -72,24 +71,24 @@ export async function fetchMoodNext(
   accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<MoodNextResponse> {
-  const response = await fetch(`/api/mood/next`, {
+  const response = await requestApi<MoodNextResponse>({
+    url: "/api/mood/next",
     method: "POST",
     headers: {
-      accept: "application/json",
       "content-type": "application/json",
       ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify({ depth, answers }),
-    cache: "no-store",
+    data: { depth, answers },
     signal,
   });
   if (!response.ok) {
     throw new Error("Не вдалося завантажити наступне питання");
   }
-  const payload = (await response.json().catch(() => null)) as
-    | MoodNextResponse
-    | null;
-  return payload ?? { done: true, answered: 0, meta: { depth, version: 0 } };
+  return response.payload ?? {
+    done: true,
+    answered: 0,
+    meta: { depth, version: 0 },
+  };
 }
 
 /** fetchMoodPicks resolves answers into movie picks. */
@@ -98,31 +97,31 @@ export async function fetchMoodPicks(
   accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<MoodPicksResponse> {
-  const response = await fetch(`/api/mood/picks`, {
+  const response = await requestApi<
+    MoodPicksResponse & { error?: string; message?: string }
+  >({
+    url: "/api/mood/picks",
     method: "POST",
     headers: {
-      accept: "application/json",
       "content-type": "application/json",
       ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify({ mode: "guided", ...request }),
-    cache: "no-store",
+    data: { mode: "guided", ...request },
     signal,
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string; message?: string }
-      | null;
     throw new Error(
-      payload?.error || payload?.message || "Не вдалося підібрати фільми"
+      response.payload?.error ||
+        response.payload?.message ||
+        "Не вдалося підібрати фільми"
     );
   }
 
-  const payload = (await response.json().catch(() => null)) as
-    | MoodPicksResponse
-    | null;
   return (
-    payload ?? { items: [], meta: { count: 0, relaxed: [], generatedAt: "" } }
+    response.payload ?? {
+      items: [],
+      meta: { count: 0, relaxed: [], generatedAt: "" },
+    }
   );
 }

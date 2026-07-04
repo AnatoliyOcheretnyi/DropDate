@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { requestApi } from "../api/http";
 import type { Details } from "../lib/release";
 import { MoviePreviewPortal } from "./MoviePreviewPortal";
 
@@ -13,17 +14,15 @@ async function loadDetails(
   tmdbId: number,
   mediaType: string
 ): Promise<Details | null> {
-  const response = await fetch(
-    `/api/details?tmdbId=${tmdbId}&mediaType=${mediaType}`,
-    { cache: "no-store" }
-  );
+  const response = await requestApi<{ details?: Details }>({
+    url: "/api/details",
+    method: "GET",
+    params: { tmdbId, mediaType },
+  });
   if (!response.ok) {
     return null;
   }
-  const payload = (await response.json().catch(() => null)) as
-    | { details?: Details }
-    | null;
-  return payload?.details ?? null;
+  return response.payload?.details ?? null;
 }
 
 type Props = {

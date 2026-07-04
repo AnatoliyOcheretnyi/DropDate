@@ -1,171 +1,167 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import { useCallback, useEffect, useMemo } from "react";
 import {
-  STORAGE_KEY,
-  type SavedRelease,
-  type ListType,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import { copy } from "../../../shared/lib/strings";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
+import { useAuth } from "../../../shared/state/auth";
+import {
+  bulkRefreshSaved,
+  createSavedRemote,
+  fetchSavedRemote,
+  patchSavedStatsRemote,
+  removeSavedRemote,
+  type BulkRefreshResult,
+} from "../api/savedApi";
+import { useSavedStoreSnapshot } from "../store/savedStore";
+import {
+  clearSyncOnAuth,
+  getSavedListTypes,
+  mergeSaved,
+  normalizeListTypes,
+  normalizeSavedRelease,
+  readSavedFromStorage,
+  shouldSyncOnAuth,
+} from "../utils/savedState";
+import {
   getSuggestionId,
   savedIdentifier,
-  SYNC_ON_AUTH_KEY,
+  type ListType,
+  type SavedRelease,
 } from "../../../shared/types/releases";
-import { copy } from "../../../shared/lib/strings";
-import { useAuth } from "../../../shared/state/auth";
 
-const remoteState: {
-  token: string | null;
-  data: SavedRelease[] | null;
-  promise: Promise<SavedRelease[] | null> | null;
-} = {
-  token: null,
-  data: null,
-  promise: null,
-};
+function useSavedSyncEvents() {
+  const { clear, hydrate } = useSavedStoreSnapshot();
 
-const STATUS_LISTS: ListType[] = ["favorite", "watched", "disliked"];
-
-const normalizeListTypes = (listTypes?: ListType[]) => {
-  if (!listTypes) {
-    return ["follow"] as ListType[];
-  }
-  if (listTypes.length === 0) {
-    return [];
-  }
-  const unique = Array.from(new Set(listTypes));
-  const statuses = unique.filter((entry) => STATUS_LISTS.includes(entry));
-  if (statuses.length > 1) {
-    const preferred =
-      statuses.find((entry) => entry === "favorite") ||
-      statuses.find((entry) => entry === "watched") ||
-      statuses[0];
-    return unique.filter(
-      (entry) => !STATUS_LISTS.includes(entry) || entry === preferred
-    );
-  }
-  return unique;
-};
-
-const readSavedFromStorage = (): SavedRelease[] => {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as SavedRelease[];
-      return parsed.map((item) => ({
-        ...item,
-        listTypes: normalizeListTypes(item.listTypes),
-      }));
-    }
-  } catch {
-    // ignore malformed storage
-  }
-  return [];
-};
-
-const shouldSyncOnAuth = () => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return window.localStorage.getItem(SYNC_ON_AUTH_KEY) === "1";
-};
-
-const clearSyncOnAuth = () => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.localStorage.removeItem(SYNC_ON_AUTH_KEY);
-};
-
-const mergeSaved = (localItems: SavedRelease[], remoteItems: SavedRelease[]) => {
-  const map = new Map<string, SavedRelease>();
-  remoteItems.forEach((item) => {
-    map.set(item.id, {
-      ...item,
-      listTypes: normalizeListTypes(item.listTypes),
-    });
-  });
-  localItems.forEach((item) => {
-    if (!map.has(item.id)) {
-      map.set(item.id, {
-        ...item,
-        listTypes: normalizeListTypes(item.listTypes),
-      });
-      return;
-    }
-    const existing = map.get(item.id);
-    if (!existing) {
-      return;
-    }
-    const combined = Array.from(
-      new Set([
-        ...normalizeListTypes(existing.listTypes),
-        ...normalizeListTypes(item.listTypes),
-      ])
-    );
-    const mergedRating =
-      typeof existing.userRating === "number"
-        ? existing.userRating
-        : item.userRating;
-    const mergedWatchCount =
-      (existing.watchCount || 0) > 0 ? existing.watchCount : item.watchCount;
-    const mergedLastWatchedAt =
-      existing.lastWatchedAt || item.lastWatchedAt;
-    map.set(item.id, {
-      ...existing,
-      listTypes: combined,
-      userRating: mergedRating,
-      watchCount: mergedWatchCount,
-      lastWatchedAt: mergedLastWatchedAt,
-    });
-  });
-  return Array.from(map.values());
-};
-
-export function useSavedReleases() {
-  const [saved, setSaved] = useState<SavedRelease[]>([]);
-  const [isReady, setIsReady] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { user, accessToken } = useAuth();
-  const pendingRemoteRef = useRef<
-    Map<
-      string,
-      {
-        action: "add" | "remove";
-        tmdbId: number;
-        mediaType: Suggestion["mediaType"];
-        listType: ListType;
-        release?: ReleaseInfo | null;
-      }
-    >
-  >(new Map());
-  const flushTimeoutRef = useRef<number | null>(null);
-  const pendingStatsRef = useRef<
-    Map<
-      string,
-      {
-        tmdbId: number;
-        mediaType: Suggestion["mediaType"];
-        listType: ListType;
-        userRating?: number;
-        watchCount?: number;
-        lastWatchedAt?: string;
-      }
-    >
-  >(new Map());
-  const flushStatsTimeoutRef = useRef<number | null>(null);
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-    setSaved(readSavedFromStorage());
-    setIsReady(true);
-  }, []);
+    const onClear = () => clear();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key) {
+        hydrate();
+      }
+    };
+    window.addEventListener("saved:clear", onClear);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("saved:clear", onClear);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [clear, hydrate]);
+}
+
+export function useSavedReleases() {
+  useSavedSyncEvents();
+
+  const queryClient = useQueryClient();
+  const { user, accessToken } = useAuth();
+  const { saved, isReady, isRefreshing, setSaved, updateSaved, setRefreshing } =
+    useSavedStoreSnapshot();
 
   const isAuthed = Boolean(user && accessToken);
+  const localSnapshot = useMemo(() => readSavedFromStorage(), []);
+
+  useEffect(() => {
+    if (!isReady && localSnapshot.length > 0) {
+      setSaved(localSnapshot);
+    }
+  }, [isReady, localSnapshot, setSaved]);
+
+  const savedRemoteQuery = useQuery({
+    queryKey: webQueryKeys.saved(user?.id ?? "guest"),
+    enabled: isAuthed,
+    queryFn: async ({ signal }) => {
+      const remote = await fetchSavedRemote(accessToken!, signal);
+      return remote.map((item) => normalizeSavedRelease(item));
+    },
+    staleTime: 1000 * 60,
+  });
+
+  useEffect(() => {
+    if (!isAuthed || !savedRemoteQuery.data || !accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncRemote = async () => {
+      const remoteItems = savedRemoteQuery.data ?? [];
+      const localItems = readSavedFromStorage();
+
+      if (shouldSyncOnAuth()) {
+        const localToSync = localItems.filter((item) => item.tmdbId && item.mediaType);
+        if (localToSync.length > 0) {
+          await Promise.all(
+            localToSync.flatMap((item) =>
+              normalizeListTypes(item.listTypes).flatMap((listType) => {
+                const remoteOps = [
+                  createSavedRemote(accessToken, {
+                    tmdbId: item.tmdbId!,
+                    mediaType: item.mediaType!,
+                    title: item.title,
+                    nextRelease: item.nextRelease,
+                    status: item.status,
+                    posterUrl: item.posterUrl,
+                    backdropUrl: item.backdropUrl,
+                    listType,
+                  }),
+                ];
+
+                const hasStats =
+                  typeof item.userRating === "number" ||
+                  typeof item.watchCount === "number" ||
+                  Boolean(item.lastWatchedAt);
+
+                if (hasStats) {
+                  remoteOps.push(
+                    patchSavedStatsRemote(accessToken, {
+                      tmdbId: item.tmdbId!,
+                      mediaType: item.mediaType!,
+                      listType,
+                      userRating: item.userRating,
+                      watchCount: item.watchCount,
+                      lastWatchedAt: item.lastWatchedAt,
+                    })
+                  );
+                }
+                return remoteOps;
+              })
+            )
+          );
+          clearSyncOnAuth();
+          if (!cancelled) {
+            void queryClient.invalidateQueries({
+              queryKey: webQueryKeys.saved(user?.id ?? "guest"),
+            });
+          }
+          return;
+        }
+        clearSyncOnAuth();
+      }
+
+      if (!cancelled) {
+        setSaved(mergeSaved(localItems, remoteItems));
+      }
+    };
+
+    void syncRemote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, isAuthed, queryClient, savedRemoteQuery.data, setSaved, user?.id]);
+
   const savedById = useMemo(() => {
     const index = new Map<string, SavedRelease>();
     saved.forEach((item) => {
@@ -174,65 +170,56 @@ export function useSavedReleases() {
     return index;
   }, [saved]);
 
-  const queueRemoteAction = useCallback(
-    (entry: {
-      action: "add" | "remove";
+  const invalidateSavedSideEffects = useCallback(() => {
+    if (user?.id) {
+      void queryClient.invalidateQueries({
+        queryKey: webQueryKeys.notifications(user.id),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: webQueryKeys.recommendations(user.id),
+      });
+    }
+  }, [queryClient, user?.id]);
+
+  const addRemoteMutation = useMutation({
+    mutationFn: async (payload: {
       tmdbId: number;
       mediaType: Suggestion["mediaType"];
+      title: string;
+      nextRelease: string;
+      status: ReleaseInfo["status"];
+      posterUrl?: string;
+      backdropUrl?: string;
       listType: ListType;
-      release?: ReleaseInfo | null;
     }) => {
-      if (!isAuthed || !accessToken) {
+      if (!accessToken) {
         return;
       }
-      const key = `${entry.tmdbId}:${entry.mediaType}:${entry.listType}`;
-      pendingRemoteRef.current.set(key, entry);
-      if (flushTimeoutRef.current) {
-        window.clearTimeout(flushTimeoutRef.current);
-      }
-      flushTimeoutRef.current = window.setTimeout(() => {
-        const batch = Array.from(pendingRemoteRef.current.values());
-        pendingRemoteRef.current.clear();
-        batch.forEach((item) => {
-          if (item.action === "add" && item.release) {
-            fetch("/api/saved", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify({
-                tmdbId: item.tmdbId,
-                mediaType: item.mediaType,
-                title: item.release.title,
-                nextRelease: item.release.nextRelease,
-                status: item.release.status,
-                posterUrl: item.release.posterUrl,
-                backdropUrl: item.release.backdropUrl,
-                listType: item.listType,
-              }),
-            }).catch(() => null);
-            return;
-          }
-          if (item.action === "remove") {
-            const params = new URLSearchParams({
-              tmdbId: String(item.tmdbId),
-              mediaType: item.mediaType,
-              listType: item.listType,
-            });
-            fetch(`/api/saved/items?${params.toString()}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }).catch(() => null);
-          }
-        });
-      }, 420);
+      await createSavedRemote(accessToken, payload);
     },
-    [accessToken, isAuthed]
-  );
+    onSettled: () => {
+      invalidateSavedSideEffects();
+    },
+  });
 
-  const queueStatsUpdate = useCallback(
-    (entry: {
+  const removeRemoteMutation = useMutation({
+    mutationFn: async (payload: {
+      tmdbId: number;
+      mediaType: Suggestion["mediaType"];
+      listType?: ListType;
+    }) => {
+      if (!accessToken) {
+        return;
+      }
+      await removeSavedRemote(accessToken, payload);
+    },
+    onSettled: () => {
+      invalidateSavedSideEffects();
+    },
+  });
+
+  const statsRemoteMutation = useMutation({
+    mutationFn: async (payload: {
       tmdbId: number;
       mediaType: Suggestion["mediaType"];
       listType: ListType;
@@ -240,236 +227,19 @@ export function useSavedReleases() {
       watchCount?: number;
       lastWatchedAt?: string;
     }) => {
-      if (!isAuthed || !accessToken) {
+      if (!accessToken) {
         return;
       }
-      const key = `${entry.tmdbId}:${entry.mediaType}:${entry.listType}:stats`;
-      pendingStatsRef.current.set(key, entry);
-      if (flushStatsTimeoutRef.current) {
-        window.clearTimeout(flushStatsTimeoutRef.current);
-      }
-      flushStatsTimeoutRef.current = window.setTimeout(() => {
-        const batch = Array.from(pendingStatsRef.current.values());
-        pendingStatsRef.current.clear();
-        batch.forEach((item) => {
-          fetch("/api/saved/items", {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              tmdbId: item.tmdbId,
-              mediaType: item.mediaType,
-              listType: item.listType,
-              userRating: item.userRating,
-              watchCount: item.watchCount,
-              lastWatchedAt: item.lastWatchedAt,
-            }),
-          }).catch(() => null);
-        });
-      }, 520);
+      await patchSavedStatsRemote(accessToken, payload);
     },
-    [accessToken, isAuthed]
-  );
-
-  useEffect(() => {
-    if (!isAuthed) {
-      return;
-    }
-    let isMounted = true;
-    const loadRemote = async (): Promise<SavedRelease[] | null> => {
-      const localSnapshot = readSavedFromStorage();
-      const shouldSync = shouldSyncOnAuth();
-      if (shouldSync) {
-        if (isMounted) {
-          setSaved(localSnapshot);
-        }
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(localSnapshot)
-          );
-          window.dispatchEvent(new Event("saved:updated"));
-        }
-        remoteState.data = localSnapshot;
-
-        const localToSync = localSnapshot.filter(
-          (item) => item.tmdbId && item.mediaType
-        );
-        if (localToSync.length > 0) {
-          await Promise.all(
-            localToSync.map((item) =>
-              Promise.all(
-                normalizeListTypes(item.listTypes).map((listType) => {
-                  const hasStats =
-                    typeof item.userRating === "number" ||
-                    typeof item.watchCount === "number" ||
-                    Boolean(item.lastWatchedAt);
-                  return Promise.all([
-                    fetch("/api/saved", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${accessToken}`,
-                      },
-                      body: JSON.stringify({
-                        tmdbId: item.tmdbId,
-                        mediaType: item.mediaType,
-                        title: item.title,
-                        nextRelease: item.nextRelease,
-                        status: item.status,
-                        posterUrl: item.posterUrl,
-                        backdropUrl: item.backdropUrl,
-                        listType,
-                      }),
-                    }).catch(() => null),
-                    hasStats
-                      ? fetch("/api/saved/items", {
-                          method: "PATCH",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${accessToken}`,
-                          },
-                          body: JSON.stringify({
-                            tmdbId: item.tmdbId,
-                            mediaType: item.mediaType,
-                            listType,
-                            userRating: item.userRating,
-                            watchCount: item.watchCount,
-                            lastWatchedAt: item.lastWatchedAt,
-                          }),
-                        }).catch(() => null)
-                      : Promise.resolve(null),
-                  ]);
-                })
-              )
-            )
-          );
-        }
-
-        clearSyncOnAuth();
-        return localSnapshot;
-      }
-      try {
-        const response = await fetch("/api/saved", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          cache: "no-store",
-        });
-        const payload = await response
-          .json()
-          .catch(() => ({ items: [] as SavedRelease[] }));
-        if (!response.ok) {
-          return null;
-        }
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-        const normalizedRemote = items.map((item: SavedRelease & { listType?: string }) => {
-          const listTypes = normalizeListTypes(
-            item.listTypes ?? (item.listType ? [item.listType as ListType] : undefined)
-          );
-          return {
-            ...item,
-            listTypes,
-            id: savedIdentifier({
-              title: item.title,
-              type: item.type,
-              tmdbId: item.tmdbId,
-              mediaType: item.mediaType,
-            }),
-          };
-        });
-        const merged = shouldSync
-          ? mergeSaved(localSnapshot, normalizedRemote)
-          : normalizedRemote;
-        if (isMounted) {
-          setSaved(merged);
-        }
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-        }
-        remoteState.data = merged;
-
-        clearSyncOnAuth();
-        return merged;
-      } catch {
-        // ignore remote errors
-        return localSnapshot;
-      } finally {
-        if (isMounted) {
-          setIsReady(true);
-        }
-      }
-    };
-    if (accessToken) {
-      if (remoteState.token === accessToken && remoteState.data) {
-        setSaved(remoteState.data);
-        setIsReady(true);
-      } else if (remoteState.token === accessToken && remoteState.promise) {
-        remoteState.promise
-          .then((data) => {
-            if (isMounted && data) {
-              setSaved(data);
-              setIsReady(true);
-            }
-          })
-          .catch(() => null);
-      } else {
-        remoteState.token = accessToken;
-        remoteState.promise = loadRemote();
-        remoteState.promise
-          .then((data) => {
-            if (data) {
-              remoteState.data = data;
-            }
-            if (isMounted && data) {
-              setSaved(data);
-            }
-          })
-          .catch(() => null)
-          .finally(() => {
-            remoteState.promise = null;
-          });
-      }
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [accessToken, isAuthed]);
+  });
 
   const persist = useCallback(
-    (updater: (list: SavedRelease[]) => SavedRelease[]) => {
-      setSaved((prev) => {
-        const next = updater(prev);
-        if (typeof window !== "undefined") {
-          try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-            window.dispatchEvent(new Event("saved:updated"));
-          } catch {
-            // ignore write errors
-          }
-        }
-        if (isAuthed && accessToken && remoteState.token === accessToken) {
-          remoteState.data = next;
-        }
-        return next;
-      });
+    (updater: (items: SavedRelease[]) => SavedRelease[]) => {
+      updateSaved(updater);
     },
-    [accessToken, isAuthed]
+    [updateSaved]
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const clearHandler = () => {
-      setSaved([]);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-    };
-    window.addEventListener("saved:clear", clearHandler);
-    return () => {
-      window.removeEventListener("saved:clear", clearHandler);
-    };
-  }, []);
 
   const addRelease = useCallback(
     (
@@ -484,6 +254,7 @@ export function useSavedReleases() {
         mediaType: meta?.mediaType,
       });
       const nextListTypes = normalizeListTypes(listTypes);
+
       persist((prev) => {
         const existing = prev.find((item) => item.id === id);
         if (existing) {
@@ -496,61 +267,49 @@ export function useSavedReleases() {
         }
         return [...prev, { ...release, id, ...meta, listTypes: nextListTypes }];
       });
+
       if (isAuthed && meta?.tmdbId && meta?.mediaType) {
-        normalizeListTypes(listTypes).forEach((listType) => {
-          fetch("/api/saved", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              tmdbId: meta.tmdbId,
-              mediaType: meta.mediaType,
-              title: release.title,
-              nextRelease: release.nextRelease,
-              status: release.status,
-              posterUrl: release.posterUrl,
-              backdropUrl: release.backdropUrl,
-              listType,
-            }),
-          }).catch(() => null);
+        nextListTypes.forEach((listType) => {
+          addRemoteMutation.mutate({
+            tmdbId: meta.tmdbId!,
+            mediaType: meta.mediaType!,
+            title: release.title,
+            nextRelease: release.nextRelease,
+            status: release.status,
+            posterUrl: release.posterUrl,
+            backdropUrl: release.backdropUrl,
+            listType,
+          });
         });
       }
     },
-    [accessToken, isAuthed, persist]
+    [addRemoteMutation, isAuthed, persist]
   );
 
   const removeRelease = useCallback(
     (id: string) => {
       const target = saved.find((item) => item.id === id);
       persist((prev) => prev.filter((item) => item.id !== id));
+
       if (isAuthed && target?.tmdbId && target.mediaType) {
-        const mediaType = target.mediaType;
         const listTypes = target.listTypes ?? [];
         if (listTypes.length > 0) {
           listTypes.forEach((listType) => {
-            const params = new URLSearchParams();
-            params.set("tmdbId", String(target.tmdbId));
-            params.set("mediaType", mediaType);
-            params.set("listType", listType);
-            fetch(`/api/saved/items?${params.toString()}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }).catch(() => null);
+            removeRemoteMutation.mutate({
+              tmdbId: target.tmdbId!,
+              mediaType: target.mediaType!,
+              listType,
+            });
           });
           return;
         }
-        const params = new URLSearchParams();
-        params.set("tmdbId", String(target.tmdbId));
-        params.set("mediaType", mediaType);
-        fetch(`/api/saved/items?${params.toString()}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }).catch(() => null);
+        removeRemoteMutation.mutate({
+          tmdbId: target.tmdbId,
+          mediaType: target.mediaType,
+        });
       }
     },
-    [accessToken, isAuthed, persist, saved]
+    [isAuthed, persist, removeRemoteMutation, saved]
   );
 
   const isReleaseSaved = useCallback(
@@ -574,27 +333,19 @@ export function useSavedReleases() {
 
   const isSuggestionSaved = useCallback(
     (suggestion: Suggestion) => {
-      const id = getSuggestionId(suggestion);
-      const match = savedById.get(id);
+      const match = savedById.get(getSuggestionId(suggestion));
       return Boolean(match && normalizeListTypes(match.listTypes).length > 0);
     },
     [savedById]
   );
 
   const getListTypes = useCallback(
-    (suggestion: Suggestion) => {
-      const id = getSuggestionId(suggestion);
-      const match = savedById.get(id);
-      return match ? normalizeListTypes(match.listTypes) : [];
-    },
+    (suggestion: Suggestion) => getSavedListTypes(savedById, suggestion),
     [savedById]
   );
 
   const getSavedItem = useCallback(
-    (suggestion: Suggestion) => {
-      const id = getSuggestionId(suggestion);
-      return savedById.get(id);
-    },
+    (suggestion: Suggestion) => savedById.get(getSuggestionId(suggestion)),
     [savedById]
   );
 
@@ -627,19 +378,19 @@ export function useSavedReleases() {
             : item
         )
       );
-      if (!suggestion.id || !suggestion.mediaType) {
-        return;
+
+      if (isAuthed && suggestion.id && suggestion.mediaType) {
+        statsRemoteMutation.mutate({
+          tmdbId: suggestion.id,
+          mediaType: suggestion.mediaType,
+          listType,
+          userRating: stats.userRating,
+          watchCount: stats.watchCount,
+          lastWatchedAt: stats.lastWatchedAt,
+        });
       }
-      queueStatsUpdate({
-        tmdbId: suggestion.id,
-        mediaType: suggestion.mediaType,
-        listType,
-        userRating: stats.userRating,
-        watchCount: stats.watchCount,
-        lastWatchedAt: stats.lastWatchedAt,
-      });
     },
-    [persist, queueStatsUpdate]
+    [isAuthed, persist, statsRemoteMutation]
   );
 
   const setSuggestionLists = useCallback(
@@ -652,6 +403,7 @@ export function useSavedReleases() {
       const normalized = normalizeListTypes(listTypes);
       const existing = saved.find((item) => item.id === id);
       const previous = existing ? normalizeListTypes(existing.listTypes) : [];
+
       persist((prev) => {
         const current = prev.find((item) => item.id === id);
         if (normalized.length === 0) {
@@ -659,9 +411,7 @@ export function useSavedReleases() {
         }
         if (current) {
           return prev.map((item) =>
-            item.id === id
-              ? { ...item, listTypes: normalized }
-              : item
+            item.id === id ? { ...item, listTypes: normalized } : item
           );
         }
         if (!release) {
@@ -679,12 +429,10 @@ export function useSavedReleases() {
         ];
       });
 
-      if (!isAuthed || !accessToken) {
+      if (!isAuthed || !suggestion.id || !suggestion.mediaType) {
         return;
       }
-      if (!suggestion.id || !suggestion.mediaType) {
-        return;
-      }
+
       const payloadRelease =
         release ||
         (existing
@@ -698,33 +446,34 @@ export function useSavedReleases() {
               status: existing.status,
             }
           : null);
+
       const toAdd = normalized.filter((entry) => !previous.includes(entry));
       const toRemove = previous.filter((entry) => !normalized.includes(entry));
 
       if (payloadRelease) {
         toAdd.forEach((listType) => {
-          queueRemoteAction({
-            action: "add",
+          addRemoteMutation.mutate({
             tmdbId: suggestion.id,
             mediaType: suggestion.mediaType,
+            title: payloadRelease.title,
+            nextRelease: payloadRelease.nextRelease,
+            status: payloadRelease.status,
+            posterUrl: payloadRelease.posterUrl,
+            backdropUrl: payloadRelease.backdropUrl,
             listType,
-            release: payloadRelease,
           });
         });
       }
 
-      if (toRemove.length > 0) {
-        toRemove.forEach((listType) => {
-          queueRemoteAction({
-            action: "remove",
-            tmdbId: suggestion.id,
-            mediaType: suggestion.mediaType,
-            listType,
-          });
+      toRemove.forEach((listType) => {
+        removeRemoteMutation.mutate({
+          tmdbId: suggestion.id,
+          mediaType: suggestion.mediaType,
+          listType,
         });
-      }
+      });
     },
-    [accessToken, isAuthed, persist, queueRemoteAction, saved]
+    [addRemoteMutation, isAuthed, persist, removeRemoteMutation, saved]
   );
 
   const toggleListType = useCallback(
@@ -733,37 +482,13 @@ export function useSavedReleases() {
       listType: ListType,
       release?: ReleaseInfo | null
     ) => {
-      const id = getSuggestionId(suggestion);
-      persist((prev) => {
-        const existing = prev.find((item) => item.id === id);
-        if (!existing) {
-          if (!release) {
-            return prev;
-          }
-          return [
-            ...prev,
-            {
-              ...release,
-              id,
-              tmdbId: suggestion.id,
-              mediaType: suggestion.mediaType,
-              listTypes: [listType],
-            },
-          ];
-        }
-        const current = normalizeListTypes(existing.listTypes);
-        const next = current.includes(listType)
-          ? current.filter((entry) => entry !== listType)
-          : [...current, listType];
-        if (next.length === 0) {
-          return prev.filter((item) => item.id !== id);
-        }
-        return prev.map((item) =>
-          item.id === id ? { ...item, listTypes: next } : item
-        );
-      });
+      const current = getSavedListTypes(savedById, suggestion);
+      const next = current.includes(listType)
+        ? current.filter((entry) => entry !== listType)
+        : [...current, listType];
+      setSuggestionLists(suggestion, next, release);
     },
-    [persist]
+    [savedById, setSuggestionLists]
   );
 
   const refreshAll = useCallback(async () => {
@@ -771,30 +496,9 @@ export function useSavedReleases() {
       return { results: [] as BulkRefreshResult[] };
     }
 
-    setIsRefreshing(true);
+    setRefreshing(true);
     try {
-      const response = await fetch("/api/bulk-refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: saved.map((item) => ({
-            clientId: item.id,
-            title: item.title,
-          })),
-        }),
-      });
-
-      const payload = await response
-        .json()
-        .catch(() => ({ message: copy.errors.invalidJson }));
-
-      if (!response.ok) {
-        throw new Error(payload?.message || copy.errors.refreshFailed);
-      }
-
-      const results: BulkRefreshResult[] = Array.isArray(payload?.results)
-        ? payload.results
-        : [];
+      const results = await bulkRefreshSaved(saved);
       const updates = new Map<string, ReleaseInfo>();
       results.forEach((entry) => {
         if (entry.clientId && entry.info) {
@@ -813,6 +517,9 @@ export function useSavedReleases() {
                   tmdbId: item.tmdbId,
                   mediaType: item.mediaType,
                   listTypes: item.listTypes,
+                  userRating: item.userRating,
+                  watchCount: item.watchCount,
+                  lastWatchedAt: item.lastWatchedAt,
                 }
               : item;
           })
@@ -823,15 +530,12 @@ export function useSavedReleases() {
     } catch (error) {
       throw error instanceof Error ? error : new Error(copy.errors.refreshFailed);
     } finally {
-      setIsRefreshing(false);
+      setRefreshing(false);
     }
-  }, [persist, saved]);
-
-  const savedCount = useMemo(() => saved.length, [saved.length]);
-
+  }, [persist, saved, setRefreshing]);
   return {
     saved,
-    savedCount,
+    savedCount: saved.length,
     isReady,
     addRelease,
     removeRelease,
@@ -846,9 +550,3 @@ export function useSavedReleases() {
     isRefreshing,
   };
 }
-
-type BulkRefreshResult = {
-  clientId: string;
-  info?: ReleaseInfo;
-  error?: string;
-};

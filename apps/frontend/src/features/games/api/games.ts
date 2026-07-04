@@ -1,3 +1,5 @@
+import { requestApi } from "../../../shared/api/http";
+
 export type GameMode = "release_date" | "rating";
 
 export type GameTitleCard = {
@@ -38,19 +40,16 @@ export async function fetchGameQuestions(
   count: number,
   signal?: AbortSignal
 ): Promise<GameQuestion[]> {
-  const params = new URLSearchParams({ mode, count: String(count) });
-  const response = await fetch(`/api/games/questions?${params.toString()}`, {
-    headers: { accept: "application/json" },
-    cache: "no-store",
+  const response = await requestApi<GameQuestionsResponse>({
+    url: "/api/games/questions",
+    method: "GET",
+    params: { mode, count },
     signal,
   });
 
-  if (!response.ok) {
+  if (!response.ok || !response.payload) {
     throw new Error("Не вдалося завантажити гру");
   }
 
-  const payload = (await response.json().catch(() => null)) as
-    | GameQuestionsResponse
-    | null;
-  return Array.isArray(payload?.items) ? payload!.items : [];
+  return Array.isArray(response.payload.items) ? response.payload.items : [];
 }

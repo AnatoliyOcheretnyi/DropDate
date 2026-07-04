@@ -10,7 +10,9 @@ import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
+import { pingBackend } from "../api/homeApi";
 import { useRecommendations } from "../hooks/useRecommendations";
+import { useHomeSections } from "../hooks/useHomeSections";
 
 type Props = {
   sections: {
@@ -60,7 +62,6 @@ function HomeScreenContent({ sections }: Props) {
   const isLoading = false;
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
-  const [sectionState, setSectionState] = useState(sections);
   const [isTrendingRefreshing, setIsTrendingRefreshing] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("idle");
   const [, setIsInputFocused] = useState(false);
@@ -88,48 +89,19 @@ function HomeScreenContent({ sections }: Props) {
     handleClearSelection
   );
 
-  useEffect(() => {
-    setSectionState(sections);
-  }, [sections]);
+  const homeSectionsQuery = useHomeSections(sections);
+  const sectionState = homeSectionsQuery.data ?? sections;
 
   const refreshHome = useCallback(async () => {
     setIsTrendingRefreshing(true);
     try {
-      const response = await fetch("/api/home?limit=18", {
-        headers: { accept: "application/json" },
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const payload = (await response.json()) as {
-        upcoming?: { movies?: Suggestion[]; series?: Suggestion[] };
-        popular?: { movies?: Suggestion[]; series?: Suggestion[] };
-        topRated?: { movies?: Suggestion[]; series?: Suggestion[] };
-      };
-
-      const upcomingMovies = payload?.upcoming?.movies ?? [];
-      const upcomingSeries = payload?.upcoming?.series ?? [];
-      const popularMovies = payload?.popular?.movies ?? [];
-      const popularSeries = payload?.popular?.series ?? [];
-      const topRatedMovies = payload?.topRated?.movies ?? [];
-      const topRatedSeries = payload?.topRated?.series ?? [];
-
-      const nextSections = {
-        upcoming: mixSuggestions(upcomingMovies, upcomingSeries),
-        popularMovies,
-        popularSeries,
-        topRated: mixSuggestions(topRatedMovies, topRatedSeries),
-      };
-      setSectionState(nextSections);
+      await homeSectionsQuery.refetch();
     } catch {
       // ignore refresh errors; we'll retry on next health check
     } finally {
       setIsTrendingRefreshing(false);
     }
-  }, []);
+  }, [homeSectionsQuery]);
 
   useEffect(() => {
     const hasContent =
@@ -147,11 +119,8 @@ function HomeScreenContent({ sections }: Props) {
     const wakeBackend = async () => {
       backendAttemptsRef.current += 1;
       try {
-        const response = await fetch("/api/health", {
-          headers: { accept: "application/json" },
-          cache: "no-store",
-        });
-        if (response.ok) {
+        const isHealthy = await pingBackend();
+        if (isHealthy) {
           if (hadWakeFailureRef.current) {
             setBackendStatus("ready");
           }

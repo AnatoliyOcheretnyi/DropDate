@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { requestApi } from "../../../src/shared/api/http";
 import { copy } from "../../../src/shared/lib/strings";
 
 type VerifyState = "idle" | "loading" | "success" | "error";
@@ -42,17 +43,18 @@ function VerifyEmailClient() {
     }
     setState("loading");
     try {
-      const response = await fetch(
-        `/api/auth/verify?token=${encodeURIComponent(token)}`
-      );
-      const payload = await response.json().catch(() => null);
+      const response = await requestApi<{ message?: string; code?: string; error?: string }>({
+        url: "/api/auth/verify",
+        method: "GET",
+        params: { token },
+      });
       if (!response.ok) {
         setState("error");
-        setMessage(resolveErrorMessage(payload));
+        setMessage(resolveErrorMessage(response.payload));
         return;
       }
       setState("success");
-      setMessage(payload?.message || copy.auth.verifySuccessText);
+      setMessage(response.payload?.message || copy.auth.verifySuccessText);
       redirectTimeout.current = window.setTimeout(() => {
         router.replace("/");
       }, 1400);

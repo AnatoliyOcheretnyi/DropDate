@@ -1,3 +1,5 @@
+import { requestApi } from "../../../shared/api/http";
+
 export type MatchOption = {
   id: string;
   label: string;
@@ -31,18 +33,15 @@ export const pickKey = (pick: { mediaType: string; tmdbId: number }) =>
 export async function fetchMatchQuestions(
   signal?: AbortSignal
 ): Promise<MatchQuestion[]> {
-  const response = await fetch(`/api/match/questions`, {
-    headers: { accept: "application/json" },
-    cache: "no-store",
+  const response = await requestApi<QuestionsResponse>({
+    url: "/api/match/questions",
+    method: "GET",
     signal,
   });
-  if (!response.ok) {
+  if (!response.ok || !response.payload) {
     throw new Error("Не вдалося завантажити питання");
   }
-  const payload = (await response.json().catch(() => null)) as
-    | QuestionsResponse
-    | null;
-  return Array.isArray(payload?.items) ? payload!.items : [];
+  return Array.isArray(response.payload.items) ? response.payload.items : [];
 }
 
 export type MatchPicksRequest = {
@@ -56,27 +55,21 @@ export async function fetchMatchPicks(
   accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<MatchPick[]> {
-  const response = await fetch(`/api/match/picks`, {
+  const response = await requestApi<PicksResponse & { error?: string; message?: string }>({
+    url: "/api/match/picks",
     method: "POST",
     headers: {
-      accept: "application/json",
       "content-type": "application/json",
       ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify(request),
-    cache: "no-store",
+    data: request,
     signal,
   });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string; message?: string }
-      | null;
+
+  if (!response.ok || !response.payload) {
     throw new Error(
-      payload?.error || payload?.message || "Не вдалося підібрати"
+      response.payload?.error || response.payload?.message || "Не вдалося підібрати"
     );
   }
-  const payload = (await response.json().catch(() => null)) as
-    | PicksResponse
-    | null;
-  return Array.isArray(payload?.items) ? payload!.items : [];
+  return Array.isArray(response.payload.items) ? response.payload.items : [];
 }
