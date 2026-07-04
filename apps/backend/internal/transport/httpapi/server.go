@@ -8,6 +8,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
@@ -37,6 +38,7 @@ type ServerOptions struct {
 	ReadinessTimeout time.Duration
 	RequestTimeout   time.Duration
 	AI               *airecs.Service
+	Capabilities     capabilities.Resolver
 }
 
 type Server struct {
@@ -49,6 +51,7 @@ type Server struct {
 	mood             *moodpicker.Service
 	match            *cinematch.Service
 	ai               *airecs.Service
+	caps             capabilities.Resolver
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -83,11 +86,18 @@ func NewServer(
 		mood:             moodSvc,
 		match:            matchSvc,
 		ai:               options.AI,
+		caps:             options.Capabilities,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,
 		logger:           logger,
 	}
+}
+
+// aiEnabled reports whether an AI feature is enabled for the user. Nil-safe: a
+// server built without a capabilities resolver treats every AI feature as off.
+func (s *Server) aiEnabled(ctx context.Context, userID string, feature capabilities.Feature) bool {
+	return s.caps != nil && s.caps.Enabled(ctx, userID, feature)
 }
 
 func (s *Server) Routes() http.Handler {

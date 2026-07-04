@@ -182,7 +182,7 @@ func TestPicks_InvalidInputs(t *testing.T) {
 		name string
 		req  PicksRequest
 	}{
-		{"missing answer", PicksRequest{Answers: map[string]string{"mood": "lift"}}},
+		{"missing mood", PicksRequest{Answers: map[string]string{"time": "short"}}},
 		{"invalid option", PicksRequest{Answers: func() map[string]string {
 			a := standardAnswers()
 			a["mood"] = "nope"
@@ -201,11 +201,13 @@ func TestPicks_InvalidInputs(t *testing.T) {
 }
 
 func TestQuestions_DepthSizes(t *testing.T) {
-	if got := len(QuestionsForDepth("quick").Items); got != 3 {
-		t.Fatalf("quick depth has %d questions, want 3", got)
+	// Unconditional path (no branching): quick = mood/region/time/discovery,
+	// standard adds era/company. Mood sub-branches are not counted here.
+	if got := len(QuestionsForDepth("quick").Items); got != 4 {
+		t.Fatalf("quick depth has %d questions, want 4", got)
 	}
-	if got := len(QuestionsForDepth("standard").Items); got != 5 {
-		t.Fatalf("standard depth has %d questions, want 5", got)
+	if got := len(QuestionsForDepth("standard").Items); got != 6 {
+		t.Fatalf("standard depth has %d questions, want 6", got)
 	}
 	if QuestionsForDepth("garbage").Meta.Depth != DefaultDepth {
 		t.Fatalf("unknown depth should fall back to %q", DefaultDepth)

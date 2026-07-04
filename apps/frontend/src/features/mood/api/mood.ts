@@ -16,6 +16,13 @@ export type MoodQuestionsResponse = {
   meta: { depth: string; version: number };
 };
 
+export type MoodNextResponse = {
+  question?: MoodQuestion;
+  done: boolean;
+  answered: number;
+  meta: { depth: string; version: number };
+};
+
 export type MoodPick = {
   tmdbId: number;
   mediaType: "movie";
@@ -56,6 +63,33 @@ export async function fetchMoodQuestions(
     | MoodQuestionsResponse
     | null;
   return Array.isArray(payload?.items) ? payload!.items : [];
+}
+
+/** fetchMoodNext asks the backend for the next adaptive question (or done). */
+export async function fetchMoodNext(
+  depth: string,
+  answers: Record<string, string>,
+  accessToken?: string | null,
+  signal?: AbortSignal
+): Promise<MoodNextResponse> {
+  const response = await fetch(`/api/mood/next`, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify({ depth, answers }),
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error("Не вдалося завантажити наступне питання");
+  }
+  const payload = (await response.json().catch(() => null)) as
+    | MoodNextResponse
+    | null;
+  return payload ?? { done: true, answered: 0, meta: { depth, version: 0 } };
 }
 
 /** fetchMoodPicks resolves answers into movie picks. */

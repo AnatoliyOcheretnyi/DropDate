@@ -20,7 +20,7 @@ const (
 	// selection task. Override via GEMINI_MODEL.
 	DefaultModel = "gemini-2.5-flash"
 
-	maxOutputTokens = 2048
+	maxOutputTokens  = 2048
 	maxPromptSignals = 24
 	maxPromptPool    = 60
 )

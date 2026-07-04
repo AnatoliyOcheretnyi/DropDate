@@ -46,6 +46,40 @@ type QuestionMeta struct {
 	Version int    `json:"version"`
 }
 
+// NextRequest is the input for POST /mood/next: the depth and the answers
+// gathered so far. The server decides the next question adaptively.
+type NextRequest struct {
+	Depth   string            `json:"depth"`
+	Answers map[string]string `json:"answers"`
+
+	// UserID is set server-side; used only to gate AI branching by capability.
+	UserID string `json:"-"`
+}
+
+// NextResult is the response for POST /mood/next.
+type NextResult struct {
+	Question *Question    `json:"question,omitempty"`
+	Done     bool         `json:"done"`
+	Answered int          `json:"answered"`
+	Meta     QuestionMeta `json:"meta"`
+}
+
+// AnsweredQuestion is one prior answer with human labels, given to the AI
+// strategy as context for choosing the next question.
+type AnsweredQuestion struct {
+	QuestionID    string `json:"questionId"`
+	QuestionTitle string `json:"questionTitle"`
+	OptionID      string `json:"optionId"`
+	OptionLabel   string `json:"optionLabel"`
+}
+
+// NextQuestionStrategy picks the next question id from a candidate set given the
+// answers so far. Implemented by an AI adapter. It must return an id present in
+// `candidates` (grounded), or "" to defer to the rule-based order.
+type NextQuestionStrategy interface {
+	NextQuestionID(ctx context.Context, answered []AnsweredQuestion, candidates []Question) (string, error)
+}
+
 // PicksRequest is the resolved input for POST /mood/picks.
 type PicksRequest struct {
 	Mode           string            `json:"mode"`

@@ -72,6 +72,50 @@ func resolveParams(answers map[string]string) release.DiscoverParams {
 		p.ReleaseDateLTE = "1999-12-31"
 	}
 
+	// Mood sub-branch refinements sharpen the genre mix.
+	switch answers["scary_type"] {
+	case "psychological":
+		with.add(genreThriller, genreMystery, genreDrama)
+		without.add(genreHorror) // steer away from splatter toward psychological
+	case "supernatural":
+		with.add(genreHorror, genreFantasy)
+	case "gore":
+		with.add(genreHorror, genreThriller)
+	case "suspense":
+		with.add(genreThriller, genreMystery)
+	}
+	switch answers["think_type"] {
+	case "mindbender":
+		with.add(genreScienceFiction, genreMystery, genreThriller)
+	case "true_story":
+		with.add(genreHistory, genreDrama)
+	case "slow_burn":
+		with.add(genreDrama)
+	case "social":
+		with.add(genreDrama, genreHistory)
+	}
+	switch answers["pace"] {
+	case "nonstop":
+		with.add(genreAction, genreThriller)
+	case "stylish":
+		with.add(genreAction, genreCrime)
+	case "adventure":
+		with.add(genreAdventure, genreAction, genreFantasy)
+	}
+	switch answers["cry_type"] {
+	case "romance":
+		with.add(genreRomance, genreDrama)
+	case "life":
+		with.add(genreDrama)
+	case "loss":
+		with.add(genreDrama)
+	}
+
+	// Region maps to a broad set of origin countries (OR-joined by TMDB).
+	if countries := regionCountries[answers["region"]]; len(countries) > 0 {
+		p.WithOriginCountry = countries
+	}
+
 	// Conflict resolution: exclusions win over inclusions.
 	for _, g := range without.list() {
 		with.remove(g)
@@ -79,6 +123,24 @@ func resolveParams(answers map[string]string) release.DiscoverParams {
 	p.WithGenres = with.list()
 	p.WithoutGenres = without.list()
 	return p
+}
+
+// regionCountries maps a region answer to ISO 3166-1 origin countries. Popular
+// cinemas (USA, UK, Korea, Japan, France, India) are their own answers; the
+// remaining buckets (europe/asia/latam) exclude those to avoid overlap. "any"
+// is intentionally absent (no filter).
+var regionCountries = map[string][]string{
+	"local":  {"UA", "RU", "KZ", "BY", "GE", "AM", "AZ", "UZ", "KG", "TJ", "TM", "MD"},
+	"usa":    {"US"},
+	"uk":     {"GB"},
+	"korea":  {"KR"},
+	"japan":  {"JP"},
+	"france": {"FR"},
+	"india":  {"IN"},
+	"europe": {"DE", "IT", "ES", "PL", "CZ", "NL", "BE", "AT", "PT", "GR", "RO", "HU", "CH", "IE", "RS", "HR", "BG", "SK", "SI"},
+	"nordic": {"SE", "NO", "DK", "FI", "IS"},
+	"asia":   {"CN", "TW", "HK", "TH", "VN", "PH", "ID", "MY", "SG", "IR", "TR"},
+	"latam":  {"MX", "AR", "BR", "CL", "CO", "PE", "UY", "VE"},
 }
 
 // reasonFor builds a short tag explaining a pick, derived from the answers.

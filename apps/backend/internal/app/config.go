@@ -8,22 +8,27 @@ import (
 )
 
 type Config struct {
-	HTTP          HTTPConfig
-	HTTPClient    HTTPClientConfig
-	Shutdown      ShutdownConfig
-	Readiness     ReadinessConfig
-	TMDB          TMDBConfig
-	Database      DatabaseConfig
-	Auth          AuthConfig
-	Notifications NotificationsConfig
-	Email         EmailConfig
-	AI            AIConfig
+	HTTP            HTTPConfig
+	HTTPClient      HTTPClientConfig
+	Shutdown        ShutdownConfig
+	Readiness       ReadinessConfig
+	TMDB            TMDBConfig
+	Database        DatabaseConfig
+	Auth            AuthConfig
+	Notifications   NotificationsConfig
+	Email           EmailConfig
+	AI              AIConfig
 	Recommendations RecommendationsConfig
 }
 
 type AIConfig struct {
 	GeminiAPIKey string
 	GeminiModel  string
+	// Per-feature toggles. Effective only when a Gemini key is present; they let
+	// you turn individual AI features off without removing the key.
+	RecommendationsEnabled bool
+	MoodEnabled            bool
+	MatchEnabled           bool
 }
 
 type RecommendationsConfig struct {
@@ -62,14 +67,14 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret                string
-	Issuer                   string
-	AccessTTL                time.Duration
-	RefreshTTL               time.Duration
-	CookieName               string
-	CookieSecure             bool
-	RequireEmailVerification bool
-	VerificationTTL          time.Duration
+	JWTSecret                  string
+	Issuer                     string
+	AccessTTL                  time.Duration
+	RefreshTTL                 time.Duration
+	CookieName                 string
+	CookieSecure               bool
+	RequireEmailVerification   bool
+	VerificationTTL            time.Duration
 	VerificationResendCooldown time.Duration
 }
 
@@ -119,8 +124,11 @@ func LoadConfig() (Config, error) {
 			VerifyBaseURL: config.String("AUTH_VERIFY_BASE_URL", ""),
 		},
 		AI: AIConfig{
-			GeminiAPIKey: config.String("GEMINI_API_KEY", ""),
-			GeminiModel:  config.String("GEMINI_MODEL", ""),
+			GeminiAPIKey:           config.String("GEMINI_API_KEY", ""),
+			GeminiModel:            config.String("GEMINI_MODEL", ""),
+			RecommendationsEnabled: config.Bool("AI_RECOMMENDATIONS_ENABLED", true),
+			MoodEnabled:            config.Bool("AI_MOOD_ENABLED", true),
+			MatchEnabled:           config.Bool("AI_MATCH_ENABLED", true),
 		},
 		Recommendations: RecommendationsConfig{
 			RefreshDebounce: config.Duration("RECOMMENDATIONS_REFRESH_DEBOUNCE", 5*time.Minute),
@@ -130,14 +138,14 @@ func LoadConfig() (Config, error) {
 	// Auth settings are only required when the database is enabled.
 	if cfg.Database.DSN != "" {
 		cfg.Auth = AuthConfig{
-			JWTSecret:                config.String("AUTH_JWT_SECRET", ""),
-			Issuer:                   config.String("AUTH_JWT_ISSUER", "dropdate"),
-			AccessTTL:                config.Duration("AUTH_ACCESS_TTL", 15*time.Minute),
-			RefreshTTL:               config.Duration("AUTH_REFRESH_TTL", 30*24*time.Hour),
-			CookieName:               config.String("AUTH_COOKIE_NAME", "dd_refresh"),
-			CookieSecure:             config.Bool("AUTH_COOKIE_SECURE", false),
-			RequireEmailVerification: config.Bool("AUTH_REQUIRE_EMAIL_VERIFICATION", false),
-			VerificationTTL:          config.Duration("AUTH_VERIFICATION_TTL", 24*time.Hour),
+			JWTSecret:                  config.String("AUTH_JWT_SECRET", ""),
+			Issuer:                     config.String("AUTH_JWT_ISSUER", "dropdate"),
+			AccessTTL:                  config.Duration("AUTH_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:                 config.Duration("AUTH_REFRESH_TTL", 30*24*time.Hour),
+			CookieName:                 config.String("AUTH_COOKIE_NAME", "dd_refresh"),
+			CookieSecure:               config.Bool("AUTH_COOKIE_SECURE", false),
+			RequireEmailVerification:   config.Bool("AUTH_REQUIRE_EMAIL_VERIFICATION", false),
+			VerificationTTL:            config.Duration("AUTH_VERIFICATION_TTL", 24*time.Hour),
 			VerificationResendCooldown: config.Duration("AUTH_VERIFICATION_RESEND_COOLDOWN", 2*time.Minute),
 		}
 

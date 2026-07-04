@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  fetchMoodNext,
   fetchMoodPicks,
-  fetchMoodQuestions,
   type MoodPick,
   type MoodQuestion,
 } from "../api/mood";
+
+// Persist the session so navigating to a title's details and back restores the
+// flow (soft back) instead of resetting it.
+const STORAGE_KEY = "dropdate:mood-session";
 
 export type MoodStatus =
   | "config"
@@ -18,11 +22,15 @@ export type MoodStatus =
 
 const DEFAULT_COUNT = 6;
 
+// Soft total for the progress indicator. The adaptive flow's length isn't known
+// up front, so we estimate by depth and never let it fall below the real step.
+const ESTIMATED_TOTAL: Record<string, number> = { quick: 5, standard: 7 };
+
 export function useMoodSession(accessToken?: string | null) {
   const [status, setStatus] = useState<MoodStatus>("config");
   const [depth, setDepth] = useState("standard");
-  const [questions, setQuestions] = useState<MoodQuestion[]>([]);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [current, setCurrent] = useState<MoodQuestion | undefined>(undefined);
+  const [history, setHistory] = useState<MoodQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [picks, setPicks] = useState<MoodPick[]>([]);
   const [relaxed, setRelaxed] = useState<string[]>([]);
@@ -30,6 +38,62 @@ export function useMoodSession(accessToken?: string | null) {
   const answersRef = useRef<Record<string, string>>({});
   const depthRef = useRef("standard");
   const shownRef = useRef<Set<number>>(new Set());
+
+  // Restore a resumable session on mount (soft back from details).
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const snap = JSON.parse(raw) as {
+        status?: MoodStatus;
+        depth?: string;
+        current?: MoodQuestion;
+        history?: MoodQuestion[];
+        answers?: Record<string, string>;
+        picks?: MoodPick[];
+        relaxed?: string[];
+      };
+      if (snap.status !== "asking" && snap.status !== "results") {
+        return;
+      }
+      setStatus(snap.status);
+      setDepth(snap.depth ?? "standard");
+      depthRef.current = snap.depth ?? "standard";
+      setCurrent(snap.current);
+      setHistory(Array.isArray(snap.history) ? snap.history : []);
+      setAnswers(snap.answers ?? {});
+      answersRef.current = snap.answers ?? {};
+      setPicks(Array.isArray(snap.picks) ? snap.picks : []);
+      setRelaxed(Array.isArray(snap.relaxed) ? snap.relaxed : []);
+      shownRef.current = new Set((snap.picks ?? []).map((p) => p.tmdbId));
+    } catch {
+      // ignore malformed storage
+    }
+  }, []);
+
+  // Persist resumable states; clear once the flow is reset to config.
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (status !== "asking" && status !== "results") {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ status, depth, current, history, answers, picks, relaxed })
+      );
+    } catch {
+      // ignore quota/serialization errors
+    }
+  }, [status, depth, current, history, answers, picks, relaxed]);
 
   const submit = useCallback(
     async (finalAnswers: Record<string, string>, isMore = false) => {
@@ -64,47 +128,86 @@ export function useMoodSession(accessToken?: string | null) {
     [accessToken]
   );
 
-  const start = useCallback(async (chosenDepth: string) => {
-    setDepth(chosenDepth);
-    depthRef.current = chosenDepth;
-    setStatus("loading");
-    try {
-      const items = await fetchMoodQuestions(chosenDepth);
-      if (items.length === 0) {
+  // advance fetches the next adaptive question; when the flow is done it resolves
+  // the answers into picks.
+  const advance = useCallback(
+    async (nextAnswers: Record<string, string>) => {
+      setStatus("loading");
+      try {
+        const res = await fetchMoodNext(
+          depthRef.current,
+          nextAnswers,
+          accessToken
+        );
+        if (res.done || !res.question) {
+          await submit(nextAnswers);
+          return;
+        }
+        setCurrent(res.question);
+        setStatus("asking");
+      } catch {
         setStatus("error");
-        return;
       }
-      setQuestions(items);
-      setStepIndex(0);
+    },
+    [accessToken, submit]
+  );
+
+  const start = useCallback(
+    async (chosenDepth: string) => {
+      setDepth(chosenDepth);
+      depthRef.current = chosenDepth;
+      setStatus("loading");
+      setHistory([]);
       setAnswers({});
       answersRef.current = {};
+      setCurrent(undefined);
       shownRef.current = new Set();
-      setStatus("asking");
-    } catch {
-      setStatus("error");
-    }
-  }, []);
+      try {
+        const res = await fetchMoodNext(chosenDepth, {}, accessToken);
+        if (res.done || !res.question) {
+          setStatus("error");
+          return;
+        }
+        setCurrent(res.question);
+        setStatus("asking");
+      } catch {
+        setStatus("error");
+      }
+    },
+    [accessToken]
+  );
 
   const answer = useCallback(
     (optionId: string) => {
-      const question = questions[stepIndex];
-      if (!question) {
-        return;
-      }
-      const nextAnswers = { ...answersRef.current, [question.id]: optionId };
-      answersRef.current = nextAnswers;
-      setAnswers(nextAnswers);
-      if (stepIndex >= questions.length - 1) {
-        void submit(nextAnswers);
-      } else {
-        setStepIndex((index) => index + 1);
-      }
+      setCurrent((question) => {
+        if (!question) {
+          return question;
+        }
+        const nextAnswers = { ...answersRef.current, [question.id]: optionId };
+        answersRef.current = nextAnswers;
+        setAnswers(nextAnswers);
+        setHistory((prev) => [...prev, question]);
+        void advance(nextAnswers);
+        return question;
+      });
     },
-    [questions, stepIndex, submit]
+    [advance]
   );
 
   const back = useCallback(() => {
-    setStepIndex((index) => Math.max(0, index - 1));
+    setHistory((prev) => {
+      if (prev.length === 0) {
+        return prev;
+      }
+      const previous = prev[prev.length - 1];
+      const nextAnswers = { ...answersRef.current };
+      delete nextAnswers[previous.id];
+      answersRef.current = nextAnswers;
+      setAnswers(nextAnswers);
+      setCurrent(previous);
+      setStatus("asking");
+      return prev.slice(0, -1);
+    });
   }, []);
 
   const showMore = useCallback(() => {
@@ -113,8 +216,8 @@ export function useMoodSession(accessToken?: string | null) {
 
   const reset = useCallback(() => {
     setStatus("config");
-    setQuestions([]);
-    setStepIndex(0);
+    setCurrent(undefined);
+    setHistory([]);
     setAnswers({});
     answersRef.current = {};
     setPicks([]);
@@ -122,13 +225,14 @@ export function useMoodSession(accessToken?: string | null) {
     shownRef.current = new Set();
   }, []);
 
+  const total = Math.max(ESTIMATED_TOTAL[depth] ?? 6, history.length + 1);
+
   return {
     status,
     depth,
-    questions,
-    current: questions[stepIndex],
-    stepIndex,
-    total: questions.length,
+    current,
+    stepIndex: history.length,
+    total,
     answers,
     picks,
     relaxed,

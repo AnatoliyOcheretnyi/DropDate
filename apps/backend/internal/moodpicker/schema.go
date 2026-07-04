@@ -3,18 +3,17 @@ package moodpicker
 import "strings"
 
 // schemaVersion lets the client cache-bust if the question set changes.
-const schemaVersion = 1
-
-// Supported depths and the question ids they include.
-var depthQuestions = map[string][]string{
-	"quick":    {"mood", "time", "discovery"},
-	"standard": {"mood", "company", "time", "era", "discovery"},
-}
+const schemaVersion = 2
 
 // DefaultDepth is used when a request omits or sends an unknown depth.
 const DefaultDepth = "standard"
 
-// questions is the static definition of every question, keyed by id.
+// knownDepths is the set of supported depths (controls flow length).
+var knownDepths = map[string]bool{"quick": true, "standard": true}
+
+// questions is the static definition of every question, keyed by id. The
+// branching flow (flow.go) references these ids; the AI strategy may only pick
+// from this bank, so it can never invent a question.
 var questions = map[string]Question{
 	"mood": {
 		ID:    "mood",
@@ -27,6 +26,68 @@ var questions = map[string]Question{
 			{ID: "think", Label: "Подумати", Emoji: "🧠"},
 			{ID: "cozy", Label: "Затишний вечір", Emoji: "🛋️"},
 			{ID: "scary", Label: "Полоскотати нерви", Emoji: "👻"},
+		},
+	},
+	// Mood sub-branches — asked only when the matching mood is chosen.
+	"scary_type": {
+		ID:    "scary_type",
+		Title: "Який саме страх?",
+		Type:  "single",
+		Options: []Option{
+			{ID: "psychological", Label: "Психологічний", Emoji: "🌀"},
+			{ID: "supernatural", Label: "Надприродне", Emoji: "🔮"},
+			{ID: "gore", Label: "Жорсткий", Emoji: "🩸"},
+			{ID: "suspense", Label: "Саспенс", Emoji: "😰"},
+		},
+	},
+	"think_type": {
+		ID:    "think_type",
+		Title: "Про що поміркувати?",
+		Type:  "single",
+		Options: []Option{
+			{ID: "mindbender", Label: "Головоломка", Emoji: "🧩"},
+			{ID: "true_story", Label: "Реальні події", Emoji: "📖"},
+			{ID: "slow_burn", Label: "Повільне занурення", Emoji: "🕯️"},
+			{ID: "social", Label: "Соціальне", Emoji: "🌍"},
+		},
+	},
+	"pace": {
+		ID:    "pace",
+		Title: "Який темп?",
+		Type:  "single",
+		Options: []Option{
+			{ID: "nonstop", Label: "Нон-стоп екшн", Emoji: "💥"},
+			{ID: "stylish", Label: "Стильний бойовик", Emoji: "🕶️"},
+			{ID: "adventure", Label: "Пригода", Emoji: "🗺️"},
+		},
+	},
+	"cry_type": {
+		ID:    "cry_type",
+		Title: "Яка драма?",
+		Type:  "single",
+		Options: []Option{
+			{ID: "romance", Label: "Романтична", Emoji: "💔"},
+			{ID: "life", Label: "Життєва історія", Emoji: "🌿"},
+			{ID: "loss", Label: "Про втрату", Emoji: "🕊️"},
+		},
+	},
+	"region": {
+		ID:    "region",
+		Title: "Звідки кіно?",
+		Type:  "single",
+		Options: []Option{
+			{ID: "any", Label: "Будь-яке", Emoji: "🌍"},
+			{ID: "local", Label: "Українське / СНД", Emoji: "🇺🇦"},
+			{ID: "usa", Label: "США", Emoji: "🇺🇸"},
+			{ID: "uk", Label: "Британія", Emoji: "🇬🇧"},
+			{ID: "korea", Label: "Корея", Emoji: "🇰🇷"},
+			{ID: "japan", Label: "Японія", Emoji: "🇯🇵"},
+			{ID: "france", Label: "Франція", Emoji: "🇫🇷"},
+			{ID: "india", Label: "Індія", Emoji: "🇮🇳"},
+			{ID: "europe", Label: "Європа (інша)", Emoji: "🇪🇺"},
+			{ID: "nordic", Label: "Скандинавія", Emoji: "❄️"},
+			{ID: "asia", Label: "Азія (інша)", Emoji: "🎌"},
+			{ID: "latam", Label: "Латинська Америка", Emoji: "🌴"},
 		},
 	},
 	"company": {
@@ -75,18 +136,25 @@ var questions = map[string]Question{
 // NormalizeDepth maps an input depth to a supported one, falling back to default.
 func NormalizeDepth(depth string) string {
 	depth = strings.TrimSpace(strings.ToLower(depth))
-	if _, ok := depthQuestions[depth]; ok {
+	if knownDepths[depth] {
 		return depth
 	}
 	return DefaultDepth
 }
 
-// QuestionsForDepth returns the ordered question set for a depth.
+// QuestionsForDepth returns the unconditional question path for a depth (no
+// branching context). It backs the legacy GET /mood/questions; the adaptive
+// flow is driven step-by-step via Service.NextStep instead.
 func QuestionsForDepth(depth string) QuestionSet {
 	depth = NormalizeDepth(depth)
-	ids := depthQuestions[depth]
-	items := make([]Question, 0, len(ids))
-	for _, id := range ids {
+	items := make([]Question, 0)
+	seen := make(map[string]bool)
+	for _, slot := range flowFor(depth) {
+		id := slot.resolve(map[string]string{})
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
 		items = append(items, questions[id])
 	}
 	return QuestionSet{

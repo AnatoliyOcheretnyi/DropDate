@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "../../../widgets/Header";
-import { AuthModal } from "../../../widgets/AuthModal";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import type { ListType } from "../../../shared/types/releases";
 import { useAuth } from "../../../shared/state/auth";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useMoodSession } from "../hooks/useMoodSession";
@@ -44,9 +44,8 @@ const toRelease = (pick: MoodPick): ReleaseInfo => ({
 
 export function MoodScreen() {
   const router = useRouter();
-  const { user, accessToken } = useAuth();
-  const { saved, getListTypes, toggleListType } = useSavedReleases();
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const { accessToken } = useAuth();
+  const { saved, getListTypes, setSuggestionLists } = useSavedReleases();
 
   const {
     status,
@@ -62,8 +61,6 @@ export function MoodScreen() {
     reset,
   } = useMoodSession(accessToken);
 
-  const isAuthed = Boolean(user && accessToken);
-
   const handleDetails = useCallback(
     (pick: MoodPick) => {
       router.push(`/title/${pick.mediaType}/${pick.tmdbId}`);
@@ -71,20 +68,16 @@ export function MoodScreen() {
     [router]
   );
 
-  const handleSave = useCallback(
-    (pick: MoodPick) => {
-      if (!isAuthed) {
-        setIsAuthOpen(true);
-        return;
-      }
-      toggleListType(toSuggestion(pick), "watchlist", toRelease(pick));
-    },
-    [isAuthed, toggleListType]
+  const getPickLists = useCallback(
+    (pick: MoodPick) => getListTypes(toSuggestion(pick)),
+    [getListTypes]
   );
 
-  const isSaved = useCallback(
-    (pick: MoodPick) => getListTypes(toSuggestion(pick)).length > 0,
-    [getListTypes]
+  const handleListChange = useCallback(
+    (pick: MoodPick, listTypes: ListType[]) => {
+      setSuggestionLists(toSuggestion(pick), listTypes, toRelease(pick));
+    },
+    [setSuggestionLists]
   );
 
   return (
@@ -98,7 +91,9 @@ export function MoodScreen() {
         onSearchClose={() => undefined}
       />
 
-      <section className="mood-shell">
+      <section
+        className={`mood-shell${status === "results" ? " mood-shell--wide" : ""}`}
+      >
         {status === "config" && (
           <div className="mood-intro">
             <p className="eyebrow">Підбір за настроєм</p>
@@ -145,8 +140,8 @@ export function MoodScreen() {
             onMore={showMore}
             onReset={reset}
             onDetails={handleDetails}
-            onSave={handleSave}
-            isSaved={isSaved}
+            getListTypes={getPickLists}
+            onListChange={handleListChange}
           />
         )}
 
@@ -171,7 +166,6 @@ export function MoodScreen() {
         )}
       </section>
 
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>
   );
 }

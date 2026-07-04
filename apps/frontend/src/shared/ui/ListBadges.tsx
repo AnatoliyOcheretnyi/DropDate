@@ -24,7 +24,7 @@ export function ListBadges({ listTypes }: Props) {
         </span>
       )}
       {listTypes.includes("watchlist") && (
-        <span className="list-badge" title="Want to watch">
+        <span className="list-badge" title="Хочу подивитись">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M12 6.3c-4.4 0-7.8 2.6-9.7 5.7 2 3.1 5.3 5.7 9.7 5.7s7.8-2.6 9.7-5.7c-2-3.1-5.3-5.7-9.7-5.7Z"
@@ -36,7 +36,7 @@ export function ListBadges({ listTypes }: Props) {
         </span>
       )}
       {listTypes.includes("favorite") && (
-        <span className="list-badge" title="Favorites">
+        <span className="list-badge" title="Улюблене">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="m12 17.3 5.2 3.2-1.4-6.1 4.8-4.2-6.3-0.5L12 3.8 9.7 9.7l-6.3 0.5 4.8 4.2-1.4 6.1L12 17.3Z"

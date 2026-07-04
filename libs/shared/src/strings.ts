@@ -52,8 +52,8 @@ export const copy = {
   },
   lists: {
     follow: "Підписка",
-    watchlist: "Want to watch",
-    favorite: "Favorites",
+    watchlist: "Хочу подивитись",
+    favorite: "Улюблене",
     watched: "Переглянуто",
     disliked: "Не сподобалось",
     empty: "Поки порожньо — додай зі сторінки пошуку/трендів",

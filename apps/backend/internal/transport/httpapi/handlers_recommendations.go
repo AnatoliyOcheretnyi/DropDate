@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
@@ -40,7 +41,8 @@ func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) 
 	limit = recommendations.NormalizeLimit(limit)
 
 	wantAI := parseBoolParam(r.URL.Query().Get("ai"))
-	if wantAI && s.ai != nil && s.saved != nil {
+	if wantAI && s.ai != nil && s.saved != nil &&
+		s.aiEnabled(r.Context(), userID, capabilities.AIRecommendations) {
 		if cached, ok := s.recommendations.CachedAI(userID, limit); ok {
 			writeJSON(w, http.StatusOK, cached)
 			return

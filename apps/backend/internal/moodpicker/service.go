@@ -30,6 +30,7 @@ type Service struct {
 	now     func() time.Time
 	rng     *rand.Rand
 	rngMu   sync.Mutex
+	aiNext  NextQuestionStrategy
 }
 
 // NewService wires the mood picker to its catalog and (optional) saved source.
@@ -51,6 +52,98 @@ func (s *Service) Questions(depth string) QuestionSet {
 	return QuestionsForDepth(depth)
 }
 
+// SetNextQuestionStrategy installs the AI strategy for adaptive branching. When
+// nil (or when a request doesn't opt in), the deterministic rule-based order is
+// used.
+func (s *Service) SetNextQuestionStrategy(strategy NextQuestionStrategy) {
+	s.aiNext = strategy
+}
+
+// NextStep returns the next question to ask given the answers so far, or Done.
+// When useAI is true and a strategy is installed, the AI picks the next question
+// from the eligible set (grounded); otherwise the rule-based order applies.
+func (s *Service) NextStep(ctx context.Context, depth string, answers map[string]string, useAI bool) (NextResult, error) {
+	depth = NormalizeDepth(depth)
+	if answers == nil {
+		answers = map[string]string{}
+	}
+	if err := validateDynamicAnswers(answers); err != nil {
+		return NextResult{}, err
+	}
+	meta := QuestionMeta{Depth: depth, Version: schemaVersion}
+
+	// Mood is always asked first for coherence; AI never overrides that.
+	if _, ok := answers["mood"]; !ok {
+		q := questions["mood"]
+		return NextResult{Question: &q, Answered: len(answers), Meta: meta}, nil
+	}
+
+	eligible := eligibleNextIDs(depth, answers)
+	if len(eligible) == 0 {
+		return NextResult{Done: true, Answered: len(answers), Meta: meta}, nil
+	}
+
+	chosen := eligible[0] // rule-based default
+	if useAI && s.aiNext != nil && len(eligible) > 1 {
+		if id := s.aiPickNext(ctx, answers, eligible); id != "" {
+			chosen = id
+		}
+	}
+	q := questions[chosen]
+	return NextResult{Question: &q, Answered: len(answers), Meta: meta}, nil
+}
+
+// aiPickNext asks the AI strategy for the next question id, returning "" on any
+// failure or an out-of-set answer so the caller falls back to rules.
+func (s *Service) aiPickNext(ctx context.Context, answers map[string]string, eligible []string) string {
+	allowed := make(map[string]bool, len(eligible))
+	candidates := make([]Question, 0, len(eligible))
+	for _, id := range eligible {
+		allowed[id] = true
+		candidates = append(candidates, questions[id])
+	}
+	id, err := s.aiNext.NextQuestionID(ctx, answeredContext(answers), candidates)
+	if err != nil {
+		s.logf("mood ai next-question failed: %v", err)
+		return ""
+	}
+	if !allowed[id] {
+		return ""
+	}
+	return id
+}
+
+// answeredContext builds a stable, labelled view of the answers for the AI.
+func answeredContext(answers map[string]string) []AnsweredQuestion {
+	order := []string{"mood", "scary_type", "think_type", "pace", "cry_type", "region", "time", "era", "company", "discovery"}
+	out := make([]AnsweredQuestion, 0, len(answers))
+	seen := make(map[string]bool)
+	add := func(id string) {
+		opt, ok := answers[id]
+		if !ok || seen[id] {
+			return
+		}
+		q, exists := questions[id]
+		if !exists {
+			return
+		}
+		seen[id] = true
+		out = append(out, AnsweredQuestion{
+			QuestionID:    id,
+			QuestionTitle: q.Title,
+			OptionID:      opt,
+			OptionLabel:   optionLabel(id, opt),
+		})
+	}
+	for _, id := range order {
+		add(id)
+	}
+	for id := range answers {
+		add(id)
+	}
+	return out
+}
+
 // NormalizeCount clamps a requested pick count into the supported range.
 func NormalizeCount(count int) int {
 	if count <= 0 {
@@ -68,8 +161,11 @@ func (s *Service) Picks(ctx context.Context, req PicksRequest) (PicksResult, err
 		return PicksResult{}, fmt.Errorf("%w: mode %q not supported", ErrInvalidRequest, mode)
 	}
 	depth := NormalizeDepth(req.Depth)
-	if err := validateAnswers(depth, req.Answers); err != nil {
+	if err := validateDynamicAnswers(req.Answers); err != nil {
 		return PicksResult{}, err
+	}
+	if req.Answers["mood"] == "" {
+		return PicksResult{}, fmt.Errorf("%w: missing answer for %q", ErrInvalidRequest, "mood")
 	}
 
 	count := NormalizeCount(req.Count)
@@ -244,15 +340,13 @@ func (s *Service) shuffle(items []release.DiscoverItem) {
 	})
 }
 
-// validateAnswers ensures every required question for the depth has a valid answer.
-func validateAnswers(depth string, answers map[string]string) error {
-	for _, id := range depthQuestions[depth] {
-		value, ok := answers[id]
-		if !ok || value == "" {
-			return fmt.Errorf("%w: missing answer for %q", ErrInvalidRequest, id)
-		}
-		if !validOption(id, value) {
-			return fmt.Errorf("%w: invalid answer %q for %q", ErrInvalidRequest, value, id)
+// validateDynamicAnswers ensures every provided answer is a known option. The
+// answered set is dynamic (adaptive flow), so only validity is checked here;
+// callers additionally require the essential answers (e.g. mood).
+func validateDynamicAnswers(answers map[string]string) error {
+	for qid, opt := range answers {
+		if opt == "" || !validOption(qid, opt) {
+			return fmt.Errorf("%w: invalid answer %q for %q", ErrInvalidRequest, opt, qid)
 		}
 	}
 	return nil

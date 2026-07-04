@@ -217,8 +217,8 @@ export function useTitleDetails() {
   const listLabelMap = useMemo<Record<ListType, string>>(
     () => ({
       follow: copy.lists?.follow ?? "Підписка",
-      watchlist: copy.lists?.watchlist ?? "Want to watch",
-      favorite: copy.lists?.favorite ?? "Favorites",
+      watchlist: copy.lists?.watchlist ?? "Хочу подивитись",
+      favorite: copy.lists?.favorite ?? "Улюблене",
       watched: copy.lists?.watched ?? "Переглянуто",
       disliked: copy.lists?.disliked ?? "Не сподобалось",
     }),

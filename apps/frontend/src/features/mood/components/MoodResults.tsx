@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import type { MoodPick } from "../api/mood";
+import type { ListType } from "../../../shared/types/releases";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
+import { ListPickerModal } from "../../../widgets/ListPickerModal";
 
 type Props = {
   picks: MoodPick[];
   onMore: () => void;
   onReset: () => void;
   onDetails: (pick: MoodPick) => void;
-  onSave: (pick: MoodPick) => void;
-  isSaved: (pick: MoodPick) => boolean;
+  getListTypes: (pick: MoodPick) => ListType[];
+  onListChange: (pick: MoodPick, listTypes: ListType[]) => void;
 };
 
 export function MoodResults({
@@ -17,9 +20,11 @@ export function MoodResults({
   onMore,
   onReset,
   onDetails,
-  onSave,
-  isSaved,
+  getListTypes,
+  onListChange,
 }: Props) {
+  const [openPickerId, setOpenPickerId] = useState<number | null>(null);
+
   return (
     <div className="mood-results">
       <div className="mood-results-head">
@@ -29,7 +34,7 @@ export function MoodResults({
 
       <div className="mood-grid">
         {picks.map((pick) => {
-          const saved = isSaved(pick);
+          const lists = getListTypes(pick);
           return (
             <article key={pick.tmdbId} className="mood-card">
               <div
@@ -72,15 +77,34 @@ export function MoodResults({
                   >
                     Деталі
                   </button>
-                  <button
-                    type="button"
-                    className={`mood-card-action mood-card-action--save${
-                      saved ? " saved" : ""
-                    }`}
-                    onClick={() => onSave(pick)}
-                  >
-                    {saved ? "У списку ✓" : "Зберегти"}
-                  </button>
+                  <div className="list-picker mood-card-picker">
+                    <button
+                      type="button"
+                      className={`list-picker__button list-picker__button--compact${
+                        lists.length > 0 ? " is-active" : ""
+                      }`}
+                      onClick={() =>
+                        setOpenPickerId((current) =>
+                          current === pick.tmdbId ? null : pick.tmdbId
+                        )
+                      }
+                    >
+                      {lists.length > 0 ? (
+                        <>
+                          <span className="list-picker__check">✓</span>
+                          <span>Списки · {lists.length}</span>
+                        </>
+                      ) : (
+                        <span>+ У список</span>
+                      )}
+                    </button>
+                    <ListPickerModal
+                      isOpen={openPickerId === pick.tmdbId}
+                      selected={lists}
+                      onClose={() => setOpenPickerId(null)}
+                      onChange={(next) => onListChange(pick, next)}
+                    />
+                  </div>
                 </div>
               </div>
             </article>

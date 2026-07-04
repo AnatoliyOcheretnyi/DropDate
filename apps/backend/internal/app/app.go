@@ -10,8 +10,9 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
-	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
@@ -108,6 +109,22 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		logger.Printf("GEMINI_API_KEY not set, AI recommendations disabled")
 	}
 
+	// The mood picker uses Gemini for adaptive question branching when available;
+	// per-request gating still goes through the capability resolver.
+	if aiService != nil {
+		moodService.SetNextQuestionStrategy(aiService)
+	}
+
+	// AI features are effective only when a Gemini client exists; each toggle
+	// gates one feature. A per-user (tier-aware) resolver can replace Static
+	// later without touching call sites.
+	aiReady := aiService != nil
+	capabilitiesResolver := capabilities.NewStatic(map[capabilities.Feature]bool{
+		capabilities.AIRecommendations: aiReady && cfg.AI.RecommendationsEnabled,
+		capabilities.AIMood:            aiReady && cfg.AI.MoodEnabled,
+		capabilities.AIMatch:           aiReady && cfg.AI.MatchEnabled,
+	})
+
 	var readiness httpapi.ReadinessChecker
 	if db != nil || tmdbClient != nil {
 		readiness = readinessChecker{
@@ -131,6 +148,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			ReadinessTimeout: cfg.Readiness.Timeout,
 			RequestTimeout:   cfg.HTTP.RequestTimeout,
 			AI:               aiService,
+			Capabilities:     capabilitiesResolver,
 		},
 	)
 
@@ -237,18 +255,18 @@ func buildAuthService(db *sql.DB, cfg AuthConfig, sender email.Sender, emailCfg 
 		verifyBaseURL = emailCfg.AppBaseURL
 	}
 	return auth.NewService(db, auth.Config{
-		JWTSecret:                []byte(cfg.JWTSecret),
-		Issuer:                   cfg.Issuer,
-		AccessTTL:                cfg.AccessTTL,
-		RefreshTTL:               cfg.RefreshTTL,
-		CookieName:               cfg.CookieName,
-		CookieSecure:             cfg.CookieSecure,
-		RequireEmailVerification: cfg.RequireEmailVerification,
-		EmailVerificationTTL:     cfg.VerificationTTL,
+		JWTSecret:                  []byte(cfg.JWTSecret),
+		Issuer:                     cfg.Issuer,
+		AccessTTL:                  cfg.AccessTTL,
+		RefreshTTL:                 cfg.RefreshTTL,
+		CookieName:                 cfg.CookieName,
+		CookieSecure:               cfg.CookieSecure,
+		RequireEmailVerification:   cfg.RequireEmailVerification,
+		EmailVerificationTTL:       cfg.VerificationTTL,
 		VerificationResendCooldown: cfg.VerificationResendCooldown,
-		AppBaseURL:               verifyBaseURL,
-		EmailSender:              sender,
-		EmailFrom:                emailCfg.ResendSender,
+		AppBaseURL:                 verifyBaseURL,
+		EmailSender:                sender,
+		EmailFrom:                  emailCfg.ResendSender,
 	}), nil
 }
 

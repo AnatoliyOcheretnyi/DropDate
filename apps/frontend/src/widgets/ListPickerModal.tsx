@@ -13,8 +13,8 @@ type Props = {
 
 const DEFAULT_LISTS: { type: ListType; label: string }[] = [
   { type: "follow", label: copy.lists?.follow ?? "Підписка" },
-  { type: "watchlist", label: copy.lists?.watchlist ?? "Want to watch" },
-  { type: "favorite", label: copy.lists?.favorite ?? "Favorites" },
+  { type: "watchlist", label: copy.lists?.watchlist ?? "Хочу подивитись" },
+  { type: "favorite", label: copy.lists?.favorite ?? "Улюблене" },
   { type: "watched", label: copy.lists?.watched ?? "Переглянуто" },
   { type: "disliked", label: copy.lists?.disliked ?? "Не сподобалось" },
 ];

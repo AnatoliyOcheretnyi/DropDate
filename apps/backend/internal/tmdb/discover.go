@@ -12,22 +12,23 @@ import (
 // omitted from the request. MediaType selects /discover/movie (default) or
 // /discover/tv.
 type DiscoverParams struct {
-	MediaType        string  // "movie" (default) or "tv"
-	WithGenres       []int   // OR-joined (any of)
-	WithoutGenres    []int   // excluded
-	OriginalLanguage string  // ISO 639-1, e.g. "ja", "ko", "en"
-	RuntimeLTE       int     // 0 = unset
-	RuntimeGTE       int     // 0 = unset
-	ReleaseDateGTE   string  // "YYYY-MM-DD", "" = unset
-	ReleaseDateLTE   string  // "YYYY-MM-DD", "" = unset
-	SortBy           string  // default "popularity.desc"
-	VoteCountGTE     int     // 0 = unset
-	VoteAverageGTE   float64 // 0 = unset
-	CertificationLTE string  // movie only, e.g. "PG-13"
-	CertCountry      string  // movie only, e.g. "US"
-	WithType         string  // tv only, e.g. "2" (miniseries), "4" (scripted)
-	WithStatus       string  // tv only, e.g. "0" (returning), "3" (ended)
-	Page             int     // 1-based; 0 -> 1
+	MediaType         string   // "movie" (default) or "tv"
+	WithGenres        []int    // OR-joined (any of)
+	WithoutGenres     []int    // excluded
+	OriginalLanguage  string   // ISO 639-1, e.g. "ja", "ko", "en"
+	WithOriginCountry []string // ISO 3166-1, OR-joined (any of), e.g. ["KR","JP"]
+	RuntimeLTE        int      // 0 = unset
+	RuntimeGTE        int      // 0 = unset
+	ReleaseDateGTE    string   // "YYYY-MM-DD", "" = unset
+	ReleaseDateLTE    string   // "YYYY-MM-DD", "" = unset
+	SortBy            string   // default "popularity.desc"
+	VoteCountGTE      int      // 0 = unset
+	VoteAverageGTE    float64  // 0 = unset
+	CertificationLTE  string   // movie only, e.g. "PG-13"
+	CertCountry       string   // movie only, e.g. "US"
+	WithType          string   // tv only, e.g. "2" (miniseries), "4" (scripted)
+	WithStatus        string   // tv only, e.g. "0" (returning), "3" (ended)
+	Page              int      // 1-based; 0 -> 1
 }
 
 // DiscoverItem is one /discover result, enriched with the fields the pickers
@@ -86,6 +87,9 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 	}
 	if p.OriginalLanguage != "" {
 		q.Set("with_original_language", p.OriginalLanguage)
+	}
+	if len(p.WithOriginCountry) > 0 {
+		q.Set("with_origin_country", strings.Join(p.WithOriginCountry, "|"))
 	}
 	if p.RuntimeLTE > 0 {
 		q.Set("with_runtime.lte", strconv.Itoa(p.RuntimeLTE))
