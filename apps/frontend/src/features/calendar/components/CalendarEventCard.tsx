@@ -3,6 +3,7 @@
 import type { MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getReleaseStatusLabel } from "../../../shared/lib/release";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import type { CalendarEvent } from "../hooks/useCalendarReleases";
 
 type Props = {
@@ -33,7 +34,7 @@ export function CalendarEventCard({ event, variant = "card" }: Props) {
       >
         <span className="calendar-event-pill-thumb" aria-hidden="true">
           {imageUrl ? (
-            <img src={imageUrl} alt="" loading="lazy" />
+            <CoverImage src={imageUrl} alt="" sizes="24px" ariaHidden />
           ) : (
             <span>{event.title.slice(0, 1)}</span>
           )}
@@ -52,7 +53,7 @@ export function CalendarEventCard({ event, variant = "card" }: Props) {
     >
       <span className="calendar-event-card-thumb" aria-hidden="true">
         {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" />
+          <CoverImage src={imageUrl} alt="" sizes="38px" ariaHidden />
         ) : (
           <span>{event.title.slice(0, 1)}</span>
         )}

@@ -8,6 +8,7 @@ import { ListBadges } from "../../../shared/ui/ListBadges";
 import { ListPickerModal } from "../../../widgets/ListPickerModal";
 import { getReleaseStatusLabel } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import { useTitleDetails } from "../hooks/useTitleDetails";
 
 export function TitleDetailsScreen() {
@@ -115,7 +116,13 @@ export function TitleDetailsScreen() {
           <section className="details-hero">
             {details.backdropUrl ? (
               <div className="details-backdrop">
-                <img src={details.backdropUrl} alt="" aria-hidden="true" />
+                <CoverImage
+                  src={details.backdropUrl}
+                  alt=""
+                  sizes="100vw"
+                  priority
+                  ariaHidden
+                />
               </div>
             ) : (
               <div className="details-backdrop details-backdrop--empty" />

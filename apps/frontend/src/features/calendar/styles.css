@@ -309,6 +309,7 @@
 }
 
 .calendar-event-pill-thumb {
+  position: relative;
   flex-shrink: 0;
   width: 1.4rem;
   height: 1.4rem;
@@ -419,6 +420,7 @@
 }
 
 .calendar-event-card-thumb {
+  position: relative;
   flex-shrink: 0;
   width: 2.4rem;
   height: 3.4rem;

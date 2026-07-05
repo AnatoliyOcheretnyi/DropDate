@@ -2,6 +2,7 @@
 
 import { copy } from "../../../shared/lib/strings";
 import type { Details, Suggestion } from "../../../shared/lib/release";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   details: Details;
@@ -43,9 +44,13 @@ export function FeaturedBanner({
   return (
     <section className="featured-shell">
       <div className="featured-banner">
-        <div className="featured-media">
+        <div className="featured-media" style={{ position: "relative" }}>
           {heroImage ? (
-            <img src={heroImage} alt={details.title} loading="lazy" />
+            <CoverImage
+              src={heroImage}
+              alt={details.title}
+              sizes="(max-width: 900px) 100vw, 60vw"
+            />
           ) : (
             <div className="featured-media__fallback">
               {details.title.slice(0, 1)}

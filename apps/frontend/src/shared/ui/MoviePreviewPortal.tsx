@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Details } from "../lib/release";
+import { CoverImage } from "./CoverImage";
 
 const PREVIEW_WIDTH = 340;
 const ESTIMATED_HEIGHT = 380;
@@ -70,7 +71,7 @@ export function MoviePreviewPortal({ anchor, title, details, loading }: Props) {
         >
           {backdrop ? (
             <div className="movie-preview-media">
-              <img src={backdrop} alt="" />
+              <CoverImage src={backdrop} alt="" sizes="340px" ariaHidden />
             </div>
           ) : null}
 

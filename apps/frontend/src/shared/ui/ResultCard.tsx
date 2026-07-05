@@ -2,6 +2,7 @@
 
 import { getReleaseStatusLabel, type ReleaseInfo } from "../lib/release";
 import { copy } from "../lib/strings";
+import { CoverImage } from "./CoverImage";
 import { ReleaseDetails } from "./ReleaseDetails";
 
 type Props = {
@@ -30,7 +31,11 @@ export function ResultCard({ release, onSave, isSaved, disableActions }: Props) 
       </div>
       <div className={`card-hero${heroImage ? "" : " placeholder"}`}>
         {heroImage ? (
-          <img src={heroImage} alt={release.title} loading="lazy" />
+          <CoverImage
+            src={heroImage}
+            alt={release.title}
+            sizes="(max-width: 900px) 100vw, 50vw"
+          />
         ) : (
           <span>{heroFallbackLetter}</span>
         )}

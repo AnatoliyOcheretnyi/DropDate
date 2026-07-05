@@ -1,5 +1,6 @@
 "use client";
 
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import type { GameMode, GameTitleCard } from "../api/games";
 
 type CardState = "idle" | "correct" | "wrong";
@@ -62,7 +63,11 @@ export function GameQuestionCard({
       >
         <div className="game-card__media">
           {card.posterUrl ? (
-            <img src={card.posterUrl} alt={card.title} loading="lazy" />
+            <CoverImage
+              src={card.posterUrl}
+              alt={card.title}
+              sizes="(max-width: 900px) 45vw, 320px"
+            />
           ) : (
             <div className="game-card__fallback">{card.title.slice(0, 1)}</div>
           )}

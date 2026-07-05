@@ -1125,6 +1125,7 @@
 }
 
 .notification-media {
+  position: relative;
   width: 46px;
   height: 62px;
   border-radius: 0.75rem;

@@ -8,6 +8,7 @@ import { copy } from "../shared/lib/strings";
 import { useAuth } from "../shared/state/auth";
 import { useNotifications } from "../features/notifications/hooks/useNotifications";
 import type { NotificationItem } from "../features/notifications/types/notifications";
+import { CoverImage } from "../shared/ui/CoverImage";
 import { AuthModal } from "./AuthModal";
 
 export type ViewKey = "home" | "saved" | "games" | "mood" | "match" | "calendar";
@@ -289,7 +290,12 @@ export function Header({
                         >
                           <div className="notification-media">
                             {item.posterUrl ? (
-                              <img src={item.posterUrl} alt="" loading="lazy" />
+                              <CoverImage
+                                src={item.posterUrl}
+                                alt=""
+                                sizes="46px"
+                                ariaHidden
+                              />
                             ) : (
                               <span>{item.title.slice(0, 1)}</span>
                             )}

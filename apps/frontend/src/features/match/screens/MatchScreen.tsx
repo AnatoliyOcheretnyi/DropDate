@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "../../../widgets/Header";
 import { AuthModal } from "../../../widgets/AuthModal";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import { useAuth } from "../../../shared/state/auth";
@@ -162,7 +163,12 @@ export function MatchScreen() {
                       aria-hidden="true"
                     >
                       {pick.posterUrl ? (
-                        <img src={pick.posterUrl} alt="" loading="lazy" />
+                        <CoverImage
+                          src={pick.posterUrl}
+                          alt=""
+                          sizes="(max-width: 900px) 50vw, 240px"
+                          ariaHidden
+                        />
                       ) : (
                         <span className="mood-card-fallback">
                           {pick.title.slice(0, 1)}

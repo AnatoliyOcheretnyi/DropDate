@@ -3,6 +3,7 @@
 import type { SavedRelease } from "../../../shared/types/releases";
 import { getReleaseStatusLabel, type Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -115,7 +116,11 @@ export function AuthorizedSavedList({
             className={`saved-banner-media${usesPoster ? " is-poster" : ""}`}
           >
             {imageUrl ? (
-              <img src={imageUrl} alt={item.title} loading="lazy" />
+              <CoverImage
+                src={imageUrl}
+                alt={item.title}
+                sizes="(max-width: 900px) 100vw, 33vw"
+              />
             ) : (
               <div className="saved-banner-fallback">
                 {item.title.slice(0, 1)}

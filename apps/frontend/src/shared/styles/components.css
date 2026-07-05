@@ -371,6 +371,7 @@ dd.date span:last-child {
 }
 
 .suggestion-poster {
+  position: relative;
   width: 56px;
   height: 76px;
   border-radius: 0.8rem;

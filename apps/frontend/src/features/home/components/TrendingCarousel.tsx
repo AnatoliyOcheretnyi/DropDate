@@ -5,6 +5,7 @@ import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { ListBadges } from "../../../shared/ui/ListBadges";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 type Props = {
@@ -63,7 +64,11 @@ function TrendingCarouselComponent({
                   >
                     <div className="poster-card__media">
                       {item.posterUrl ? (
-                        <img src={item.posterUrl} alt={item.title} loading="lazy" />
+                        <CoverImage
+                          src={item.posterUrl}
+                          alt={item.title}
+                          sizes="(max-width: 900px) 40vw, 176px"
+                        />
                       ) : (
                         <div className="poster-card-fallback">
                           {item.title.slice(0, 1)}

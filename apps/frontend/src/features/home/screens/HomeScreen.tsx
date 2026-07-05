@@ -6,6 +6,7 @@ import type { Suggestion } from "../../../shared/lib/release";
 import { Header } from "../../../widgets/Header";
 import { SearchOverlay } from "../../../widgets/SearchOverlay";
 import { TrendingCarousel } from "../components/TrendingCarousel";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
@@ -317,7 +318,12 @@ function HomeScreenContent({ sections }: Props) {
               >
                 <div className="showcase-feature__media">
                   {spotlight.posterUrl ? (
-                    <img src={spotlight.posterUrl} alt={spotlight.title} loading="eager" />
+                    <CoverImage
+                      src={spotlight.posterUrl}
+                      alt={spotlight.title}
+                      sizes="(max-width: 900px) 100vw, 36vw"
+                      priority
+                    />
                   ) : (
                     <div className="showcase-feature__fallback">
                       {spotlight.title.slice(0, 1)}
@@ -355,7 +361,11 @@ function HomeScreenContent({ sections }: Props) {
                 >
                   <div className="showcase-poster__media">
                     {item.posterUrl ? (
-                      <img src={item.posterUrl} alt={item.title} loading="lazy" />
+                      <CoverImage
+                        src={item.posterUrl}
+                        alt={item.title}
+                        sizes="(max-width: 900px) 50vw, 18vw"
+                      />
                     ) : (
                       <div className="showcase-poster__fallback">
                         {item.title.slice(0, 1)}

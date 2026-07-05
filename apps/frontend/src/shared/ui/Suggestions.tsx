@@ -2,6 +2,7 @@
 
 import type { Suggestion } from "../lib/release";
 import { copy } from "../lib/strings";
+import { CoverImage } from "./CoverImage";
 
 type Props = {
   suggestions: Suggestion[];
@@ -20,7 +21,7 @@ export function Suggestions({ suggestions, isSaved, onSelect }: Props) {
           <button type="button" onClick={() => onSelect(suggestion)}>
             <div className="suggestion-poster" aria-hidden>
               {suggestion.posterUrl ? (
-                <img src={suggestion.posterUrl} alt="" loading="lazy" />
+                <CoverImage src={suggestion.posterUrl} alt="" sizes="56px" ariaHidden />
               ) : (
                 <div className="suggestion-poster-fallback" />
               )}

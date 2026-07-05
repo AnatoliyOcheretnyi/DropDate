@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { MoodPick } from "../api/mood";
 import type { ListType } from "../../../shared/types/releases";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 import { ListPickerModal } from "../../../widgets/ListPickerModal";
 
@@ -43,7 +44,12 @@ export function MoodResults({
                 aria-hidden="true"
               >
                 {pick.posterUrl ? (
-                  <img src={pick.posterUrl} alt="" loading="lazy" />
+                  <CoverImage
+                    src={pick.posterUrl}
+                    alt=""
+                    sizes="(max-width: 900px) 50vw, 240px"
+                    ariaHidden
+                  />
                 ) : (
                   <span className="mood-card-fallback">
                     {pick.title.slice(0, 1)}
