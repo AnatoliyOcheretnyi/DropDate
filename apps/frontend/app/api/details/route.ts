@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const backendResponse = await fetch(backendURL, {
       headers: { accept: "application/json" },
-      next: { revalidate: 3600 },
+      next: { revalidate: 600 },
     });
 
     const payload = await backendResponse

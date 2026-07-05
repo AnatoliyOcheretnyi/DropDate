@@ -3,7 +3,6 @@
 import type { Details, ReleaseInfo } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
-import { CoverImage } from "../../../shared/ui/CoverImage";
 import { ListBadges } from "../../../shared/ui/ListBadges";
 import { ListPickerModal } from "../../../widgets/ListPickerModal";
 
@@ -39,21 +38,6 @@ export function TitleDetailsHero({
 
   return (
     <section className="details-hero">
-      {details.backdropUrl ? (
-        <div className="details-backdrop">
-          <CoverImage
-            src={details.backdropUrl}
-            alt=""
-            sizes="100vw"
-            priority
-            ariaHidden
-          />
-        </div>
-      ) : (
-        <div className="details-backdrop details-backdrop--empty" />
-      )}
-      <div className="details-hero-shade" />
-
       <div className="details-inner">
         <button type="button" className="details-back" onClick={onBack}>
           <span aria-hidden="true">←</span>

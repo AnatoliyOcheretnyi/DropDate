@@ -339,7 +339,25 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		Popularity:        info.Popularity,
 		Homepage:          info.Homepage,
 		OriginCountry:     info.OriginCountry,
+		Cast:              mapCast(info.Cast),
 	}, nil
+}
+
+// mapCast converts tmdb cast members to the release-level shape.
+func mapCast(cast []tmdb.CastMember) []CastMember {
+	if len(cast) == 0 {
+		return nil
+	}
+	out := make([]CastMember, 0, len(cast))
+	for _, member := range cast {
+		out = append(out, CastMember{
+			TMDBID:     member.ID,
+			Name:       member.Name,
+			Character:  member.Character,
+			ProfileURL: member.ProfileURL,
+		})
+	}
+	return out
 }
 
 func (p *tmdbSuggestionProvider) Recommendations(

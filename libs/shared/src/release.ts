@@ -48,6 +48,14 @@ export type Details = {
   popularity?: number;
   homepage?: string;
   originCountry?: string[];
+  cast?: CastMember[];
+};
+
+export type CastMember = {
+  tmdbId: number;
+  name: string;
+  character?: string;
+  profileUrl?: string;
 };
 
 export function getReleaseStatusLabel(status: ReleaseStatus, type: ReleaseType): string {

@@ -17,6 +17,10 @@ import (
 const defaultBaseURL = "https://api.themoviedb.org/3"
 const posterBaseURL = "https://image.tmdb.org/t/p/w342"
 const backdropBaseURL = "https://image.tmdb.org/t/p/w780"
+const profileBaseURL = "https://image.tmdb.org/t/p/w185"
+
+// maxCast caps how many billed cast members we surface on a title.
+const maxCast = 15
 
 // Client represents a TMDB HTTP client.
 type Client struct {
@@ -65,6 +69,16 @@ type DetailInfo struct {
 	Popularity        float64
 	Homepage          string
 	OriginCountry     []string
+	Cast              []CastMember
+}
+
+// CastMember is one billed actor on a title.
+type CastMember struct {
+	ID         int
+	Name       string
+	Character  string
+	ProfileURL string
+	Order      int
 }
 
 // Suggestion is a lightweight search result.
@@ -658,6 +672,7 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
+	q.Set("append_to_response", "credits")
 	req.URL.RawQuery = q.Encode()
 
 	var payload movieDetailsResponse
@@ -700,6 +715,7 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 		Popularity:    payload.Popularity,
 		Homepage:      payload.Homepage,
 		OriginCountry: payload.OriginCountry,
+		Cast:          mapCast(payload.Credits),
 	}, nil
 }
 
@@ -711,7 +727,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
-	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air")
+	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air,credits")
 	req.URL.RawQuery = q.Encode()
 
 	var payload tvDetailsResponse
@@ -797,6 +813,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		Popularity:        payload.Popularity,
 		Homepage:          payload.Homepage,
 		OriginCountry:     payload.OriginCountry,
+		Cast:              mapCast(payload.Credits),
 	}, nil
 }
 
@@ -943,20 +960,21 @@ type tvListEntry struct {
 }
 
 type movieDetailsResponse struct {
-	Title         string      `json:"title"`
-	Overview      string      `json:"overview"`
-	Tagline       string      `json:"tagline"`
-	Status        string      `json:"status"`
-	ReleaseDate   string      `json:"release_date"`
-	Runtime       int         `json:"runtime"`
-	Genres        []tmdbGenre `json:"genres"`
-	PosterPath    string      `json:"poster_path"`
-	BackdropPath  string      `json:"backdrop_path"`
-	VoteAverage   float64     `json:"vote_average"`
-	VoteCount     int         `json:"vote_count"`
-	Popularity    float64     `json:"popularity"`
-	Homepage      string      `json:"homepage"`
-	OriginCountry []string    `json:"origin_country"`
+	Title         string       `json:"title"`
+	Overview      string       `json:"overview"`
+	Tagline       string       `json:"tagline"`
+	Status        string       `json:"status"`
+	ReleaseDate   string       `json:"release_date"`
+	Runtime       int          `json:"runtime"`
+	Genres        []tmdbGenre  `json:"genres"`
+	PosterPath    string       `json:"poster_path"`
+	BackdropPath  string       `json:"backdrop_path"`
+	VoteAverage   float64      `json:"vote_average"`
+	VoteCount     int          `json:"vote_count"`
+	Popularity    float64      `json:"popularity"`
+	Homepage      string       `json:"homepage"`
+	OriginCountry []string     `json:"origin_country"`
+	Credits       *tmdbCredits `json:"credits"`
 }
 
 type tvDetailsResponse struct {
@@ -980,10 +998,48 @@ type tvDetailsResponse struct {
 	Popularity     float64         `json:"popularity"`
 	Homepage       string          `json:"homepage"`
 	OriginCountry  []string        `json:"origin_country"`
+	Credits        *tmdbCredits    `json:"credits"`
 }
 
 type tmdbGenre struct {
 	Name string `json:"name"`
+}
+
+type tmdbCredits struct {
+	Cast []tmdbCastEntry `json:"cast"`
+}
+
+type tmdbCastEntry struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Character   string `json:"character"`
+	ProfilePath string `json:"profile_path"`
+	Order       int    `json:"order"`
+}
+
+// mapCast converts TMDB credits to the billed cast, capped at maxCast and
+// skipping entries without a name.
+func mapCast(credits *tmdbCredits) []CastMember {
+	if credits == nil || len(credits.Cast) == 0 {
+		return nil
+	}
+	out := make([]CastMember, 0, maxCast)
+	for _, entry := range credits.Cast {
+		if entry.Name == "" {
+			continue
+		}
+		out = append(out, CastMember{
+			ID:         entry.ID,
+			Name:       entry.Name,
+			Character:  entry.Character,
+			ProfileURL: buildProfileURL(entry.ProfilePath),
+			Order:      entry.Order,
+		})
+		if len(out) >= maxCast {
+			break
+		}
+	}
+	return out
 }
 
 type tmdbNetwork struct {
@@ -1025,4 +1081,11 @@ func buildBackdropURL(path string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s%s", backdropBaseURL, path)
+}
+
+func buildProfileURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", profileBaseURL, path)
 }
