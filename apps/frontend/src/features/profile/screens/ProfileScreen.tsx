@@ -1,7 +1,6 @@
 "use client";
 
-import { Header } from "../../../widgets/Header";
-import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { AppPageShell } from "../../../widgets/AppPageShell";
 import { AuthModal } from "../../../widgets/AuthModal";
 import { AuthorizedSavedList } from "../../saved/components/AuthorizedSavedList";
 import { useProfile } from "../hooks/useProfile";
@@ -43,30 +42,30 @@ export function ProfileScreen() {
 
   return (
     <main className="page page--profile">
-      <Header
+      <AppPageShell
         active="home"
         savedCount={savedCount}
         onChange={handleNav}
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
-      />
-      <SearchOverlay
-        title={title}
-        isLoading={false}
-        isOpen={isSearchOpen}
-        onClose={handleSearchClose}
-        onChange={(value) => setTitle(value)}
-        onSubmit={handleSubmit}
-        onFocus={() => undefined}
-        onBlur={() => {
-          blurTimeoutRef.current = setTimeout(() => {}, 150);
+        searchOverlay={{
+          title,
+          isLoading: false,
+          isOpen: isSearchOpen,
+          onClose: handleSearchClose,
+          onChange: setTitle,
+          onSubmit: handleSubmit,
+          onFocus: () => undefined,
+          onBlur: () => {
+            blurTimeoutRef.current = setTimeout(() => {}, 150);
+          },
+          suggestions,
+          isFetchingSuggestions,
+          onSuggestionSelect: handleSuggestionSelect,
+          isSuggestionSaved,
         }}
-        suggestions={suggestions}
-        isFetchingSuggestions={isFetchingSuggestions}
-        onSuggestionSelect={handleSuggestionSelect}
-        isSuggestionSaved={isSuggestionSaved}
-      />
+      >
 
       <section className="profile-shell">
         <div className="profile-hero">
@@ -120,6 +119,7 @@ export function ProfileScreen() {
           />
         )}
       </section>
+      </AppPageShell>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>

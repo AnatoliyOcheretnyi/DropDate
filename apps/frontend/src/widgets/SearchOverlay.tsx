@@ -5,7 +5,7 @@ import type { Suggestion } from "../shared/lib/release";
 import { copy } from "../shared/lib/strings";
 import { Suggestions } from "../shared/ui/Suggestions";
 
-type Props = {
+export type SearchOverlayProps = {
   title: string;
   isLoading: boolean;
   isOpen: boolean;
@@ -33,7 +33,7 @@ export function SearchOverlay({
   isFetchingSuggestions,
   onSuggestionSelect,
   isSuggestionSaved,
-}: Props) {
+}: SearchOverlayProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {

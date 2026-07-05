@@ -3,17 +3,15 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
-import { Header } from "../../../widgets/Header";
-import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { AppPageShell } from "../../../widgets/AppPageShell";
 import { TrendingCarousel } from "../components/TrendingCarousel";
-import { CoverImage } from "../../../shared/ui/CoverImage";
-import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 import { pingBackend } from "../api/homeApi";
 import { useRecommendations } from "../hooks/useRecommendations";
 import { useHomeSections } from "../hooks/useHomeSections";
+import { HomeShowcase } from "../components/HomeShowcase";
 
 type Props = {
   sections: {
@@ -251,7 +249,7 @@ function HomeScreenContent({ sections }: Props) {
 
   return (
     <main className="page page--home">
-      <Header
+      <AppPageShell
         active="home"
         savedCount={saved.length}
         onChange={(view) => {
@@ -260,7 +258,25 @@ function HomeScreenContent({ sections }: Props) {
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
-      />
+        searchOverlay={{
+          title,
+          isLoading,
+          isOpen: isSearchOpen,
+          onClose: handleSearchClose,
+          onChange: setTitle,
+          onSubmit: handleSubmit,
+          onFocus: () => setIsInputFocused(true),
+          onBlur: () => {
+            blurTimeoutRef.current = setTimeout(() => {
+              setIsInputFocused(false);
+            }, 150);
+          },
+          suggestions,
+          isFetchingSuggestions,
+          onSuggestionSelect: handleSuggestionSelect,
+          isSuggestionSaved,
+        }}
+      >
       {backendStatus !== "idle" && (
         <div
           className={`backend-status-toast backend-status-toast--${backendStatus}`}
@@ -276,124 +292,12 @@ function HomeScreenContent({ sections }: Props) {
           </span>
         </div>
       )}
-      <SearchOverlay
-        title={title}
-        isLoading={isLoading}
-        isOpen={isSearchOpen}
-        onClose={handleSearchClose}
-        onChange={(value) => {
-          setTitle(value);
-        }}
-        onSubmit={handleSubmit}
-        onFocus={() => setIsInputFocused(true)}
-        onBlur={() => {
-          blurTimeoutRef.current = setTimeout(() => {
-            setIsInputFocused(false);
-          }, 150);
-        }}
-        suggestions={suggestions}
-        isFetchingSuggestions={isFetchingSuggestions}
-        onSuggestionSelect={handleSuggestionSelect}
-        isSuggestionSaved={isSuggestionSaved}
+      <HomeShowcase
+        spotlight={spotlight}
+        supportingItems={supportingSpotlightItems}
+        onSearchOpen={handleSearchToggle}
+        onSelect={handleGallerySelect}
       />
-
-      <section className="home-showcase hero-bleed">
-        <div className="home-showcase-inner">
-          <div className="home-showcase-head">
-            <div>
-              <p className="eyebrow">Зараз на радарі</p>
-              <h1>Нові релізи</h1>
-            </div>
-            <button type="button" className="primary" onClick={handleSearchToggle}>
-              Знайти фільм
-            </button>
-          </div>
-
-          <div className="home-showcase-grid">
-            {spotlight ? (
-              <button
-                type="button"
-                className="showcase-feature"
-                onClick={() => handleGallerySelect(spotlight)}
-              >
-                <div className="showcase-feature__media">
-                  {spotlight.posterUrl ? (
-                    <CoverImage
-                      src={spotlight.posterUrl}
-                      alt={spotlight.title}
-                      sizes="(max-width: 900px) 100vw, 36vw"
-                      priority
-                    />
-                  ) : (
-                    <div className="showcase-feature__fallback">
-                      {spotlight.title.slice(0, 1)}
-                    </div>
-                  )}
-                </div>
-                <div className="showcase-feature__shade" />
-                <div className="showcase-feature__content">
-                  <span>Головна премʼєра</span>
-                  <strong>{spotlight.title}</strong>
-                  <small>
-                    {spotlight.mediaType === "movie"
-                      ? copy.mediaType.movie
-                      : copy.mediaType.series}
-                    {spotlight.year ? ` · ${spotlight.year}` : ""}
-                  </small>
-                </div>
-              </button>
-            ) : null}
-
-            <div className="showcase-posters">
-              {supportingSpotlightItems.map((item) => (
-                <div
-                  key={`${item.mediaType}-${item.id}`}
-                  role="button"
-                  tabIndex={0}
-                  className="showcase-poster"
-                  onClick={() => handleGallerySelect(item)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleGallerySelect(item);
-                    }
-                  }}
-                >
-                  <div className="showcase-poster__media">
-                    {item.posterUrl ? (
-                      <CoverImage
-                        src={item.posterUrl}
-                        alt={item.title}
-                        sizes="(max-width: 900px) 50vw, 18vw"
-                      />
-                    ) : (
-                      <div className="showcase-poster__fallback">
-                        {item.title.slice(0, 1)}
-                      </div>
-                    )}
-                  </div>
-                  <MovieInfoButton
-                    tmdbId={item.id}
-                    mediaType={item.mediaType}
-                    title={item.title}
-                    onActivate={() => handleGallerySelect(item)}
-                  />
-                  <div className="showcase-poster__shade" />
-                  <div className="showcase-poster__content">
-                    <strong>{item.title}</strong>
-                    <span>
-                      {item.mediaType === "movie"
-                        ? copy.mediaType.movie
-                        : copy.mediaType.series}
-                      {item.year ? ` · ${item.year}` : ""}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {shouldShowTrending && (
         <>
@@ -420,6 +324,7 @@ function HomeScreenContent({ sections }: Props) {
           ))}
         </>
       )}
+      </AppPageShell>
     </main>
   );
 }

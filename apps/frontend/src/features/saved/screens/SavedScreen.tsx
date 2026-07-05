@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Header } from "../../../widgets/Header";
-import { SearchOverlay } from "../../../widgets/SearchOverlay";
+import { AppPageShell } from "../../../widgets/AppPageShell";
 import { AuthorizedSavedList } from "../components/AuthorizedSavedList";
 import { ProfileTabs } from "../../profile/components/ProfileTabs";
 import { ProfileStats } from "../../profile/components/ProfileStats";
@@ -211,7 +210,7 @@ export function SavedScreen() {
 
   return (
     <main className="page page--saved">
-      <Header
+      <AppPageShell
         active="saved"
         savedCount={savedCount}
         onChange={(view) => {
@@ -223,25 +222,25 @@ export function SavedScreen() {
         isSearchOpen={isSearchOpen}
         onSearchToggle={handleSearchToggle}
         onSearchClose={handleSearchClose}
-      />
-      <SearchOverlay
-        title={title}
-        isLoading={false}
-        isOpen={isSearchOpen}
-        onClose={handleSearchClose}
-        onChange={(value) => setTitle(value)}
-        onSubmit={handleSubmit}
-        onFocus={() => undefined}
-        onBlur={() => {
-          blurTimeoutRef.current = setTimeout(() => {
-            // noop
-          }, 150);
+        searchOverlay={{
+          title,
+          isLoading: false,
+          isOpen: isSearchOpen,
+          onClose: handleSearchClose,
+          onChange: setTitle,
+          onSubmit: handleSubmit,
+          onFocus: () => undefined,
+          onBlur: () => {
+            blurTimeoutRef.current = setTimeout(() => {
+              // noop
+            }, 150);
+          },
+          suggestions,
+          isFetchingSuggestions,
+          onSuggestionSelect: handleSuggestionSelect,
+          isSuggestionSaved,
         }}
-        suggestions={suggestions}
-        isFetchingSuggestions={isFetchingSuggestions}
-        onSuggestionSelect={handleSuggestionSelect}
-        isSuggestionSaved={isSuggestionSaved}
-      />
+      >
 
       <section className="saved">
         <div className="saved-hero">
@@ -310,6 +309,7 @@ export function SavedScreen() {
           />
         )}
       </section>
+      </AppPageShell>
     </main>
   );
 }
