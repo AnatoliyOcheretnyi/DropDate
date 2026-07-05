@@ -3,8 +3,7 @@
 import { useState } from "react";
 import type { MoodPick } from "../api/mood";
 import type { ListType } from "../../../shared/types/releases";
-import { CoverImage } from "../../../shared/ui/CoverImage";
-import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
+import { PickCard } from "../../../shared/ui/PickCard";
 import { ListPickerModal } from "../../../widgets/ListPickerModal";
 
 type Props = {
@@ -37,83 +36,49 @@ export function MoodResults({
         {picks.map((pick) => {
           const lists = getListTypes(pick);
           return (
-            <article key={pick.tmdbId} className="mood-card">
-              <div
-                className="mood-card-poster"
-                onClick={() => onDetails(pick)}
-                aria-hidden="true"
-              >
-                {pick.posterUrl ? (
-                  <CoverImage
-                    src={pick.posterUrl}
-                    alt=""
-                    sizes="(max-width: 900px) 50vw, 240px"
-                    ariaHidden
-                  />
-                ) : (
-                  <span className="mood-card-fallback">
-                    {pick.title.slice(0, 1)}
-                  </span>
-                )}
-                {pick.rating ? (
-                  <span className="mood-card-rating">
-                    ★ {pick.rating.toFixed(1)}
-                  </span>
-                ) : null}
-                <MovieInfoButton
-                  tmdbId={pick.tmdbId}
-                  mediaType={pick.mediaType}
-                  title={pick.title}
-                  onActivate={() => onDetails(pick)}
-                />
-              </div>
-              <div className="mood-card-body">
-                <strong className="mood-card-title">{pick.title}</strong>
-                <div className="mood-card-meta">
+            <PickCard
+              key={pick.tmdbId}
+              item={pick}
+              onDetails={() => onDetails(pick)}
+              meta={
+                <>
                   {pick.year ? <span>{pick.year}</span> : null}
                   {pick.reason ? (
                     <span className="mood-card-reason">{pick.reason}</span>
                   ) : null}
-                </div>
-                <div className="mood-card-actions">
+                </>
+              }
+              secondaryAction={
+                <div className="list-picker mood-card-picker">
                   <button
                     type="button"
-                    className="mood-card-action"
-                    onClick={() => onDetails(pick)}
+                    className={`list-picker__button list-picker__button--compact${
+                      lists.length > 0 ? " is-active" : ""
+                    }`}
+                    onClick={() =>
+                      setOpenPickerId((current) =>
+                        current === pick.tmdbId ? null : pick.tmdbId
+                      )
+                    }
                   >
-                    Деталі
+                    {lists.length > 0 ? (
+                      <>
+                        <span className="list-picker__check">✓</span>
+                        <span>Списки · {lists.length}</span>
+                      </>
+                    ) : (
+                      <span>+ У список</span>
+                    )}
                   </button>
-                  <div className="list-picker mood-card-picker">
-                    <button
-                      type="button"
-                      className={`list-picker__button list-picker__button--compact${
-                        lists.length > 0 ? " is-active" : ""
-                      }`}
-                      onClick={() =>
-                        setOpenPickerId((current) =>
-                          current === pick.tmdbId ? null : pick.tmdbId
-                        )
-                      }
-                    >
-                      {lists.length > 0 ? (
-                        <>
-                          <span className="list-picker__check">✓</span>
-                          <span>Списки · {lists.length}</span>
-                        </>
-                      ) : (
-                        <span>+ У список</span>
-                      )}
-                    </button>
-                    <ListPickerModal
-                      isOpen={openPickerId === pick.tmdbId}
-                      selected={lists}
-                      onClose={() => setOpenPickerId(null)}
-                      onChange={(next) => onListChange(pick, next)}
-                    />
-                  </div>
+                  <ListPickerModal
+                    isOpen={openPickerId === pick.tmdbId}
+                    selected={lists}
+                    onClose={() => setOpenPickerId(null)}
+                    onChange={(next) => onListChange(pick, next)}
+                  />
                 </div>
-              </div>
-            </article>
+              }
+            />
           );
         })}
       </div>

@@ -4,9 +4,7 @@ import { memo } from "react";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
-import { ListBadges } from "../../../shared/ui/ListBadges";
-import { CoverImage } from "../../../shared/ui/CoverImage";
-import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
+import { PosterCard } from "../../../shared/ui/PosterCard";
 
 type Props = {
   title: string;
@@ -46,52 +44,15 @@ function TrendingCarouselComponent({
             <div className="trend-track">
               {items.map((item) => {
                 const listTypes = getListTypes(item);
-                const saved = listTypes.length > 0;
 
                 return (
-                  <div
+                  <PosterCard
                     key={`${item.mediaType}-${item.id}`}
-                    role="button"
-                    tabIndex={0}
-                    className={`poster-card${saved ? " saved" : ""}`}
-                    onClick={() => onSelect(item)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelect(item);
-                      }
-                    }}
-                  >
-                    <div className="poster-card__media">
-                      {item.posterUrl ? (
-                        <CoverImage
-                          src={item.posterUrl}
-                          alt={item.title}
-                          sizes="(max-width: 900px) 40vw, 176px"
-                        />
-                      ) : (
-                        <div className="poster-card-fallback">
-                          {item.title.slice(0, 1)}
-                        </div>
-                      )}
-                    </div>
-                    <MovieInfoButton
-                      tmdbId={item.id}
-                      mediaType={item.mediaType}
-                      title={item.title}
-                      onActivate={() => onSelect(item)}
-                    />
-                    <ListBadges listTypes={listTypes} />
-                    <div className="poster-card__content">
-                      <span className="poster-card__title">{item.title}</span>
-                      <span className="poster-card__meta">
-                        {item.mediaType === "movie"
-                          ? copy.mediaType.movie
-                          : copy.mediaType.series}
-                        {item.year ? ` · ${item.year}` : ""}
-                      </span>
-                    </div>
-                  </div>
+                    item={item}
+                    listTypes={listTypes}
+                    imageSizes="(max-width: 900px) 40vw, 176px"
+                    onSelect={onSelect}
+                  />
                 );
               })}
             </div>

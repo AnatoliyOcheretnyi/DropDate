@@ -4,8 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "../../../widgets/Header";
 import { AuthModal } from "../../../widgets/AuthModal";
-import { CoverImage } from "../../../shared/ui/CoverImage";
-import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
+import { PickCard } from "../../../shared/ui/PickCard";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import { useAuth } from "../../../shared/state/auth";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
@@ -156,62 +155,28 @@ export function MatchScreen() {
               {picks.map((pick) => {
                 const saved = isSaved(pick);
                 return (
-                  <article key={`${pick.mediaType}-${pick.tmdbId}`} className="mood-card">
-                    <div
-                      className="mood-card-poster"
-                      onClick={() => openDetails(pick)}
-                      aria-hidden="true"
-                    >
-                      {pick.posterUrl ? (
-                        <CoverImage
-                          src={pick.posterUrl}
-                          alt=""
-                          sizes="(max-width: 900px) 50vw, 240px"
-                          ariaHidden
-                        />
-                      ) : (
-                        <span className="mood-card-fallback">
-                          {pick.title.slice(0, 1)}
-                        </span>
-                      )}
-                      {pick.rating ? (
-                        <span className="mood-card-rating">
-                          ★ {pick.rating.toFixed(1)}
-                        </span>
-                      ) : null}
-                      <MovieInfoButton
-                        tmdbId={pick.tmdbId}
-                        mediaType={pick.mediaType}
-                        title={pick.title}
-                        onActivate={() => openDetails(pick)}
-                      />
-                    </div>
-                    <div className="mood-card-body">
-                      <strong className="mood-card-title">{pick.title}</strong>
-                      <div className="mood-card-meta">
+                  <PickCard
+                    key={`${pick.mediaType}-${pick.tmdbId}`}
+                    item={pick}
+                    onDetails={() => openDetails(pick)}
+                    meta={
+                      <>
                         <span>{pick.mediaType === "movie" ? "Фільм" : "Серіал"}</span>
                         {pick.year ? <span>{pick.year}</span> : null}
-                      </div>
-                      <div className="mood-card-actions">
-                        <button
-                          type="button"
-                          className="mood-card-action"
-                          onClick={() => openDetails(pick)}
-                        >
-                          Деталі
-                        </button>
-                        <button
-                          type="button"
-                          className={`mood-card-action mood-card-action--save${
-                            saved ? " saved" : ""
-                          }`}
-                          onClick={() => handleSave(pick)}
-                        >
-                          {saved ? "У списку ✓" : "Зберегти"}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
+                      </>
+                    }
+                    secondaryAction={
+                      <button
+                        type="button"
+                        className={`mood-card-action mood-card-action--save${
+                          saved ? " saved" : ""
+                        }`}
+                        onClick={() => handleSave(pick)}
+                      >
+                        {saved ? "У списку ✓" : "Зберегти"}
+                      </button>
+                    }
+                  />
                 );
               })}
             </div>
