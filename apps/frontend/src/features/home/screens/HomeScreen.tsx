@@ -12,6 +12,11 @@ import { pingBackend } from "../api/homeApi";
 import { useRecommendations } from "../hooks/useRecommendations";
 import { useHomeSections } from "../hooks/useHomeSections";
 import { HomeShowcase } from "../components/HomeShowcase";
+import { FeatureTiles } from "../components/FeatureTiles";
+import { TasteChips } from "../components/TasteChips";
+import { RankedRail } from "../components/RankedRail";
+import { MoodTeaser } from "../components/MoodTeaser";
+import { Reveal } from "../../../shared/ui/Reveal";
 
 type Props = {
   sections: {
@@ -23,12 +28,6 @@ type Props = {
 };
 
 type BackendStatus = "idle" | "checking" | "waking" | "ready";
-
-type HomeSectionMeta = {
-  title: string;
-  kicker: string;
-  items: Suggestion[];
-};
 
 const mixSuggestions = (movies: Suggestion[], series: Suggestion[]) => {
   const mixed: Suggestion[] = [];
@@ -216,35 +215,10 @@ function HomeScreenContent({ sections }: Props) {
       ]),
     [sectionState]
   );
-  const spotlight = heroItems[0] ?? null;
+  const spotlightItems = useMemo(() => heroItems.slice(0, 5), [heroItems]);
   const supportingSpotlightItems = useMemo(
-    () => heroItems.slice(1, 7),
+    () => heroItems.slice(5, 11),
     [heroItems]
-  );
-  const curatedSections: HomeSectionMeta[] = useMemo(
-    () => [
-      {
-        title: copy.sections.upcoming,
-        kicker: "Календар релізів",
-        items: sectionState.upcoming,
-      },
-      {
-        title: copy.sections.popularMovies,
-        kicker: "Що дивляться зараз",
-        items: sectionState.popularMovies,
-      },
-      {
-        title: copy.sections.popularSeries,
-        kicker: "Серіальний потік",
-        items: sectionState.popularSeries,
-      },
-      {
-        title: copy.sections.topRated,
-        kicker: "Високі оцінки",
-        items: sectionState.topRated,
-      },
-    ],
-    [sectionState]
   );
 
   return (
@@ -293,35 +267,75 @@ function HomeScreenContent({ sections }: Props) {
         </div>
       )}
       <HomeShowcase
-        spotlight={spotlight}
+        spotlightItems={spotlightItems}
         supportingItems={supportingSpotlightItems}
         onSearchOpen={handleSearchToggle}
         onSelect={handleGallerySelect}
       />
 
+      <Reveal>
+        <FeatureTiles savedCount={saved.length} />
+      </Reveal>
+
+      <Reveal>
+        <TasteChips />
+      </Reveal>
+
       {shouldShowTrending && (
         <>
           {recommendations.length > 0 && (
-            <TrendingCarousel
-              title={copy.sections.recommendations}
-              kicker="На основі ваших улюблених і переглянутих"
-              items={recommendations}
-              isLoading={isRecommendationsLoading}
-              onSelect={handleGallerySelect}
-              getListTypes={getListTypes}
-            />
+            <Reveal>
+              <TrendingCarousel
+                title={copy.sections.recommendations}
+                kicker="На основі ваших улюблених і переглянутих"
+                items={recommendations}
+                isLoading={isRecommendationsLoading}
+                onSelect={handleGallerySelect}
+                getListTypes={getListTypes}
+              />
+            </Reveal>
           )}
-          {curatedSections.map((section) => (
+          <Reveal>
             <TrendingCarousel
-              key={section.title}
-              title={section.title}
-              kicker={section.kicker}
-              items={section.items}
+              title={copy.sections.upcoming}
+              kicker="Календар релізів"
+              items={sectionState.upcoming}
               isLoading={isTrendingRefreshing}
               onSelect={handleGallerySelect}
               getListTypes={getListTypes}
             />
-          ))}
+          </Reveal>
+          <Reveal>
+            <RankedRail
+              title={copy.sections.popularMovies}
+              kicker="Топ-10 · що дивляться зараз"
+              items={sectionState.popularMovies}
+              onSelect={handleGallerySelect}
+            />
+          </Reveal>
+          <Reveal>
+            <TrendingCarousel
+              title={copy.sections.popularSeries}
+              kicker="Серіальний потік"
+              items={sectionState.popularSeries}
+              isLoading={isTrendingRefreshing}
+              onSelect={handleGallerySelect}
+              getListTypes={getListTypes}
+            />
+          </Reveal>
+          <Reveal>
+            <TrendingCarousel
+              title={copy.sections.topRated}
+              kicker="Високі оцінки"
+              items={sectionState.topRated}
+              isLoading={isTrendingRefreshing}
+              onSelect={handleGallerySelect}
+              getListTypes={getListTypes}
+            />
+          </Reveal>
+          <Reveal>
+            <MoodTeaser />
+          </Reveal>
         </>
       )}
       </AppPageShell>
