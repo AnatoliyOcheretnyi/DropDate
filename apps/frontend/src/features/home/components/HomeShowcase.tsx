@@ -1,50 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 type Props = {
-  spotlightItems: Suggestion[];
+  spotlight: Suggestion | null;
   supportingItems: Suggestion[];
   onSearchOpen: () => void;
   onSelect: (suggestion: Suggestion) => void;
 };
 
-const ROTATE_MS = 6000;
-
-const prefersReducedMotion = () =>
-  typeof window !== "undefined" &&
-  typeof window.matchMedia === "function" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 export function HomeShowcase({
-  spotlightItems,
+  spotlight,
   supportingItems,
   onSearchOpen,
   onSelect,
 }: Props) {
-  const [active, setActive] = useState(0);
-  const count = spotlightItems.length;
-
-  useEffect(() => {
-    if (count <= 1 || prefersReducedMotion()) {
-      return;
-    }
-    const id = window.setInterval(() => {
-      setActive((prev) => (prev + 1) % count);
-    }, ROTATE_MS);
-    return () => window.clearInterval(id);
-  }, [count]);
-
-  useEffect(() => {
-    if (active >= count && count > 0) {
-      setActive(0);
-    }
-  }, [active, count]);
-
   return (
     <section className="home-showcase hero-bleed">
       <div className="home-showcase-inner">
@@ -59,65 +32,39 @@ export function HomeShowcase({
         </div>
 
         <div className="home-showcase-grid">
-          <div className="showcase-feature-stack">
-            {spotlightItems.map((item, index) => {
-              const isActive = index === active;
-              return (
-                <button
-                  key={`${item.mediaType}-${item.id}`}
-                  type="button"
-                  className={`showcase-feature${isActive ? " is-active" : ""}`}
-                  onClick={() => onSelect(item)}
-                  aria-hidden={!isActive}
-                  tabIndex={isActive ? 0 : -1}
-                >
-                  <div className="showcase-feature__media">
-                    {item.posterUrl ? (
-                      <CoverImage
-                        src={item.posterUrl}
-                        alt={item.title}
-                        sizes="(max-width: 900px) 100vw, 36vw"
-                        priority={index === 0}
-                      />
-                    ) : (
-                      <div className="showcase-feature__fallback">
-                        {item.title.slice(0, 1)}
-                      </div>
-                    )}
+          {spotlight ? (
+            <button
+              type="button"
+              className="showcase-feature"
+              onClick={() => onSelect(spotlight)}
+            >
+              <div className="showcase-feature__media">
+                {spotlight.posterUrl ? (
+                  <CoverImage
+                    src={spotlight.posterUrl}
+                    alt={spotlight.title}
+                    sizes="(max-width: 900px) 100vw, 360px"
+                    priority
+                  />
+                ) : (
+                  <div className="showcase-feature__fallback">
+                    {spotlight.title.slice(0, 1)}
                   </div>
-                  <div className="showcase-feature__shade" />
-                  <div className="showcase-feature__content">
-                    <span>Головна премʼєра</span>
-                    <strong>{item.title}</strong>
-                    <small>
-                      {item.mediaType === "movie"
-                        ? copy.mediaType.movie
-                        : copy.mediaType.series}
-                      {item.year ? ` · ${item.year}` : ""}
-                    </small>
-                  </div>
-                </button>
-              );
-            })}
-
-            {count > 1 ? (
-              <div className="showcase-dots" role="tablist" aria-label="Головні премʼєри">
-                {spotlightItems.map((item, index) => (
-                  <button
-                    key={`dot-${item.mediaType}-${item.id}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={index === active}
-                    aria-label={`Показати ${item.title}`}
-                    className={`showcase-dot${index === active ? " is-active" : ""}`}
-                    onClick={() => setActive(index)}
-                  >
-                    <span className="showcase-dot__fill" />
-                  </button>
-                ))}
+                )}
               </div>
-            ) : null}
-          </div>
+              <div className="showcase-feature__shade" />
+              <div className="showcase-feature__content">
+                <span>Головна премʼєра</span>
+                <strong>{spotlight.title}</strong>
+                <small>
+                  {spotlight.mediaType === "movie"
+                    ? copy.mediaType.movie
+                    : copy.mediaType.series}
+                  {spotlight.year ? ` · ${spotlight.year}` : ""}
+                </small>
+              </div>
+            </button>
+          ) : null}
 
           <div className="showcase-posters">
             {supportingItems.map((item) => (

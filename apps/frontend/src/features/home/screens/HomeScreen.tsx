@@ -215,9 +215,9 @@ function HomeScreenContent({ sections }: Props) {
       ]),
     [sectionState]
   );
-  const spotlightItems = useMemo(() => heroItems.slice(0, 5), [heroItems]);
+  const spotlight = heroItems[0] ?? null;
   const supportingSpotlightItems = useMemo(
-    () => heroItems.slice(5, 11),
+    () => heroItems.slice(1, 7),
     [heroItems]
   );
 
@@ -267,7 +267,7 @@ function HomeScreenContent({ sections }: Props) {
         </div>
       )}
       <HomeShowcase
-        spotlightItems={spotlightItems}
+        spotlight={spotlight}
         supportingItems={supportingSpotlightItems}
         onSearchOpen={handleSearchToggle}
         onSelect={handleGallerySelect}
