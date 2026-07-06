@@ -3,7 +3,9 @@
 import type { Details } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
-import { ListPickerModal } from "../../../widgets/ListPickerModal";
+import { RatingScale } from "./RatingScale";
+import { WatchStepper } from "./WatchStepper";
+import { ListStatusBar } from "./ListStatusBar";
 
 type MetaRow = {
   label: string;
@@ -14,14 +16,10 @@ type Props = {
   details: Details;
   metaRows: MetaRow[];
   currentListTypes: ListType[];
-  listPickerAnchor: "main" | "release" | null;
   statusListType: string | null;
   localRating?: number;
   localWatchCount: number;
-  setLocalRating: (value: number | undefined) => void;
-  onAddCurrent: (anchor: "main" | "release") => void;
   onListChange: (next: ListType[]) => void;
-  onCloseListPicker: () => void;
   onRatingChange: (value: number) => void;
   onWatchCountChange: (delta: number) => void;
   formatDate: (value?: string) => string;
@@ -31,14 +29,10 @@ export function TitleDetailsInfoPanels({
   details,
   metaRows,
   currentListTypes,
-  listPickerAnchor,
   statusListType,
   localRating,
   localWatchCount,
-  setLocalRating,
-  onAddCurrent,
   onListChange,
-  onCloseListPicker,
   onRatingChange,
   onWatchCountChange,
   formatDate,
@@ -51,8 +45,12 @@ export function TitleDetailsInfoPanels({
           <h2>Основна інформація</h2>
         </div>
         <div className="details-grid">
-          {metaRows.map((row) => (
-            <div key={row.label} className="detail-row">
+          {metaRows.map((row, index) => (
+            <div
+              key={row.label}
+              className="detail-row"
+              style={{ ["--row-index" as string]: index }}
+            >
               <span className="detail-label">{row.label}</span>
               <span className="detail-value">{row.value}</span>
             </div>
@@ -85,53 +83,20 @@ export function TitleDetailsInfoPanels({
 
         {statusListType ? (
           <div className="details-user-controls">
-            <div className="details-user-row">
-              <span>{copy.details.labels.yourRating}</span>
-              <div className="details-user-rating">
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={localRating || 1}
-                  onChange={(event) => onRatingChange(Number(event.target.value))}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={localRating ?? ""}
-                  placeholder="–"
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    if (Number.isNaN(value)) {
-                      setLocalRating(undefined);
-                      return;
-                    }
-                    onRatingChange(Math.min(10, Math.max(1, value)));
-                  }}
-                />
-              </div>
+            <div className="details-user-block">
+              <span className="details-user-label">
+                {copy.details.labels.yourRating}
+              </span>
+              <RatingScale value={localRating} onChange={onRatingChange} />
             </div>
-            <div className="details-user-row">
-              <span>{copy.details.labels.watchCount}</span>
-              <div className="details-user-stepper">
-                <button
-                  type="button"
-                  onClick={() => onWatchCountChange(-1)}
-                  aria-label="Зменшити"
-                >
-                  −
-                </button>
-                <span>{localWatchCount || 1}</span>
-                <button
-                  type="button"
-                  onClick={() => onWatchCountChange(1)}
-                  aria-label="Збільшити"
-                >
-                  +
-                </button>
-              </div>
+            <div className="details-user-block details-user-block--row">
+              <span className="details-user-label">
+                {copy.details.labels.watchCount}
+              </span>
+              <WatchStepper
+                value={localWatchCount}
+                onChange={onWatchCountChange}
+              />
             </div>
           </div>
         ) : (
@@ -139,21 +104,11 @@ export function TitleDetailsInfoPanels({
             <p className="details-personal-copy">
               Збережи тайтл, щоб стежити за релізом і вести власний прогрес.
             </p>
-            <div className="list-picker">
-              <button
-                type="button"
-                className="list-picker__button"
-                onClick={() => onAddCurrent("release")}
-              >
-                {copy.actions.addToList}
-              </button>
-              <ListPickerModal
-                isOpen={listPickerAnchor === "release"}
-                selected={currentListTypes}
-                onClose={onCloseListPicker}
-                onChange={onListChange}
-              />
-            </div>
+            <ListStatusBar
+              selected={currentListTypes}
+              onChange={onListChange}
+              variant="compact"
+            />
           </>
         )}
       </aside>

@@ -9,6 +9,7 @@ import { copy } from "../../../shared/lib/strings";
 import { TitleDetailsHero } from "../components/TitleDetailsHero";
 import { TitleDetailsInfoPanels } from "../components/TitleDetailsInfoPanels";
 import { CastSlider } from "../components/CastSlider";
+import { Reveal } from "../components/Reveal";
 import { useTitleDetails } from "../hooks/useTitleDetails";
 
 export function TitleDetailsScreen() {
@@ -18,10 +19,10 @@ export function TitleDetailsScreen() {
     currentListTypes,
     currentRelease,
     details,
+    dismissToast,
     error,
     formatDate,
     getListTypes,
-    handleAddCurrent,
     handleListChange,
     handleNav,
     handleRatingChange,
@@ -34,15 +35,12 @@ export function TitleDetailsScreen() {
     isLoading,
     isSearchOpen,
     isSuggestionSaved,
-    listPickerAnchor,
     localRating,
     localWatchCount,
     metaRows,
     recommendations,
     savedCount,
     setIsInputFocused,
-    setListPickerAnchor,
-    setLocalRating,
     setTitle,
     statusListType,
     suggestions,
@@ -140,34 +138,31 @@ export function TitleDetailsScreen() {
               <TitleDetailsHero
                 details={details}
                 currentListTypes={currentListTypes}
-                listPickerAnchor={listPickerAnchor}
                 currentRelease={currentRelease}
                 releaseStatus={releaseStatus}
                 onBack={() => router.back()}
-                onAddCurrent={handleAddCurrent}
                 onListChange={handleListChange}
-                onCloseListPicker={() => setListPickerAnchor(null)}
                 formatDate={formatDate}
                 yearFromDate={yearFromDate}
               />
-              <TitleDetailsInfoPanels
-                details={details}
-                metaRows={metaRows}
-                currentListTypes={currentListTypes}
-                listPickerAnchor={listPickerAnchor}
-                statusListType={statusListType}
-                localRating={localRating}
-                localWatchCount={localWatchCount}
-                setLocalRating={setLocalRating}
-                onAddCurrent={handleAddCurrent}
-                onListChange={handleListChange}
-                onCloseListPicker={() => setListPickerAnchor(null)}
-                onRatingChange={handleRatingChange}
-                onWatchCountChange={handleWatchCountChange}
-                formatDate={formatDate}
-              />
+              <Reveal>
+                <TitleDetailsInfoPanels
+                  details={details}
+                  metaRows={metaRows}
+                  currentListTypes={currentListTypes}
+                  statusListType={statusListType}
+                  localRating={localRating}
+                  localWatchCount={localWatchCount}
+                  onListChange={handleListChange}
+                  onRatingChange={handleRatingChange}
+                  onWatchCountChange={handleWatchCountChange}
+                  formatDate={formatDate}
+                />
+              </Reveal>
               {details.cast && details.cast.length > 0 ? (
-                <CastSlider cast={details.cast} />
+                <Reveal>
+                  <CastSlider cast={details.cast} />
+                </Reveal>
               ) : null}
             </>
           ) : null}
@@ -175,15 +170,19 @@ export function TitleDetailsScreen() {
           {error ? <p className="hint details-error">{error}</p> : null}
 
           {recommendations.length > 0 ? (
-            <section className="details-recs details-section">
-              <SearchResultsGrid
-                items={recommendations}
-                isLoading={isLoading}
-                onSelect={(item) => router.push(`/title/${item.mediaType}/${item.id}`)}
-                getListTypes={getListTypes}
-                title={copy.sections.similarTitles}
-              />
-            </section>
+            <Reveal>
+              <section className="details-recs details-section">
+                <SearchResultsGrid
+                  items={recommendations}
+                  isLoading={isLoading}
+                  onSelect={(item) =>
+                    router.push(`/title/${item.mediaType}/${item.id}`)
+                  }
+                  getListTypes={getListTypes}
+                  title={copy.sections.similarTitles}
+                />
+              </section>
+            </Reveal>
           ) : null}
         </div>
 
@@ -194,7 +193,20 @@ export function TitleDetailsScreen() {
                 key={toast.id}
                 className={`toast${toast.tone ? ` toast--${toast.tone}` : ""}`}
               >
-                {toast.message}
+                <span className="toast__msg">{toast.message}</span>
+                {toast.undo ? (
+                  <button
+                    type="button"
+                    className="toast__undo"
+                    onClick={() => {
+                      toast.undo?.();
+                      dismissToast(toast.id);
+                    }}
+                  >
+                    Скасувати
+                  </button>
+                ) : null}
+                <span className="toast__bar" aria-hidden="true" />
               </div>
             ))}
           </div>

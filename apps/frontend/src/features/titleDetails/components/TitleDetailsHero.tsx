@@ -3,19 +3,17 @@
 import type { Details, ReleaseInfo } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
-import { ListBadges } from "../../../shared/ui/ListBadges";
-import { ListPickerModal } from "../../../widgets/ListPickerModal";
+import { useCountUp } from "../hooks/useCountUp";
+import { ListStatusBar } from "./ListStatusBar";
+import { TitleDetailsPoster } from "./TitleDetailsPoster";
 
 type Props = {
   details: Details;
   currentListTypes: ListType[];
-  listPickerAnchor: "main" | "release" | null;
   currentRelease: ReleaseInfo | null;
   releaseStatus: string | null;
   onBack: () => void;
-  onAddCurrent: (anchor: "main" | "release") => void;
   onListChange: (next: ListType[]) => void;
-  onCloseListPicker: () => void;
   formatDate: (value?: string) => string;
   yearFromDate: (value?: string) => string;
 };
@@ -23,18 +21,19 @@ type Props = {
 export function TitleDetailsHero({
   details,
   currentListTypes,
-  listPickerAnchor,
   currentRelease,
   releaseStatus,
   onBack,
-  onAddCurrent,
   onListChange,
-  onCloseListPicker,
   formatDate,
   yearFromDate,
 }: Props) {
   const mediaLabel =
     details.mediaType === "movie" ? copy.mediaType.movie : copy.mediaType.series;
+  const year = yearFromDate(details.releaseDate || details.firstAirDate);
+
+  const ratingValue = useCountUp(details.voteAverage ?? 0, { duration: 1000 });
+  const votesValue = useCountUp(details.voteCount ?? 0, { duration: 1100 });
 
   return (
     <section className="details-hero">
@@ -45,90 +44,76 @@ export function TitleDetailsHero({
         </button>
 
         <div className="details-layout">
-          <div className="details-main">
-            <div className="details-kicker">
-              <span>{mediaLabel}</span>
-              {details.releaseDate || details.firstAirDate ? (
-                <span>{yearFromDate(details.releaseDate || details.firstAirDate)}</span>
+          <div className="details-headline">
+            <TitleDetailsPoster
+              src={details.posterUrl}
+              alt={details.title}
+              badge={year || mediaLabel}
+            />
+
+            <div className="details-main">
+              <div className="details-kicker">
+                <span>{mediaLabel}</span>
+                {year ? <span>{year}</span> : null}
+              </div>
+
+              <h1>{details.title}</h1>
+
+              <div className="details-facts">
+                {details.runtime ? (
+                  <span>
+                    {details.runtime} {copy.details.facts.minutesSuffix}
+                  </span>
+                ) : null}
+                {details.seasonCount ? (
+                  <span>
+                    {details.seasonCount} {copy.details.facts.seasonsSuffix}
+                  </span>
+                ) : null}
+                {details.episodeCount ? (
+                  <span>
+                    {details.episodeCount} {copy.details.facts.episodesSuffix}
+                  </span>
+                ) : null}
+                {details.networks?.length ? (
+                  <span>{details.networks.join(", ")}</span>
+                ) : null}
+              </div>
+
+              {details.tagline ? (
+                <p className="details-tagline">{details.tagline}</p>
               ) : null}
-              {currentListTypes.length > 0 ? (
-                <div className="details-status-badges">
-                  <ListBadges listTypes={currentListTypes} />
+              <p className="details-overview">
+                {details.overview || copy.hints.noOverview}
+              </p>
+
+              {details.genres?.length ? (
+                <div className="details-tags">
+                  {details.genres.map((genre) => (
+                    <span key={genre} className="detail-chip">
+                      {genre}
+                    </span>
+                  ))}
                 </div>
               ) : null}
-            </div>
 
-            <h1>{details.title}</h1>
+              <ListStatusBar
+                selected={currentListTypes}
+                onChange={onListChange}
+              />
 
-            <div className="details-facts">
-              {details.runtime ? (
-                <span>
-                  {details.runtime} {copy.details.facts.minutesSuffix}
-                </span>
-              ) : null}
-              {details.seasonCount ? (
-                <span>
-                  {details.seasonCount} {copy.details.facts.seasonsSuffix}
-                </span>
-              ) : null}
-              {details.episodeCount ? (
-                <span>
-                  {details.episodeCount} {copy.details.facts.episodesSuffix}
-                </span>
-              ) : null}
-              {details.networks?.length ? <span>{details.networks.join(", ")}</span> : null}
-            </div>
-
-            {details.tagline ? <p className="details-tagline">{details.tagline}</p> : null}
-            <p className="details-overview">{details.overview || copy.hints.noOverview}</p>
-
-            {details.genres?.length ? (
-              <div className="details-tags">
-                {details.genres.map((genre) => (
-                  <span key={genre} className="detail-chip">
-                    {genre}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="details-actions">
-              <div className="list-picker">
-                <button
-                  type="button"
-                  className={`list-picker__button${
-                    currentListTypes.length > 0 ? " is-active" : ""
-                  }`}
-                  onClick={() => onAddCurrent("main")}
-                >
-                  {currentListTypes.length > 0 ? (
-                    <>
-                      <span className="list-picker__check">✓</span>
-                      <span>
-                        У {currentListTypes.length}{" "}
-                        {currentListTypes.length === 1 ? "списку" : "списках"}
-                      </span>
-                    </>
-                  ) : (
-                    copy.actions.addToList
-                  )}
-                </button>
-                <ListPickerModal
-                  isOpen={listPickerAnchor === "main"}
-                  selected={currentListTypes}
-                  onClose={onCloseListPicker}
-                  onChange={onListChange}
-                />
-              </div>
               {details.homepage ? (
-                <a
-                  className="details-site-link"
-                  href={details.homepage}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Офіційний сайт
-                </a>
+                <div className="details-actions">
+                  <a
+                    className="details-site-link"
+                    href={details.homepage}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Офіційний сайт
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </div>
               ) : null}
             </div>
           </div>
@@ -157,15 +142,15 @@ export function TitleDetailsHero({
             <div className="details-rating-row">
               <div>
                 <span>{copy.details.labels.tmdbRating}</span>
-                <strong>
-                  {details.voteAverage ? details.voteAverage.toFixed(1) : copy.misc.dash}
+                <strong className="details-rating-score">
+                  {details.voteAverage ? ratingValue.toFixed(1) : copy.misc.dash}
                 </strong>
               </div>
               <div>
                 <span>{copy.details.labels.votes}</span>
                 <strong>
                   {details.voteCount
-                    ? details.voteCount.toLocaleString("uk-UA")
+                    ? Math.round(votesValue).toLocaleString("uk-UA")
                     : copy.misc.dash}
                 </strong>
               </div>

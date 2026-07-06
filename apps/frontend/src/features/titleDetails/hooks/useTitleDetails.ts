@@ -59,11 +59,13 @@ export function useTitleDetails() {
     updateListStats,
     isSuggestionSaved,
   } = useSavedReleases();
-  const [listPickerAnchor, setListPickerAnchor] = useState<
-    "main" | "release" | null
-  >(null);
   const [toasts, setToasts] = useState<
-    { id: string; message: string; tone?: "success" | "warning" }[]
+    {
+      id: string;
+      message: string;
+      tone?: "success" | "warning";
+      undo?: () => void;
+    }[]
   >([]);
   const [localRating, setLocalRating] = useState<number | undefined>(undefined);
   const [localWatchCount, setLocalWatchCount] = useState<number>(0);
@@ -226,10 +228,18 @@ export function useTitleDetails() {
     []
   );
 
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
   const pushToast = useCallback(
-    (message: string, tone: "success" | "warning" = "success") => {
+    (
+      message: string,
+      tone: "success" | "warning" = "success",
+      undo?: () => void
+    ) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setToasts((prev) => [...prev, { id, message, tone }]);
+      setToasts((prev) => [...prev, { id, message, tone, undo }]);
       window.setTimeout(() => {
         setToasts((prev) => prev.filter((toast) => toast.id !== id));
       }, 2600);
@@ -245,15 +255,22 @@ export function useTitleDetails() {
       const prev = currentListTypes;
       const added = next.filter((entry) => !prev.includes(entry));
       const removed = prev.filter((entry) => !next.includes(entry));
+      if (added.length === 0 && removed.length === 0) {
+        return;
+      }
 
       setSuggestionLists(currentSuggestion, next, currentRelease);
 
-      added.forEach((type) => {
-        pushToast(`Додано до списку "${listLabelMap[type]}"`, "success");
-      });
-      removed.forEach((type) => {
-        pushToast(`Видалено зі списку "${listLabelMap[type]}"`, "warning");
-      });
+      const message =
+        added.length > 0
+          ? `Додано до списку "${listLabelMap[added[0]]}"`
+          : `Видалено зі списку "${listLabelMap[removed[0]]}"`;
+      const tone = added.length > 0 ? "success" : "warning";
+      const undo = () => {
+        setSuggestionLists(currentSuggestion, prev, currentRelease);
+      };
+
+      pushToast(message, tone, undo);
     },
     [
       currentListTypes,
@@ -263,16 +280,6 @@ export function useTitleDetails() {
       pushToast,
       setSuggestionLists,
     ]
-  );
-
-  const handleAddCurrent = useCallback(
-    (anchor: "main" | "release") => {
-      if (!details || !currentSuggestion || !currentRelease) {
-        return;
-      }
-      setListPickerAnchor(anchor);
-    },
-    [currentRelease, currentSuggestion, details]
   );
 
   useEffect(() => {
@@ -370,10 +377,10 @@ export function useTitleDetails() {
     currentListTypes,
     currentRelease,
     details,
+    dismissToast,
     error,
     formatDate,
     getListTypes,
-    handleAddCurrent,
     handleListChange,
     handleNav,
     handleRatingChange,
@@ -386,7 +393,6 @@ export function useTitleDetails() {
     isLoading,
     isSearchOpen,
     isSuggestionSaved,
-    listPickerAnchor,
     localRating,
     localWatchCount,
     metaRows,
@@ -394,7 +400,6 @@ export function useTitleDetails() {
     release,
     savedCount,
     setIsInputFocused,
-    setListPickerAnchor,
     setLocalRating,
     setTitle,
     statusListType,

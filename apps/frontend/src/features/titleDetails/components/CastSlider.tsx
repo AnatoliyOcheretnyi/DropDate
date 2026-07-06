@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { CastMember } from "../../../shared/lib/release";
 
 type Props = {
@@ -7,34 +8,70 @@ type Props = {
 };
 
 export function CastSlider({ cast }: Props) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
   if (!cast || cast.length === 0) {
     return null;
   }
 
+  const scrollBy = (direction: 1 | -1) => {
+    const el = scrollerRef.current;
+    if (!el) {
+      return;
+    }
+    el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: "smooth" });
+  };
+
   return (
     <section className="details-cast details-section">
-      <div className="details-section-head">
-        <p className="eyebrow">У ролях</p>
-        <h2>Актори</h2>
+      <div className="details-section-head details-cast-head">
+        <div>
+          <p className="eyebrow">У ролях</p>
+          <h2>Актори</h2>
+        </div>
+        <div className="cast-nav">
+          <button
+            type="button"
+            className="cast-nav__btn"
+            onClick={() => scrollBy(-1)}
+            aria-label="Прокрутити назад"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="cast-nav__btn"
+            onClick={() => scrollBy(1)}
+            aria-label="Прокрутити вперед"
+          >
+            ›
+          </button>
+        </div>
       </div>
-      <div className="cast-slider">
-        {cast.map((member) => (
-          <article key={member.tmdbId} className="cast-card">
-            <div className="cast-card-photo">
-              {member.profileUrl ? (
-                <img src={member.profileUrl} alt={member.name} loading="lazy" />
-              ) : (
-                <span className="cast-card-fallback" aria-hidden="true">
-                  {member.name.slice(0, 1)}
-                </span>
-              )}
-            </div>
-            <strong className="cast-card-name">{member.name}</strong>
-            {member.character ? (
-              <span className="cast-card-character">{member.character}</span>
-            ) : null}
-          </article>
-        ))}
+      <div className="cast-viewport">
+        <div className="cast-slider" ref={scrollerRef}>
+          {cast.map((member, index) => (
+            <article
+              key={member.tmdbId}
+              className="cast-card"
+              style={{ ["--card-index" as string]: index }}
+            >
+              <div className="cast-card-photo">
+                {member.profileUrl ? (
+                  <img src={member.profileUrl} alt={member.name} loading="lazy" />
+                ) : (
+                  <span className="cast-card-fallback" aria-hidden="true">
+                    {member.name.slice(0, 1)}
+                  </span>
+                )}
+              </div>
+              <strong className="cast-card-name">{member.name}</strong>
+              {member.character ? (
+                <span className="cast-card-character">{member.character}</span>
+              ) : null}
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
