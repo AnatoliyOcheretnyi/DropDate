@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
+import type { ListType } from "../../../shared/types/releases";
 import { AppPageShell } from "../../../widgets/AppPageShell";
 import { TrendingCarousel } from "../components/TrendingCarousel";
 import { copy } from "../../../shared/lib/strings";
@@ -76,7 +77,22 @@ function HomeScreenContent({ sections }: Props) {
     setSelectedSuggestion(null);
   }, []);
 
-  const { saved, isSuggestionSaved, getListTypes } = useSavedReleases();
+  const { saved, isSuggestionSaved, getListTypes, setSuggestionLists } =
+    useSavedReleases();
+
+  const handleChangeLists = useCallback(
+    (suggestion: Suggestion, next: ListType[]) => {
+      setSuggestionLists(suggestion, next, {
+        title: suggestion.title,
+        type: suggestion.mediaType === "movie" ? "movie" : "series",
+        nextRelease: "",
+        source: "tmdb",
+        posterUrl: suggestion.posterUrl,
+        status: "released",
+      });
+    },
+    [setSuggestionLists]
+  );
   const {
     items: recommendations,
     isLoading: isRecommendationsLoading,
@@ -271,6 +287,8 @@ function HomeScreenContent({ sections }: Props) {
         supportingItems={supportingSpotlightItems}
         onSearchOpen={handleSearchToggle}
         onSelect={handleGallerySelect}
+        getListTypes={getListTypes}
+        onChangeLists={handleChangeLists}
       />
 
       <Reveal>
@@ -292,6 +310,7 @@ function HomeScreenContent({ sections }: Props) {
                 isLoading={isRecommendationsLoading}
                 onSelect={handleGallerySelect}
                 getListTypes={getListTypes}
+                onChangeLists={handleChangeLists}
               />
             </Reveal>
           )}
@@ -303,6 +322,7 @@ function HomeScreenContent({ sections }: Props) {
               isLoading={isTrendingRefreshing}
               onSelect={handleGallerySelect}
               getListTypes={getListTypes}
+              onChangeLists={handleChangeLists}
             />
           </Reveal>
           <Reveal>
@@ -321,6 +341,7 @@ function HomeScreenContent({ sections }: Props) {
               isLoading={isTrendingRefreshing}
               onSelect={handleGallerySelect}
               getListTypes={getListTypes}
+              onChangeLists={handleChangeLists}
             />
           </Reveal>
           <Reveal>
@@ -331,6 +352,7 @@ function HomeScreenContent({ sections }: Props) {
               isLoading={isTrendingRefreshing}
               onSelect={handleGallerySelect}
               getListTypes={getListTypes}
+              onChangeLists={handleChangeLists}
             />
           </Reveal>
           <Reveal>

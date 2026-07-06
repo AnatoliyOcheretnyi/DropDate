@@ -4,7 +4,7 @@ import type { Details, ReleaseInfo } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { useCountUp } from "../hooks/useCountUp";
-import { ListStatusBar } from "./ListStatusBar";
+import { ListStatusBar } from "../../../shared/ui/ListStatusBar";
 import { TitleDetailsPoster } from "./TitleDetailsPoster";
 
 type Props = {

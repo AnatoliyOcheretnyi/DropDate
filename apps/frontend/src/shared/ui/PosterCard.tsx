@@ -12,9 +12,16 @@ type Props = {
   listTypes: ListType[];
   imageSizes: string;
   onSelect: (suggestion: Suggestion) => void;
+  onChangeLists?: (suggestion: Suggestion, next: ListType[]) => void;
 };
 
-export function PosterCard({ item, listTypes, imageSizes, onSelect }: Props) {
+export function PosterCard({
+  item,
+  listTypes,
+  imageSizes,
+  onSelect,
+  onChangeLists,
+}: Props) {
   const saved = listTypes.length > 0;
 
   return (
@@ -46,6 +53,10 @@ export function PosterCard({ item, listTypes, imageSizes, onSelect }: Props) {
         mediaType={item.mediaType}
         title={item.title}
         onActivate={() => onSelect(item)}
+        activeLists={listTypes}
+        onChangeLists={
+          onChangeLists ? (next) => onChangeLists(item, next) : undefined
+        }
       />
       <ListBadges listTypes={listTypes} />
       <div className="poster-card__content">

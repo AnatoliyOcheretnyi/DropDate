@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestApi } from "../api/http";
 import type { Details } from "../lib/release";
+import type { ListType } from "../types/releases";
 import { MoviePreviewPortal } from "./MoviePreviewPortal";
 
 const HOVER_DELAY = 200;
+// Grace period after leaving the button/preview so the pointer can travel the
+// gap between them without the preview closing.
+const CLOSE_DELAY = 160;
 
 // Module-level cache shared across every button instance (home, search, mood…).
 const detailsCache = new Map<number, Details>();
@@ -31,19 +35,25 @@ type Props = {
   title: string;
   /** Optional click handler (e.g. open the details page). */
   onActivate?: () => void;
+  /** Lists the title belongs to + change handler for the preview footer. */
+  activeLists?: ListType[];
+  onChangeLists?: (next: ListType[]) => void;
   className?: string;
 };
 
 /**
  * MovieInfoButton is a drop-in ⓘ button for any poster card. Hovering (or
- * focusing) the button shows an animated details preview via a portal; clicking
- * runs `onActivate`. The parent should be `position: relative`.
+ * focusing) the button shows an animated details preview via a portal; the
+ * preview itself is hoverable (scroll long text, click actions). Clicking the
+ * button runs `onActivate`. The parent should be `position: relative`.
  */
 export function MovieInfoButton({
   tmdbId,
   mediaType,
   title,
   onActivate,
+  activeLists,
+  onChangeLists,
   className,
 }: Props) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -51,19 +61,28 @@ export function MovieInfoButton({
   const [loading, setLoading] = useState(false);
 
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const timerRef = useRef<number | null>(null);
+  const openTimerRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const reqIdRef = useRef(0);
 
-  const clearTimer = () => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const clearOpenTimer = () => {
+    if (openTimerRef.current !== null) {
+      window.clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  };
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
     }
   };
 
   const open = useCallback(() => {
-    clearTimer();
-    timerRef.current = window.setTimeout(() => {
+    clearCloseTimer();
+    clearOpenTimer();
+    openTimerRef.current = window.setTimeout(() => {
       const element = buttonRef.current;
       if (!element) {
         return;
@@ -98,13 +117,26 @@ export function MovieInfoButton({
     }, HOVER_DELAY);
   }, [tmdbId, mediaType]);
 
-  const close = useCallback(() => {
-    clearTimer();
-    reqIdRef.current++; // cancel any in-flight fetch
-    setAnchor(null);
+  const scheduleClose = useCallback(() => {
+    clearOpenTimer();
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      reqIdRef.current++; // cancel any in-flight fetch
+      setAnchor(null);
+    }, CLOSE_DELAY);
   }, []);
 
-  useEffect(() => clearTimer, []);
+  const cancelClose = useCallback(() => {
+    clearCloseTimer();
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearOpenTimer();
+      clearCloseTimer();
+    },
+    []
+  );
 
   return (
     <>
@@ -113,9 +145,9 @@ export function MovieInfoButton({
         type="button"
         className={`card-info-btn${className ? ` ${className}` : ""}`}
         onMouseEnter={open}
-        onMouseLeave={close}
+        onMouseLeave={scheduleClose}
         onFocus={open}
-        onBlur={close}
+        onBlur={scheduleClose}
         onClick={(event) => {
           event.stopPropagation();
           onActivate?.();
@@ -134,6 +166,10 @@ export function MovieInfoButton({
         title={title}
         details={details}
         loading={loading}
+        onHoverEnter={cancelClose}
+        onHoverLeave={scheduleClose}
+        activeLists={activeLists}
+        onChangeLists={onChangeLists}
       />
     </>
   );

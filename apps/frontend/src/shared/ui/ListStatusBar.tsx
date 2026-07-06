@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListType } from "../../../shared/types/releases";
+import type { ListType } from "../types/releases";
 import { LIST_META, toggleListType } from "../lib/listMeta";
 
 type Props = {

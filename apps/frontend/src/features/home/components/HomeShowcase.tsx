@@ -1,6 +1,7 @@
 "use client";
 
 import type { Suggestion } from "../../../shared/lib/release";
+import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
@@ -10,6 +11,8 @@ type Props = {
   supportingItems: Suggestion[];
   onSearchOpen: () => void;
   onSelect: (suggestion: Suggestion) => void;
+  getListTypes?: (suggestion: Suggestion) => ListType[];
+  onChangeLists?: (suggestion: Suggestion, next: ListType[]) => void;
 };
 
 export function HomeShowcase({
@@ -17,6 +20,8 @@ export function HomeShowcase({
   supportingItems,
   onSearchOpen,
   onSelect,
+  getListTypes,
+  onChangeLists,
 }: Props) {
   return (
     <section className="home-showcase hero-bleed">
@@ -99,6 +104,10 @@ export function HomeShowcase({
                   mediaType={item.mediaType}
                   title={item.title}
                   onActivate={() => onSelect(item)}
+                  activeLists={getListTypes?.(item)}
+                  onChangeLists={
+                    onChangeLists ? (next) => onChangeLists(item, next) : undefined
+                  }
                 />
                 <div className="showcase-poster__shade" />
                 <div className="showcase-poster__content">

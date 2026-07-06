@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Details } from "../lib/release";
+import type { ListType } from "../types/releases";
 import { CoverImage } from "./CoverImage";
+import { ListStatusBar } from "./ListStatusBar";
 
 const PREVIEW_WIDTH = 340;
 const ESTIMATED_HEIGHT = 380;
@@ -15,14 +17,34 @@ type Props = {
   title?: string;
   details: Details | null;
   loading: boolean;
+  /** Called when the pointer enters the preview (keeps it open). */
+  onHoverEnter?: () => void;
+  /** Called when the pointer leaves the preview (schedules close). */
+  onHoverLeave?: () => void;
+  /** Lists the title currently belongs to (drives the toggle buttons). */
+  activeLists?: ListType[];
+  /** Called with the next selection when a list button is toggled. When
+   * omitted, the list buttons are hidden. */
+  onChangeLists?: (next: ListType[]) => void;
 };
 
 /**
  * MoviePreviewPortal renders an animated, viewport-positioned details preview
  * over everything via a portal. It anchors to the given rect: prefers the right
- * side, flips left when there's no room, and clamps within the viewport.
+ * side, flips left when there's no room, and clamps within the viewport. The
+ * preview is interactive — hovering it keeps it open, long text scrolls, and it
+ * exposes primary/save actions in a sticky footer.
  */
-export function MoviePreviewPortal({ anchor, title, details, loading }: Props) {
+export function MoviePreviewPortal({
+  anchor,
+  title,
+  details,
+  loading,
+  onHoverEnter,
+  onHoverLeave,
+  activeLists,
+  onChangeLists,
+}: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -45,6 +67,8 @@ export function MoviePreviewPortal({ anchor, title, details, loading }: Props) {
   if (top + ESTIMATED_HEIGHT > viewportHeight - EDGE) {
     top = Math.max(EDGE, viewportHeight - EDGE - ESTIMATED_HEIGHT);
   }
+  // Cap the height to whatever room is left below `top`; the body scrolls.
+  const maxHeight = Math.max(220, viewportHeight - top - EDGE);
 
   const heading = details?.title || title;
   const backdrop = details?.backdropUrl || details?.posterUrl;
@@ -59,15 +83,19 @@ export function MoviePreviewPortal({ anchor, title, details, loading }: Props) {
     meta.push(`★ ${details.voteAverage.toFixed(1)}`);
   }
 
+  const showLists = Boolean(details && onChangeLists);
+
   return (
     <>
       {createPortal(
         <div
           className="movie-preview"
           data-origin={originX}
-          style={{ left, top, width: PREVIEW_WIDTH }}
+          style={{ left, top, width: PREVIEW_WIDTH, maxHeight }}
           role="dialog"
           aria-label={heading}
+          onMouseEnter={onHoverEnter}
+          onMouseLeave={onHoverLeave}
         >
           {backdrop ? (
             <div className="movie-preview-media">
@@ -114,6 +142,16 @@ export function MoviePreviewPortal({ anchor, title, details, loading }: Props) {
               <span className="movie-preview-loading">Завантажуємо…</span>
             ) : null}
           </div>
+
+          {showLists ? (
+            <div className="movie-preview-lists">
+              <ListStatusBar
+                selected={activeLists ?? []}
+                onChange={onChangeLists!}
+                variant="compact"
+              />
+            </div>
+          ) : null}
         </div>,
         document.body
       )}

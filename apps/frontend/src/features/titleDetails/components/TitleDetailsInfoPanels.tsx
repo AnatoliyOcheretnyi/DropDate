@@ -5,7 +5,7 @@ import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { RatingScale } from "./RatingScale";
 import { WatchStepper } from "./WatchStepper";
-import { ListStatusBar } from "./ListStatusBar";
+import { ListStatusBar } from "../../../shared/ui/ListStatusBar";
 
 type MetaRow = {
   label: string;

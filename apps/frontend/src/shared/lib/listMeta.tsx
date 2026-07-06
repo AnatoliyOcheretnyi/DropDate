@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { ListType } from "../../../shared/types/releases";
-import { copy } from "../../../shared/lib/strings";
+import type { ListType } from "../types/releases";
+import { copy } from "./strings";
 
 /**
  * The "status" lists are mutually exclusive — a title can be favorite OR

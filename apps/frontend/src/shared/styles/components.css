@@ -484,12 +484,14 @@ dd.date span:last-child {
 .movie-preview {
   position: fixed;
   z-index: 1200;
+  display: flex;
+  flex-direction: column;
   border-radius: 1rem;
   overflow: hidden;
   background: var(--surface-strong);
   border: 1px solid var(--border-strong);
   box-shadow: 0 24px 60px rgba(2, 8, 16, 0.6);
-  pointer-events: none;
+  pointer-events: auto;
   transform-origin: left center;
   animation: movie-preview-in 0.16s ease-out;
 }
@@ -511,6 +513,7 @@ dd.date span:last-child {
 
 .movie-preview-media {
   position: relative;
+  flex-shrink: 0;
   aspect-ratio: 16 / 9;
   background: var(--surface-3);
 }
@@ -533,10 +536,25 @@ dd.date span:last-child {
 }
 
 .movie-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.85rem 1rem 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.movie-preview-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.movie-preview-body::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
 }
 
 .movie-preview-title {
@@ -571,15 +589,45 @@ dd.date span:last-child {
   font-size: 0.85rem;
   line-height: 1.45;
   color: var(--text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .movie-preview-overview--muted {
   color: var(--text-dim);
   font-style: italic;
+}
+
+.movie-preview-lists {
+  flex-shrink: 0;
+  padding: 0.7rem 0.85rem 0.85rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+
+.movie-preview-lists .list-status-bar {
+  margin-top: 0;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+
+.movie-preview-lists .list-status {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  gap: 0;
+  border-radius: 50%;
+  justify-content: center;
+  backdrop-filter: none;
+}
+
+.movie-preview-lists .list-status__label,
+.movie-preview-lists .list-status__check {
+  display: none;
+}
+
+.movie-preview-lists .list-status__icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .movie-preview-loading {

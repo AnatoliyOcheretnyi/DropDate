@@ -13,6 +13,7 @@ type Props = {
   isLoading: boolean;
   onSelect: (suggestion: Suggestion) => void;
   getListTypes: (suggestion: Suggestion) => ListType[];
+  onChangeLists?: (suggestion: Suggestion, next: ListType[]) => void;
 };
 
 function TrendingCarouselComponent({
@@ -22,6 +23,7 @@ function TrendingCarouselComponent({
   isLoading,
   onSelect,
   getListTypes,
+  onChangeLists,
 }: Props) {
   if (!isLoading && items.length === 0) {
     return null;
@@ -52,6 +54,7 @@ function TrendingCarouselComponent({
                     listTypes={listTypes}
                     imageSizes="(max-width: 900px) 40vw, 176px"
                     onSelect={onSelect}
+                    onChangeLists={onChangeLists}
                   />
                 );
               })}
