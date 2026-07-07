@@ -340,6 +340,7 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		Homepage:          info.Homepage,
 		OriginCountry:     info.OriginCountry,
 		Cast:              mapCast(info.Cast),
+		Directors:         mapDirectors(info.Directors),
 	}, nil
 }
 
@@ -354,6 +355,23 @@ func mapCast(cast []tmdb.CastMember) []CastMember {
 			TMDBID:     member.ID,
 			Name:       member.Name,
 			Character:  member.Character,
+			ProfileURL: member.ProfileURL,
+		})
+	}
+	return out
+}
+
+// mapDirectors converts tmdb crew members to the release-level shape.
+func mapDirectors(crew []tmdb.CrewMember) []CrewMember {
+	if len(crew) == 0 {
+		return nil
+	}
+	out := make([]CrewMember, 0, len(crew))
+	for _, member := range crew {
+		out = append(out, CrewMember{
+			TMDBID:     member.ID,
+			Name:       member.Name,
+			Job:        member.Job,
 			ProfileURL: member.ProfileURL,
 		})
 	}

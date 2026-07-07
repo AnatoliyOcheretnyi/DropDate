@@ -49,12 +49,20 @@ export type Details = {
   homepage?: string;
   originCountry?: string[];
   cast?: CastMember[];
+  directors?: CrewMember[];
 };
 
 export type CastMember = {
   tmdbId: number;
   name: string;
   character?: string;
+  profileUrl?: string;
+};
+
+export type CrewMember = {
+  tmdbId: number;
+  name: string;
+  job?: string;
   profileUrl?: string;
 };
 

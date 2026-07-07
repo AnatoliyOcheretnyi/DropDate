@@ -358,7 +358,7 @@ func mapSavedItem(item saved.Title) savedItem {
 func normalizeListType(value string) (string, bool) {
 	listType := strings.TrimSpace(strings.ToLower(value))
 	switch listType {
-	case "follow", "watchlist", "favorite", "watched", "disliked":
+	case "follow", "watchlist", "favorite", "liked", "watched", "disliked":
 		return listType, true
 	default:
 		return "", false

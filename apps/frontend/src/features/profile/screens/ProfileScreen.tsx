@@ -47,7 +47,7 @@ export function ProfileScreen() {
     user,
   } = useProfile();
 
-  const { genres, countries, move, reset } = useTasteRanking();
+  const { genres, countries, reorder, reset } = useTasteRanking();
   const { people } = useFollowedPeople();
 
   const stats = useMemo(() => {
@@ -151,17 +151,17 @@ export function ProfileScreen() {
               <TasteRanker
                 kind="genre"
                 title="Жанри"
-                kicker="Ранжування"
+                kicker="Перетягни, щоб ранжувати"
                 items={genres}
-                onMove={move}
+                onReorder={reorder}
                 onReset={reset}
               />
               <TasteRanker
                 kind="country"
                 title="Країни"
-                kicker="Ранжування"
+                kicker="Перетягни, щоб ранжувати"
                 items={countries}
-                onMove={move}
+                onReorder={reorder}
                 onReset={reset}
               />
             </div>

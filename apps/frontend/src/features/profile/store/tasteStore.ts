@@ -74,7 +74,7 @@ type TasteStore = {
   countries: string[];
   isReady: boolean;
   hydrate: () => void;
-  move: (kind: TasteKind, index: number, direction: -1 | 1) => void;
+  reorder: (kind: TasteKind, from: number, to: number) => void;
   reset: (kind: TasteKind) => void;
 };
 
@@ -90,14 +90,20 @@ export const useTasteStore = create<TasteStore>((set) => ({
       isReady: true,
     });
   },
-  move: (kind, index, direction) =>
+  reorder: (kind, from, to) =>
     set((state) => {
       const list = [...(kind === "genre" ? state.genres : state.countries)];
-      const target = index + direction;
-      if (target < 0 || target >= list.length) {
+      if (
+        from < 0 ||
+        from >= list.length ||
+        to < 0 ||
+        to >= list.length ||
+        from === to
+      ) {
         return {};
       }
-      [list[index], list[target]] = [list[target], list[index]];
+      const [moved] = list.splice(from, 1);
+      list.splice(to, 0, moved);
       const genres = kind === "genre" ? list : state.genres;
       const countries = kind === "country" ? list : state.countries;
       writeToStorage(genres, countries);

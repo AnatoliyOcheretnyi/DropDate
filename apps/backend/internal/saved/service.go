@@ -28,6 +28,19 @@ func (s *Service) SeedRows(ctx context.Context, userID string) ([]Title, error) 
 }
 
 func (s *Service) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
+	// Carry an existing rating/verdict over so moving a title between lists keeps
+	// the user's rating instead of resetting it. Captured before any status-list
+	// cleanup deletes the previous row.
+	if input.UserRating == nil || input.LastWatched == nil {
+		if rating, lastWatched, err := s.store.TitleStats(ctx, input.UserID, input.TMDBID, input.MediaType); err == nil {
+			if input.UserRating == nil {
+				input.UserRating = rating
+			}
+			if input.LastWatched == nil {
+				input.LastWatched = lastWatched
+			}
+		}
+	}
 	if isStatusListType(input.ListType) {
 		if err := s.store.RemoveStatusLists(ctx, input.UserID, input.TMDBID, input.MediaType, input.ListType); err != nil {
 			return Title{}, err
@@ -55,7 +68,7 @@ func (s *Service) UpdateStats(
 
 func isStatusListType(listType string) bool {
 	switch normalizeListType(listType) {
-	case "favorite", "watched", "disliked":
+	case "favorite", "liked", "watched", "disliked":
 		return true
 	default:
 		return false

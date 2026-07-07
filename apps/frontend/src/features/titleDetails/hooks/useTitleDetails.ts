@@ -205,6 +205,7 @@ export function useTitleDetails() {
   );
   const statusListType = useMemo(() => {
     if (currentListTypes.includes("favorite")) return "favorite";
+    if (currentListTypes.includes("liked")) return "liked";
     if (currentListTypes.includes("watched")) return "watched";
     if (currentListTypes.includes("disliked")) return "disliked";
     return null;

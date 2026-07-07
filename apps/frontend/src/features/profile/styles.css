@@ -501,15 +501,45 @@
 .taste-row {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.6rem;
   padding: 0.5rem 0.6rem;
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.03);
-  transition: background 0.2s ease;
+  cursor: grab;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease,
+    opacity 0.15s ease;
 }
 
 .taste-row:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.taste-row:active {
+  cursor: grabbing;
+}
+
+.taste-row.is-dragging {
+  opacity: 0.55;
+  transform: scale(0.99);
+  box-shadow: 0 12px 30px rgba(2, 8, 16, 0.4);
+}
+
+.taste-row.is-over {
+  background: var(--accent-soft);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.taste-row__handle {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: -0.1em;
+  cursor: grab;
+}
+
+.taste-row:hover .taste-row__handle {
+  color: var(--accent-strong);
 }
 
 .taste-row__rank {
@@ -547,34 +577,6 @@
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent-dark), var(--accent));
   transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.taste-row__actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
-
-.taste-row__actions button {
-  width: 28px;
-  height: 28px;
-  border-radius: 0.55rem;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.taste-row__actions button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(115, 240, 193, 0.5);
-  color: var(--accent-strong);
-}
-
-.taste-row__actions button:disabled {
-  opacity: 0.32;
-  cursor: default;
 }
 
 .profile-people-manage {

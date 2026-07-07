@@ -70,6 +70,7 @@ type DetailInfo struct {
 	Homepage          string
 	OriginCountry     []string
 	Cast              []CastMember
+	Directors         []CrewMember
 }
 
 // CastMember is one billed actor on a title.
@@ -79,6 +80,14 @@ type CastMember struct {
 	Character  string
 	ProfileURL string
 	Order      int
+}
+
+// CrewMember is a key crew credit (director for movies, creator for series).
+type CrewMember struct {
+	ID         int
+	Name       string
+	Job        string
+	ProfileURL string
 }
 
 // Suggestion is a lightweight search result.
@@ -716,6 +725,7 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 		Homepage:      payload.Homepage,
 		OriginCountry: payload.OriginCountry,
 		Cast:          mapCast(payload.Credits),
+		Directors:     mapDirectors(payload.Credits),
 	}, nil
 }
 
@@ -814,7 +824,17 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		Homepage:          payload.Homepage,
 		OriginCountry:     payload.OriginCountry,
 		Cast:              mapCast(payload.Credits),
+		Directors:         tvDirectors(payload),
 	}, nil
+}
+
+// tvDirectors prefers a series' creators (created_by) and falls back to any
+// director credits in the crew list.
+func tvDirectors(payload tvDetailsResponse) []CrewMember {
+	if creators := mapCreators(payload.CreatedBy); len(creators) > 0 {
+		return creators
+	}
+	return mapDirectors(payload.Credits)
 }
 
 func (c *Client) fetchMovie(ctx context.Context, id int) (ReleaseInfo, error) {
@@ -999,6 +1019,7 @@ type tvDetailsResponse struct {
 	Homepage       string          `json:"homepage"`
 	OriginCountry  []string        `json:"origin_country"`
 	Credits        *tmdbCredits    `json:"credits"`
+	CreatedBy      []tmdbCreatedBy `json:"created_by"`
 }
 
 type tmdbGenre struct {
@@ -1007,6 +1028,7 @@ type tmdbGenre struct {
 
 type tmdbCredits struct {
 	Cast []tmdbCastEntry `json:"cast"`
+	Crew []tmdbCrewEntry `json:"crew"`
 }
 
 type tmdbCastEntry struct {
@@ -1015,6 +1037,71 @@ type tmdbCastEntry struct {
 	Character   string `json:"character"`
 	ProfilePath string `json:"profile_path"`
 	Order       int    `json:"order"`
+}
+
+type tmdbCrewEntry struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Job         string `json:"job"`
+	ProfilePath string `json:"profile_path"`
+}
+
+type tmdbCreatedBy struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	ProfilePath string `json:"profile_path"`
+}
+
+// maxDirectors caps how many director/creator credits we surface.
+const maxDirectors = 3
+
+// mapDirectors extracts directors from a movie's crew credits, de-duplicated
+// and capped.
+func mapDirectors(credits *tmdbCredits) []CrewMember {
+	if credits == nil || len(credits.Crew) == 0 {
+		return nil
+	}
+	out := make([]CrewMember, 0, maxDirectors)
+	seen := make(map[int]bool)
+	for _, entry := range credits.Crew {
+		if entry.Job != "Director" || entry.Name == "" || seen[entry.ID] {
+			continue
+		}
+		seen[entry.ID] = true
+		out = append(out, CrewMember{
+			ID:         entry.ID,
+			Name:       entry.Name,
+			Job:        "Director",
+			ProfileURL: buildProfileURL(entry.ProfilePath),
+		})
+		if len(out) >= maxDirectors {
+			break
+		}
+	}
+	return out
+}
+
+// mapCreators maps a series' created_by entries to crew members, capped.
+func mapCreators(createdBy []tmdbCreatedBy) []CrewMember {
+	if len(createdBy) == 0 {
+		return nil
+	}
+	out := make([]CrewMember, 0, maxDirectors)
+	for _, entry := range createdBy {
+		if entry.Name == "" {
+			continue
+		}
+		out = append(out, CrewMember{
+			ID:         entry.ID,
+			Name:       entry.Name,
+			Job:        "Creator",
+			ProfileURL: buildProfileURL(entry.ProfilePath),
+		})
+		if len(out) >= maxDirectors {
+			break
+		}
+	}
+	return out
 }
 
 // mapCast converts TMDB credits to the billed cast, capped at maxCast and

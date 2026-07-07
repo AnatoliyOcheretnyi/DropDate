@@ -72,6 +72,7 @@ type Details struct {
 	Homepage          string       `json:"homepage,omitempty"`
 	OriginCountry     []string     `json:"originCountry,omitempty"`
 	Cast              []CastMember `json:"cast,omitempty"`
+	Directors         []CrewMember `json:"directors,omitempty"`
 }
 
 // CastMember is one billed actor on a title.
@@ -79,6 +80,14 @@ type CastMember struct {
 	TMDBID     int    `json:"tmdbId"`
 	Name       string `json:"name"`
 	Character  string `json:"character,omitempty"`
+	ProfileURL string `json:"profileUrl,omitempty"`
+}
+
+// CrewMember is a key crew credit (director for movies, creator for series).
+type CrewMember struct {
+	TMDBID     int    `json:"tmdbId"`
+	Name       string `json:"name"`
+	Job        string `json:"job,omitempty"`
 	ProfileURL string `json:"profileUrl,omitempty"`
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { TasteKind } from "../store/tasteStore";
 
 type Props = {
@@ -7,7 +8,7 @@ type Props = {
   title: string;
   kicker: string;
   items: string[];
-  onMove: (kind: TasteKind, index: number, direction: -1 | 1) => void;
+  onReorder: (kind: TasteKind, from: number, to: number) => void;
   onReset: (kind: TasteKind) => void;
 };
 
@@ -16,9 +17,20 @@ export function TasteRanker({
   title,
   kicker,
   items,
-  onMove,
+  onReorder,
   onReset,
 }: Props) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const finishDrop = (to: number) => {
+    if (dragIndex !== null && dragIndex !== to) {
+      onReorder(kind, dragIndex, to);
+    }
+    setDragIndex(null);
+    setOverIndex(null);
+  };
+
   return (
     <div className="taste-ranker">
       <div className="taste-ranker__head">
@@ -37,8 +49,44 @@ export function TasteRanker({
       <ol className="taste-ranker__list">
         {items.map((item, index) => {
           const strength = ((items.length - index) / items.length) * 100;
+          const isDragging = dragIndex === index;
+          const isOver = overIndex === index && dragIndex !== index;
           return (
-            <li key={item} className="taste-row">
+            <li
+              key={item}
+              className={`taste-row${isDragging ? " is-dragging" : ""}${
+                isOver ? " is-over" : ""
+              }`}
+              draggable
+              onDragStart={(event) => {
+                setDragIndex(index);
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", String(index));
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                if (overIndex !== index) {
+                  setOverIndex(index);
+                }
+              }}
+              onDragLeave={() => {
+                if (overIndex === index) {
+                  setOverIndex(null);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                finishDrop(index);
+              }}
+              onDragEnd={() => {
+                setDragIndex(null);
+                setOverIndex(null);
+              }}
+            >
+              <span className="taste-row__handle" aria-hidden="true">
+                ⠿
+              </span>
               <span className="taste-row__rank">{index + 1}</span>
               <div className="taste-row__body">
                 <span className="taste-row__name">{item}</span>
@@ -48,24 +96,6 @@ export function TasteRanker({
                     style={{ width: `${strength}%` }}
                   />
                 </span>
-              </div>
-              <div className="taste-row__actions">
-                <button
-                  type="button"
-                  aria-label="Підняти"
-                  disabled={index === 0}
-                  onClick={() => onMove(kind, index, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label="Опустити"
-                  disabled={index === items.length - 1}
-                  onClick={() => onMove(kind, index, 1)}
-                >
-                  ↓
-                </button>
               </div>
             </li>
           );

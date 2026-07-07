@@ -35,6 +35,16 @@ export function TitleDetailsHero({
   const ratingValue = useCountUp(details.voteAverage ?? 0, { duration: 1000 });
   const votesValue = useCountUp(details.voteCount ?? 0, { duration: 1100 });
 
+  const directors = details.directors ?? [];
+  const isCreatorCredit = directors[0]?.job === "Creator";
+  const crewKicker = isCreatorCredit
+    ? directors.length > 1
+      ? "Творці"
+      : "Творець"
+    : directors.length > 1
+    ? "Режисери"
+    : "Режисер";
+
   return (
     <section className="details-hero">
       <div className="details-inner">
@@ -118,7 +128,8 @@ export function TitleDetailsHero({
             </div>
           </div>
 
-          <aside className="details-release-panel">
+          <div className="details-aside">
+            <aside className="details-release-panel">
             <span className="details-release-kicker">
               {releaseStatus || copy.details.labels.release}
             </span>
@@ -155,7 +166,46 @@ export function TitleDetailsHero({
                 </strong>
               </div>
             </div>
-          </aside>
+
+            </aside>
+
+            {directors.length ? (
+              <div className="details-director-card">
+                <span className="details-director-card__kicker">
+                  {crewKicker}
+                </span>
+                <div className="details-director-card__list">
+                  {directors.map((person) => (
+                    <div key={person.tmdbId} className="details-director">
+                      <div className="details-director__photo">
+                        {person.profileUrl ? (
+                          <img
+                            src={person.profileUrl}
+                            alt={person.name}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span aria-hidden="true">
+                            {person.name.slice(0, 1)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="details-director__meta">
+                        <strong className="details-director__name">
+                          {person.name}
+                        </strong>
+                        <span className="details-director__role">
+                          {person.job === "Creator"
+                            ? "Творець серіалу"
+                            : "Режисер фільму"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

@@ -486,10 +486,45 @@ func (s *Store) RemoveStatusLists(ctx context.Context, userID string, tmdbID int
 	_, err := s.db.ExecContext(ctx, `
 		delete from saved_titles
 		where user_id = $1 and tmdb_id = $2 and media_type = $3
-		  and list_type in ('favorite', 'watched', 'disliked')
+		  and list_type in ('favorite', 'liked', 'watched', 'disliked')
 		  and list_type <> $4
 	`, userID, tmdbID, mediaType, keepType)
 	return err
+}
+
+// TitleStats returns the canonical per-title stats (rating + last watched)
+// across every list membership for a title, preferring a row that actually has
+// a rating. Used to carry a verdict over when a title moves between lists so the
+// user's rating is not reset.
+func (s *Store) TitleStats(ctx context.Context, userID string, tmdbID int, mediaType string) (*int, *time.Time, error) {
+	mediaType = strings.TrimSpace(strings.ToLower(mediaType))
+	row := s.db.QueryRowContext(ctx, `
+		select user_rating, last_watched_at
+		from saved_titles
+		where user_id = $1 and tmdb_id = $2 and media_type = $3
+		order by (user_rating is not null) desc, updated_at desc
+		limit 1
+	`, userID, tmdbID, mediaType)
+
+	var rating sql.NullInt32
+	var lastWatched sql.NullTime
+	if err := row.Scan(&rating, &lastWatched); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
+	}
+
+	var ratingPtr *int
+	if rating.Valid {
+		value := int(rating.Int32)
+		ratingPtr = &value
+	}
+	var lastWatchedPtr *time.Time
+	if lastWatched.Valid {
+		lastWatchedPtr = &lastWatched.Time
+	}
+	return ratingPtr, lastWatchedPtr, nil
 }
 
 func (s *Store) UpdateStats(
@@ -533,7 +568,7 @@ func (s *Store) UpdateStats(
 func normalizeListType(value string) string {
 	listType := strings.TrimSpace(strings.ToLower(value))
 	switch listType {
-	case "follow", "watchlist", "favorite", "watched", "disliked":
+	case "follow", "watchlist", "favorite", "liked", "watched", "disliked":
 		return listType
 	default:
 		return ""
