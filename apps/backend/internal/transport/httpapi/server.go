@@ -13,6 +13,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/people"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
@@ -39,6 +40,7 @@ type ServerOptions struct {
 	RequestTimeout   time.Duration
 	AI               *airecs.Service
 	Capabilities     capabilities.Resolver
+	People           *people.Service
 }
 
 type Server struct {
@@ -50,6 +52,7 @@ type Server struct {
 	games            *games.Service
 	mood             *moodpicker.Service
 	match            *cinematch.Service
+	people           *people.Service
 	ai               *airecs.Service
 	caps             capabilities.Resolver
 	readiness        ReadinessChecker
@@ -85,6 +88,7 @@ func NewServer(
 		games:            gamesSvc,
 		mood:             moodSvc,
 		match:            matchSvc,
+		people:           options.People,
 		ai:               options.AI,
 		caps:             options.Capabilities,
 		readiness:        options.Readiness,

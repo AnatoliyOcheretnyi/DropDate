@@ -4,6 +4,7 @@
 @import "../src/features/home/styles.css";
 @import "../src/features/search/styles.css";
 @import "../src/features/titleDetails/styles.css";
+@import "../src/features/personDetails/styles.css";
 @import "../src/features/profile/styles.css";
 @import "../src/features/saved/styles.css";
 @import "../src/features/games/styles.css";

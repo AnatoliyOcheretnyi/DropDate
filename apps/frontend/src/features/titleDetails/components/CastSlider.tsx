@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { CastMember } from "../../../shared/lib/release";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 
 export function CastSlider({ cast }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   if (!cast || cast.length === 0) {
     return null;
@@ -51,10 +53,15 @@ export function CastSlider({ cast }: Props) {
       <div className="cast-viewport">
         <div className="cast-slider" ref={scrollerRef}>
           {cast.map((member, index) => (
-            <article
+            <button
+              type="button"
               key={member.tmdbId}
-              className="cast-card"
+              className="cast-card cast-card--link"
               style={{ ["--card-index" as string]: index }}
+              onClick={() =>
+                router.push(`/person/${member.tmdbId}?role=actor`)
+              }
+              title={member.name}
             >
               <div className="cast-card-photo">
                 {member.profileUrl ? (
@@ -69,7 +76,7 @@ export function CastSlider({ cast }: Props) {
               {member.character ? (
                 <span className="cast-card-character">{member.character}</span>
               ) : null}
-            </article>
+            </button>
           ))}
         </div>
       </div>

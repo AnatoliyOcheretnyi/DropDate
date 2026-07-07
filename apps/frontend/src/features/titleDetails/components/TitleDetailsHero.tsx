@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { Details, ReleaseInfo } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
@@ -28,6 +29,7 @@ export function TitleDetailsHero({
   formatDate,
   yearFromDate,
 }: Props) {
+  const router = useRouter();
   const mediaLabel =
     details.mediaType === "movie" ? copy.mediaType.movie : copy.mediaType.series;
   const year = yearFromDate(details.releaseDate || details.firstAirDate);
@@ -176,7 +178,15 @@ export function TitleDetailsHero({
                 </span>
                 <div className="details-director-card__list">
                   {directors.map((person) => (
-                    <div key={person.tmdbId} className="details-director">
+                    <button
+                      type="button"
+                      key={person.tmdbId}
+                      className="details-director details-director--link"
+                      onClick={() =>
+                        router.push(`/person/${person.tmdbId}?role=director`)
+                      }
+                      title={person.name}
+                    >
                       <div className="details-director__photo">
                         {person.profileUrl ? (
                           <img
@@ -200,7 +210,7 @@ export function TitleDetailsHero({
                             : "Режисер фільму"}
                         </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

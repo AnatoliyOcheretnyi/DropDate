@@ -7,4 +7,7 @@ export const webQueryKeys = {
   notifications: (userId: string) => ["notifications", userId] as const,
   saved: (userId: string) => ["saved", userId] as const,
   home: () => ["home"] as const,
+  person: (id: number) => ["person", id] as const,
+  personPick: (id: number, role: string) => ["person-pick", id, role] as const,
+  personFollows: (userId: string) => ["person-follows", userId] as const,
 };

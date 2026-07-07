@@ -107,6 +107,7 @@ type Service struct {
 	upcoming       UpcomingProvider
 	searcher       SearchProvider
 	details        DetailsProvider
+	person         PersonProvider
 	discover       DiscoverProvider
 	logger         *log.Logger
 
@@ -251,6 +252,12 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 		details: func() DetailsProvider {
 			if d, ok := suggester.(DetailsProvider); ok {
 				return d
+			}
+			return nil
+		}(),
+		person: func() PersonProvider {
+			if p, ok := suggester.(PersonProvider); ok {
+				return p
 			}
 			return nil
 		}(),

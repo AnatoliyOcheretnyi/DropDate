@@ -16,6 +16,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/people"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
@@ -63,6 +64,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		authService          *auth.Service
 		savedService         *saved.Service
 		notificationsService *notifications.Service
+		peopleService        *people.Service
 		closeDB              func() error
 		db                   *sql.DB
 	)
@@ -84,6 +86,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		authService = service
 		savedService = saved.NewService(saved.NewStore(openedDB))
 		notificationsService = notifications.NewService(notifications.NewStore(openedDB))
+		peopleService = people.NewService(people.NewStore(openedDB))
 	}
 
 	var recommendationsService *recommendations.Service
@@ -149,6 +152,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			RequestTimeout:   cfg.HTTP.RequestTimeout,
 			AI:               aiService,
 			Capabilities:     capabilitiesResolver,
+			People:           peopleService,
 		},
 	)
 

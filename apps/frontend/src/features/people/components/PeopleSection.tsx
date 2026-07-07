@@ -10,7 +10,7 @@ const ROLE_LABEL: Record<PersonRole, string> = {
 };
 
 export function PeopleSection() {
-  const { people, remove } = useFollowedPeople();
+  const { people, removeFollow } = useFollowedPeople();
   const [role, setRole] = useState<PersonRole>("actor");
   const filtered = people.filter((person) => person.role === role);
 
@@ -51,8 +51,8 @@ export function PeopleSection() {
           </h3>
           <p>
             {role === "actor"
-              ? "Відкрий сторінку фільму й натисни «Стежити» у розділі акторів — щоб не пропустити їхні нові релізи."
-              : "Стеження за режисерами додамо разом із даними знімальної групи."}
+              ? "Відкрий сторінку актора й познач його улюбленим — щоб не пропустити нові ролі."
+              : "Відкрий сторінку режисера й познач його улюбленим — щоб стежити за новими роботами."}
           </p>
         </div>
       ) : (
@@ -76,7 +76,7 @@ export function PeopleSection() {
               <button
                 type="button"
                 className="person-unfollow"
-                onClick={() => remove(person.tmdbId)}
+                onClick={() => removeFollow(person.tmdbId, person.role)}
               >
                 Відписатись
               </button>

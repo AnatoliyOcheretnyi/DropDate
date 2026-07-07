@@ -59,6 +59,58 @@ export type CastMember = {
   profileUrl?: string;
 };
 
+export type PersonRole = "actor" | "director";
+
+export type PersonCredit = {
+  tmdbId: number;
+  mediaType: "movie" | "tv";
+  title: string;
+  role: "actor" | "director" | "writer";
+  character?: string;
+  job?: string;
+  year?: string;
+  releaseDate?: string;
+  posterUrl?: string;
+  voteAverage?: number;
+  popularity?: number;
+};
+
+export type Person = {
+  id: number;
+  name: string;
+  biography?: string;
+  knownForDepartment?: string;
+  birthday?: string;
+  deathday?: string;
+  placeOfBirth?: string;
+  profileUrl?: string;
+  homepage?: string;
+  imdbId?: string;
+  instagram?: string;
+  twitter?: string;
+  popularity?: number;
+  credits?: PersonCredit[];
+};
+
+export type PersonPick = {
+  tmdbId: number;
+  mediaType: "movie" | "tv";
+  title: string;
+  year?: string;
+  posterUrl?: string;
+  reason: string;
+};
+
+export type PersonFollow = {
+  personId: number;
+  role: PersonRole;
+  name: string;
+  profileUrl?: string;
+  knownFor?: string;
+  liked: boolean;
+  subscribed: boolean;
+};
+
 export type CrewMember = {
   tmdbId: number;
   name: string;
