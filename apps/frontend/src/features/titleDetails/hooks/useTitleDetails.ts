@@ -222,6 +222,7 @@ export function useTitleDetails() {
       follow: copy.lists?.follow ?? "Підписка",
       watchlist: copy.lists?.watchlist ?? "Хочу подивитись",
       favorite: copy.lists?.favorite ?? "Улюблене",
+      liked: copy.lists?.liked ?? "Сподобалось",
       watched: copy.lists?.watched ?? "Переглянуто",
       disliked: copy.lists?.disliked ?? "Не сподобалось",
     }),

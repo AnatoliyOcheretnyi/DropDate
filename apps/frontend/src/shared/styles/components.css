@@ -596,6 +596,49 @@ dd.date span:last-child {
   font-style: italic;
 }
 
+.star-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.star-rating__star {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.28);
+  line-height: 0;
+  transition: transform 0.12s ease, color 0.15s ease;
+}
+
+.star-rating__star svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  display: block;
+}
+
+.star-rating--md .star-rating__star svg {
+  width: 22px;
+  height: 22px;
+}
+
+.star-rating__star.is-filled {
+  color: #ffd479;
+}
+
+.star-rating__star:hover {
+  transform: scale(1.2);
+}
+
+.star-rating__value {
+  margin-left: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
 .movie-preview-lists {
   flex-shrink: 0;
   padding: 0.7rem 0.85rem 0.85rem;

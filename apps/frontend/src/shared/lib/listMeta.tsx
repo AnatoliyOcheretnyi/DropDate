@@ -6,7 +6,12 @@ import { copy } from "./strings";
  * The "status" lists are mutually exclusive — a title can be favorite OR
  * watched OR disliked, but not several at once. Mirrors ListPickerModal.
  */
-export const STATUS_LISTS: ListType[] = ["favorite", "watched", "disliked"];
+export const STATUS_LISTS: ListType[] = [
+  "favorite",
+  "liked",
+  "watched",
+  "disliked",
+];
 
 export type ListMeta = {
   type: ListType;
@@ -42,6 +47,15 @@ const favoriteIcon = (
   </svg>
 );
 
+const likedIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M21 10h-4V6.5C17 4.6 15.7 4 14.8 4c-.5 0-.9.3-1 .8l-1.2 5.2c-.1.5-.5 1-1 1.3L9 12v8h8.3c.8 0 1.5-.5 1.8-1.2l2.1-5.3c.5-1.3-.5-2.5-1.9-2.5H21Zm-18 2h3v8H3v-8Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const watchedIcon = (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path
@@ -64,6 +78,7 @@ export const LIST_META: ListMeta[] = [
   { type: "follow", label: copy.lists.follow, icon: followIcon },
   { type: "watchlist", label: copy.lists.watchlist, icon: watchlistIcon },
   { type: "favorite", label: copy.lists.favorite, icon: favoriteIcon },
+  { type: "liked", label: copy.lists.liked, icon: likedIcon },
   { type: "watched", label: copy.lists.watched, icon: watchedIcon },
   { type: "disliked", label: copy.lists.disliked, icon: dislikedIcon },
 ];

@@ -9,8 +9,33 @@ import { ProfileStats } from "../../profile/components/ProfileStats";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedPage } from "../hooks/useSavedPage";
 import { useAuth } from "../../../shared/state/auth";
-import type { SavedRelease } from "../../../shared/types/releases";
+import type { ListType, SavedRelease } from "../../../shared/types/releases";
+import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import type { ProfileStat, TabDefinition, TabKey } from "../../profile/types";
+import { Reveal } from "../../../shared/ui/Reveal";
+import { PeopleSection } from "../../people/components/PeopleSection";
+import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
+
+type SortKey = "default" | "rating" | "alpha" | "release";
+
+const RATED_TABS: TabKey[] = ["favorite", "liked", "watched", "disliked"];
+
+const toSuggestion = (item: SavedRelease): Suggestion => ({
+  id: item.tmdbId as number,
+  title: item.title,
+  mediaType: item.mediaType || (item.type === "movie" ? "movie" : "tv"),
+  posterUrl: item.posterUrl,
+});
+
+const toRelease = (item: SavedRelease): ReleaseInfo => ({
+  title: item.title,
+  type: item.type,
+  nextRelease: item.nextRelease,
+  source: item.source,
+  posterUrl: item.posterUrl,
+  backdropUrl: item.backdropUrl,
+  status: item.status,
+});
 
 const normalizeItemLists = (item: SavedRelease): TabKey[] => {
   if (item.listTypes && item.listTypes.length > 0) {
@@ -23,6 +48,9 @@ export function SavedScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("follow");
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [section, setSection] = useState<"titles" | "people">("titles");
+  const { people: followedPeople } = useFollowedPeople();
   const {
     blurTimeoutRef,
     handleRefreshAllClick,
@@ -39,10 +67,33 @@ export function SavedScreen() {
     removeRelease,
     saved,
     savedCount,
+    setSuggestionLists,
     setTitle,
     suggestions,
     title,
+    updateListStats,
   } = useSavedPage();
+
+  const handleChangeLists = (item: SavedRelease, next: ListType[]) => {
+    if (!item.tmdbId || !item.mediaType) {
+      return;
+    }
+    if (next.length === 0) {
+      removeRelease(item.id);
+      return;
+    }
+    setSuggestionLists(toSuggestion(item), next, toRelease(item));
+  };
+
+  const handleRate = (item: SavedRelease, rating: number) => {
+    if (!item.tmdbId || !item.mediaType) {
+      return;
+    }
+    const listType: ListType = RATED_TABS.includes(activeTab)
+      ? activeTab
+      : "watched";
+    updateListStats(toSuggestion(item), listType, { userRating: rating });
+  };
 
   const tabCounts = useMemo(
     () =>
@@ -57,6 +108,7 @@ export function SavedScreen() {
           follow: 0,
           watchlist: 0,
           favorite: 0,
+          liked: 0,
           watched: 0,
           disliked: 0,
         }
@@ -75,6 +127,7 @@ export function SavedScreen() {
       label: copy.lists.favorite,
       count: tabCounts.favorite,
     },
+    { key: "liked", label: copy.lists.liked, count: tabCounts.liked },
     { key: "watched", label: copy.lists.watched, count: tabCounts.watched },
     {
       key: "disliked",
@@ -102,6 +155,25 @@ export function SavedScreen() {
       ),
     [activeTab, saved]
   );
+
+  const displayItems = useMemo(() => {
+    if (sortKey === "default") {
+      return tabItems;
+    }
+    const copyItems = [...tabItems];
+    if (sortKey === "alpha") {
+      copyItems.sort((a, b) => a.title.localeCompare(b.title, "uk"));
+    } else if (sortKey === "rating") {
+      copyItems.sort((a, b) => (b.userRating || 0) - (a.userRating || 0));
+    } else if (sortKey === "release") {
+      copyItems.sort((a, b) => {
+        const ta = a.nextRelease ? new Date(a.nextRelease).getTime() : 0;
+        const tb = b.nextRelease ? new Date(b.nextRelease).getTime() : 0;
+        return tb - ta;
+      });
+    }
+    return copyItems;
+  }, [sortKey, tabItems]);
 
   const weekCount = useMemo(() => {
     if (activeTab !== "follow") {
@@ -272,6 +344,40 @@ export function SavedScreen() {
           <p className="saved-refresh-message">{refreshMessage}</p>
         ) : null}
 
+        <div className="saved-sections-switch" role="tablist" aria-label="Розділи">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={section === "titles"}
+            className={`saved-switch-btn${
+              section === "titles" ? " is-active" : ""
+            }`}
+            onClick={() => setSection("titles")}
+          >
+            Тайтли
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={section === "people"}
+            className={`saved-switch-btn${
+              section === "people" ? " is-active" : ""
+            }`}
+            onClick={() => setSection("people")}
+          >
+            Люди
+            {followedPeople.length > 0 ? (
+              <span>{followedPeople.length}</span>
+            ) : null}
+          </button>
+        </div>
+
+        {section === "people" ? (
+          <Reveal>
+            <PeopleSection />
+          </Reveal>
+        ) : (
+          <>
         <div className="saved-dashboard">
           <ProfileTabs
             tabs={tabs}
@@ -287,6 +393,29 @@ export function SavedScreen() {
           />
         </div>
 
+        {isStorageReady && tabItems.length > 0 && activeTab !== "follow" ? (
+          <div className="saved-controls">
+            <span className="saved-controls-count">
+              {tabItems.length}{" "}
+              {tabItems.length === 1 ? "тайтл" : "тайтлів"}
+            </span>
+            <label className="saved-sort">
+              <span>Сортувати</span>
+              <select
+                value={sortKey}
+                onChange={(event) =>
+                  setSortKey(event.target.value as SortKey)
+                }
+              >
+                <option value="default">За замовчуванням</option>
+                <option value="rating">За оцінкою</option>
+                <option value="alpha">За назвою</option>
+                <option value="release">За датою релізу</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+
         {!isStorageReady ? (
           <div className="saved-empty">
             <p>{copy.hints.loadingList}</p>
@@ -301,12 +430,19 @@ export function SavedScreen() {
             </button>
           </div>
         ) : (
-          <AuthorizedSavedList
-            items={tabItems}
-            onRemove={(item) => removeRelease(item.id)}
-            actionsDisabled={!isStorageReady}
-            groupByDate={activeTab === "follow"}
-          />
+          <Reveal key={activeTab}>
+            <AuthorizedSavedList
+              items={displayItems}
+              onRemove={(item) => removeRelease(item.id)}
+              actionsDisabled={!isStorageReady}
+              groupByDate={activeTab === "follow"}
+              onChangeLists={handleChangeLists}
+              onRate={handleRate}
+              showRating={RATED_TABS.includes(activeTab)}
+            />
+          </Reveal>
+        )}
+          </>
         )}
       </section>
       </AppPageShell>

@@ -1,0 +1,241 @@
+/* ---- Follow button (cast cards + person cards) ---- */
+.person-follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: rgba(7, 13, 22, 0.5);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.2s ease, background 0.2s ease,
+    color 0.2s ease;
+}
+
+.person-follow__icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.person-follow:hover {
+  transform: translateY(-1px);
+  border-color: rgba(115, 240, 193, 0.5);
+  color: var(--text);
+}
+
+.person-follow.is-following {
+  background: var(--accent-soft);
+  border-color: rgba(115, 240, 193, 0.55);
+  color: var(--accent-strong);
+}
+
+/* ---- People section (saved page) ---- */
+.people-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  margin-bottom: 1.2rem;
+}
+
+.people-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.people-toggle__btn span {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.people-toggle__btn.is-active {
+  background: var(--accent);
+  color: #06140f;
+}
+
+.people-toggle__btn.is-active span {
+  background: rgba(6, 20, 15, 0.25);
+  color: #06140f;
+}
+
+.people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.person-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.2rem 1rem 1rem;
+  border-radius: 1.2rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: center;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.25s ease;
+}
+
+.person-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+}
+
+.person-card__photo {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #1a3a42, #0a1018);
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--accent-strong);
+  margin-bottom: 0.3rem;
+}
+
+.person-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-card__name {
+  font-size: 0.92rem;
+  line-height: 1.15;
+}
+
+.person-card__role {
+  font-size: 0.7rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.person-card__badge {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--accent-strong);
+}
+
+.person-unfollow {
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.person-unfollow:hover {
+  border-color: rgba(255, 120, 120, 0.5);
+  color: #ff9e9e;
+}
+
+.people-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1.5rem;
+  border-radius: 1.4rem;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.people-empty span {
+  font-size: 2rem;
+}
+
+.people-empty h3 {
+  margin: 0;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+}
+
+.people-empty p {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+}
+
+/* ---- Titles / People segmented switch ---- */
+.saved-sections-switch {
+  display: inline-flex;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  margin-bottom: 1.1rem;
+}
+
+.saved-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.saved-switch-btn span {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.saved-switch-btn.is-active {
+  background: var(--accent);
+  color: #06140f;
+}
+
+.saved-switch-btn.is-active span {
+  background: rgba(6, 20, 15, 0.25);
+  color: #06140f;
+}

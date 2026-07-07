@@ -14,6 +14,7 @@ type ListCopy = {
   follow: string;
   watchlist: string;
   favorite: string;
+  liked: string;
   watched: string;
   disliked: string;
   empty: string;
@@ -35,6 +36,7 @@ const fallbackListCopy: ListCopy = {
   follow: "Підписка",
   watchlist: "Хочу подивитись",
   favorite: "Улюблене",
+  liked: "Сподобалось",
   watched: "Переглянуто",
   disliked: "Не сподобалось",
   empty: "Поки порожньо — додай зі сторінки пошуку/трендів",
@@ -93,6 +95,11 @@ export function useProfile() {
           key: "favorite",
           label: listCopy.favorite,
           count: countFor("favorite"),
+        },
+        {
+          key: "liked",
+          label: listCopy.liked,
+          count: countFor("liked"),
         },
         {
           key: "watched",
@@ -337,6 +344,7 @@ export function useProfile() {
     isFetchingSuggestions,
     listCopy,
     middleStat,
+    saved,
     savedCount,
     seriesCount,
     setActiveTab,

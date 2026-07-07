@@ -7,6 +7,7 @@ export type ListType =
   | "follow"
   | "watchlist"
   | "favorite"
+  | "liked"
   | "watched"
   | "disliked";
 

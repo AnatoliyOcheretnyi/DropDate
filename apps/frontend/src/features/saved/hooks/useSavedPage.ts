@@ -23,6 +23,8 @@ export function useSavedPage() {
     isReady: isStorageReady,
     removeRelease,
     isSuggestionSaved,
+    setSuggestionLists,
+    updateListStats,
     refreshAll,
     isRefreshing,
   } = useSavedReleases();
@@ -106,8 +108,10 @@ export function useSavedPage() {
     removeRelease,
     saved,
     savedCount,
+    setSuggestionLists,
     setTitle,
     suggestions,
     title,
+    updateListStats,
   };
 }

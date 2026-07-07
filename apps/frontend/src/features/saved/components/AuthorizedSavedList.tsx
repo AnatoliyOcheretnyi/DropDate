@@ -1,9 +1,11 @@
 "use client";
 
-import type { SavedRelease } from "../../../shared/types/releases";
+import type { ListType, SavedRelease } from "../../../shared/types/releases";
 import { getReleaseStatusLabel, type Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
 import { CoverImage } from "../../../shared/ui/CoverImage";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
+import { StarRating } from "../../../shared/ui/StarRating";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -11,6 +13,9 @@ type Props = {
   onRemove: (item: SavedRelease) => void;
   actionsDisabled?: boolean;
   groupByDate?: boolean;
+  onChangeLists?: (item: SavedRelease, next: ListType[]) => void;
+  onRate?: (item: SavedRelease, rating: number) => void;
+  showRating?: boolean;
 };
 
 const formatDate = (value?: string) => {
@@ -73,6 +78,9 @@ export function AuthorizedSavedList({
   onRemove,
   actionsDisabled,
   groupByDate = true,
+  onChangeLists,
+  onRate,
+  showRating = false,
 }: Props) {
   const router = useRouter();
   const buckets = groupByDate
@@ -101,6 +109,28 @@ export function AuthorizedSavedList({
         >
           ✕
         </button>
+        {item.tmdbId && onChangeLists ? (
+          <MovieInfoButton
+            tmdbId={item.tmdbId}
+            mediaType={mediaType}
+            title={item.title}
+            className="saved-info-btn"
+            onActivate={() => router.push(`/title/${mediaType}/${item.tmdbId}`)}
+            activeLists={item.listTypes ?? []}
+            onChangeLists={(next) => onChangeLists(item, next)}
+          />
+        ) : null}
+        {showRating && item.tmdbId ? (
+          <div
+            className="saved-banner-rating"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <StarRating
+              value={item.userRating}
+              onChange={(rating) => onRate?.(item, rating)}
+            />
+          </div>
+        ) : null}
         <button
           type="button"
           className="saved-banner-link"

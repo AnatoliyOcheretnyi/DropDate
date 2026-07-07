@@ -10,7 +10,9 @@ import {
   type SavedRelease,
 } from "../../../shared/types/releases";
 
-const STATUS_LISTS: ListType[] = ["favorite", "watched", "disliked"];
+const STATUS_LISTS: ListType[] = ["favorite", "liked", "watched", "disliked"];
+// Priority when collapsing several mutually-exclusive verdicts into one.
+const STATUS_PRIORITY: ListType[] = ["favorite", "liked", "watched", "disliked"];
 
 export const normalizeListTypes = (listTypes?: ListType[]) => {
   if (!listTypes) {
@@ -23,9 +25,7 @@ export const normalizeListTypes = (listTypes?: ListType[]) => {
   const statuses = unique.filter((entry) => STATUS_LISTS.includes(entry));
   if (statuses.length > 1) {
     const preferred =
-      statuses.find((entry) => entry === "favorite") ||
-      statuses.find((entry) => entry === "watched") ||
-      statuses[0];
+      STATUS_PRIORITY.find((entry) => statuses.includes(entry)) || statuses[0];
     return unique.filter(
       (entry) => !STATUS_LISTS.includes(entry) || entry === preferred
     );

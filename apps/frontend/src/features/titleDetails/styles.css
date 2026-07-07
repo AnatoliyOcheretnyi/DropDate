@@ -359,6 +359,9 @@
 .list-status[data-list="favorite"] {
   --list-accent: #ff6f9c;
 }
+.list-status[data-list="liked"] {
+  --list-accent: #c58bff;
+}
 .list-status[data-list="watched"] {
   --list-accent: #73f0c1;
 }

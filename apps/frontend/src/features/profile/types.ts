@@ -1,4 +1,10 @@
-export type TabKey = "follow" | "watchlist" | "favorite" | "watched" | "disliked";
+export type TabKey =
+  | "follow"
+  | "watchlist"
+  | "favorite"
+  | "liked"
+  | "watched"
+  | "disliked";
 
 export type TabDefinition = {
   key: TabKey;
