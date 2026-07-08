@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType, SavedRelease } from "../../../shared/types/releases";
+import { requestApi } from "../../../shared/api/http";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
+import { useAuth } from "../../../shared/state/auth";
+import type { NotificationsResponse } from "../../notifications/types/notifications";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 
 export type CalendarMode = "week" | "month";
@@ -78,13 +83,37 @@ const capitalize = (value: string) =>
 
 export function useCalendarReleases() {
   const { saved, savedCount, isReady } = useSavedReleases();
+  const { user, accessToken } = useAuth();
   const [mode, setMode] = useState<CalendarMode>("month");
   const [anchor, setAnchor] = useState<Date>(() => startOfToday());
 
   const today = useMemo(() => startOfToday(), []);
   const todayKey = useMemo(() => toDateKey(today), [today]);
 
-  const events = useMemo<CalendarEvent[]>(() => {
+  // Past releases are pulled from the persistent notifications log so they keep
+  // showing on the calendar even after the title is removed from subscriptions
+  // (notification rows are tied to the user, not to the saved list).
+  const historyQuery = useQuery({
+    queryKey: webQueryKeys.releaseHistory(user?.id ?? "guest"),
+    enabled: Boolean(user && accessToken),
+    queryFn: async ({ signal }) => {
+      const response = await requestApi<NotificationsResponse>({
+        url: "/api/notifications?limit=500",
+        method: "GET",
+        headers: { authorization: `Bearer ${accessToken}` },
+        signal,
+      });
+      if (!response.ok) {
+        return [] as NotificationsResponse["items"];
+      }
+      return response.payload?.items ?? [];
+    },
+    staleTime: 1000 * 60,
+  });
+
+  const historyItems = historyQuery.data;
+
+  const subscriptionEvents = useMemo<CalendarEvent[]>(() => {
     const collected: CalendarEvent[] = [];
     saved.forEach((item) => {
       const lists =
@@ -117,6 +146,51 @@ export function useCalendarReleases() {
     });
     return collected;
   }, [saved]);
+
+  const historyEvents = useMemo<CalendarEvent[]>(() => {
+    if (!historyItems) {
+      return [];
+    }
+    const collected: CalendarEvent[] = [];
+    historyItems.forEach((item) => {
+      if (!item.releaseDate) {
+        return;
+      }
+      const parsed = new Date(item.releaseDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return;
+      }
+      const localDate = startOfDay(parsed);
+      collected.push({
+        id: `history:${item.id}`,
+        tmdbId: item.tmdbId,
+        mediaType: item.mediaType,
+        title: item.title,
+        posterUrl: item.posterUrl,
+        backdropUrl: item.backdropUrl,
+        type: item.mediaType === "movie" ? "movie" : "series",
+        status: "released",
+        date: localDate,
+        dateKey: toDateKey(localDate),
+      });
+    });
+    return collected;
+  }, [historyItems]);
+
+  const events = useMemo<CalendarEvent[]>(() => {
+    const map = new Map<string, CalendarEvent>();
+    const put = (event: CalendarEvent) => {
+      const dedupKey = `${event.tmdbId ?? event.title}:${event.mediaType}:${event.dateKey}`;
+      if (!map.has(dedupKey)) {
+        map.set(dedupKey, event);
+      }
+    };
+    // Subscriptions win over history for the same title/date (they carry live
+    // status and link back to the saved item id).
+    subscriptionEvents.forEach(put);
+    historyEvents.forEach(put);
+    return Array.from(map.values());
+  }, [subscriptionEvents, historyEvents]);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
