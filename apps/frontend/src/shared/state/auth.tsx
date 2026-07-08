@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { webApi } from "../api/http";
-import { SYNC_ON_AUTH_KEY } from "../types/releases";
 
 type AuthUser = {
   id: string;
@@ -86,28 +85,6 @@ const toAuthResult = (payload: AuthPayload | null): AuthResult | null => {
   };
 };
 
-const setSyncFlag = (value: "1" | "0") => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(SYNC_ON_AUTH_KEY, value);
-  } catch {
-    // ignore storage issues
-  }
-};
-
-const clearSyncFlag = () => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.removeItem(SYNC_ON_AUTH_KEY);
-  } catch {
-    // ignore storage issues
-  }
-};
-
 const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   accessToken: null,
@@ -168,7 +145,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       throw new AuthError("Auth request failed", undefined, response.status);
     }
 
-    setSyncFlag("0");
     set({ user: result.user, accessToken: result.accessToken });
   },
   register: async (email: string, password: string) => {
@@ -182,7 +158,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     );
 
     if (response.status === 202 && response.data?.status === "verification_required") {
-      setSyncFlag("1");
       return {
         status: "verification_required" as const,
         message:
@@ -205,7 +180,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       throw new AuthError("Auth request failed", undefined, response.status);
     }
 
-    setSyncFlag("1");
     set({ user: result.user, accessToken: result.accessToken });
     return { status: "ok" as const };
   },
@@ -221,7 +195,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       );
     } finally {
       set({ user: null, accessToken: null });
-      clearSyncFlag();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("saved:clear"));
       }

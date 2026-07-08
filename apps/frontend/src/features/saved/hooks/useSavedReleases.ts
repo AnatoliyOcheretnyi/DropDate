@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   useMutation,
   useQuery,
@@ -12,21 +12,17 @@ import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
 import {
   bulkRefreshSaved,
-  createSavedRemote,
   fetchSavedRemote,
   patchSavedStatsRemote,
   removeSavedRemote,
+  createSavedRemote,
   type BulkRefreshResult,
 } from "../api/savedApi";
 import { useSavedStoreSnapshot } from "../store/savedStore";
 import {
-  clearSyncOnAuth,
   getSavedListTypes,
-  mergeSaved,
   normalizeListTypes,
   normalizeSavedRelease,
-  readSavedFromStorage,
-  shouldSyncOnAuth,
 } from "../utils/savedState";
 import {
   getSuggestionId,
@@ -36,29 +32,18 @@ import {
 } from "../../../shared/types/releases";
 
 function useSavedSyncEvents() {
-  const { clear, hydrate } = useSavedStoreSnapshot();
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+  const { clear } = useSavedStoreSnapshot();
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
     const onClear = () => clear();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key) {
-        hydrate();
-      }
-    };
     window.addEventListener("saved:clear", onClear);
-    window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener("saved:clear", onClear);
-      window.removeEventListener("storage", onStorage);
     };
-  }, [clear, hydrate]);
+  }, [clear]);
 }
 
 export function useSavedReleases() {
@@ -70,13 +55,6 @@ export function useSavedReleases() {
     useSavedStoreSnapshot();
 
   const isAuthed = Boolean(user && accessToken);
-  const localSnapshot = useMemo(() => readSavedFromStorage(), []);
-
-  useEffect(() => {
-    if (!isReady && localSnapshot.length > 0) {
-      setSaved(localSnapshot);
-    }
-  }, [isReady, localSnapshot, setSaved]);
 
   const savedRemoteQuery = useQuery({
     queryKey: webQueryKeys.saved(user?.id ?? "guest"),
@@ -88,79 +66,24 @@ export function useSavedReleases() {
     staleTime: 1000 * 60,
   });
 
+  // Remote is the single source of truth. Whenever the server list changes we
+  // replace the in-memory store outright so deletions/updates propagate. The
+  // ref guards against re-applying the same remote payload (e.g. after
+  // `refreshAll` has already merged the fresh list with refreshed dates).
+  const lastRemoteRef = useRef<SavedRelease[] | null>(null);
+
   useEffect(() => {
-    if (!isAuthed || !savedRemoteQuery.data || !accessToken) {
+    if (!isAuthed) {
+      lastRemoteRef.current = null;
+      setSaved([]);
       return;
     }
-
-    let cancelled = false;
-
-    const syncRemote = async () => {
-      const remoteItems = savedRemoteQuery.data ?? [];
-      const localItems = readSavedFromStorage();
-
-      if (shouldSyncOnAuth()) {
-        const localToSync = localItems.filter((item) => item.tmdbId && item.mediaType);
-        if (localToSync.length > 0) {
-          await Promise.all(
-            localToSync.flatMap((item) =>
-              normalizeListTypes(item.listTypes).flatMap((listType) => {
-                const remoteOps = [
-                  createSavedRemote(accessToken, {
-                    tmdbId: item.tmdbId!,
-                    mediaType: item.mediaType!,
-                    title: item.title,
-                    nextRelease: item.nextRelease,
-                    status: item.status,
-                    posterUrl: item.posterUrl,
-                    backdropUrl: item.backdropUrl,
-                    listType,
-                  }),
-                ];
-
-                const hasStats =
-                  typeof item.userRating === "number" ||
-                  typeof item.watchCount === "number" ||
-                  Boolean(item.lastWatchedAt);
-
-                if (hasStats) {
-                  remoteOps.push(
-                    patchSavedStatsRemote(accessToken, {
-                      tmdbId: item.tmdbId!,
-                      mediaType: item.mediaType!,
-                      listType,
-                      userRating: item.userRating,
-                      watchCount: item.watchCount,
-                      lastWatchedAt: item.lastWatchedAt,
-                    })
-                  );
-                }
-                return remoteOps;
-              })
-            )
-          );
-          clearSyncOnAuth();
-          if (!cancelled) {
-            void queryClient.invalidateQueries({
-              queryKey: webQueryKeys.saved(user?.id ?? "guest"),
-            });
-          }
-          return;
-        }
-        clearSyncOnAuth();
-      }
-
-      if (!cancelled) {
-        setSaved(mergeSaved(localItems, remoteItems));
-      }
-    };
-
-    void syncRemote();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken, isAuthed, queryClient, savedRemoteQuery.data, setSaved, user?.id]);
+    const remoteItems = savedRemoteQuery.data;
+    if (remoteItems && remoteItems !== lastRemoteRef.current) {
+      lastRemoteRef.current = remoteItems;
+      setSaved(remoteItems);
+    }
+  }, [isAuthed, savedRemoteQuery.data, setSaved]);
 
   const savedById = useMemo(() => {
     const index = new Map<string, SavedRelease>();
@@ -492,13 +415,25 @@ export function useSavedReleases() {
   );
 
   const refreshAll = useCallback(async () => {
-    if (saved.length === 0) {
-      return { results: [] as BulkRefreshResult[] };
-    }
-
     setRefreshing(true);
     try {
-      const results = await bulkRefreshSaved(saved);
+      // Pull the latest server state first so deletions/edits made elsewhere
+      // drop out of the list, then refresh release dates on the fresh set.
+      let base = saved;
+      if (isAuthed) {
+        const refreshed = await savedRemoteQuery.refetch();
+        if (refreshed.data) {
+          base = refreshed.data;
+          lastRemoteRef.current = refreshed.data;
+        }
+      }
+
+      if (base.length === 0) {
+        setSaved(base);
+        return { results: [] as BulkRefreshResult[] };
+      }
+
+      const results = await bulkRefreshSaved(base);
       const updates = new Map<string, ReleaseInfo>();
       results.forEach((entry) => {
         if (entry.clientId && entry.info) {
@@ -506,25 +441,25 @@ export function useSavedReleases() {
         }
       });
 
-      if (updates.size > 0) {
-        persist((prev) =>
-          prev.map((item) => {
-            const nextInfo = updates.get(item.id);
-            return nextInfo
-              ? {
-                  ...nextInfo,
-                  id: item.id,
-                  tmdbId: item.tmdbId,
-                  mediaType: item.mediaType,
-                  listTypes: item.listTypes,
-                  userRating: item.userRating,
-                  watchCount: item.watchCount,
-                  lastWatchedAt: item.lastWatchedAt,
-                }
-              : item;
-          })
-        );
-      }
+      const next =
+        updates.size > 0
+          ? base.map((item) => {
+              const nextInfo = updates.get(item.id);
+              return nextInfo
+                ? {
+                    ...nextInfo,
+                    id: item.id,
+                    tmdbId: item.tmdbId,
+                    mediaType: item.mediaType,
+                    listTypes: item.listTypes,
+                    userRating: item.userRating,
+                    watchCount: item.watchCount,
+                    lastWatchedAt: item.lastWatchedAt,
+                  }
+                : item;
+            })
+          : base;
+      setSaved(next);
 
       return { results };
     } catch (error) {
@@ -532,7 +467,7 @@ export function useSavedReleases() {
     } finally {
       setRefreshing(false);
     }
-  }, [persist, saved, setRefreshing]);
+  }, [isAuthed, saved, savedRemoteQuery, setRefreshing, setSaved]);
   return {
     saved,
     savedCount: saved.length,
