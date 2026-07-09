@@ -28,6 +28,34 @@ export type SavedCreditEntry = {
   listTypes: ListType[];
 };
 
+export type RoleFollow = {
+  role: PersonRole;
+  label: string;
+  liked: boolean;
+  subscribed: boolean;
+};
+
+export type TimelineEntry = {
+  key: string;
+  tmdbId: number;
+  mediaType: "movie" | "tv";
+  title: string;
+  year?: string;
+  yearNum: number;
+  posterUrl?: string;
+  voteAverage?: number;
+  roles: string[];
+};
+
+const roleWord = (role: PersonRole) =>
+  role === "director" ? "Режисер" : "Актор";
+
+const creditRoleLabel = (credit: PersonCredit) => {
+  if (credit.role === "director") return "Режисер";
+  if (credit.role === "writer") return "Сценарист";
+  return credit.character ? `Актор — ${credit.character}` : "Актор";
+};
+
 const ROLE_META: Record<
   CreditGroup["role"],
   { label: string; eyebrow: string; order: number }
@@ -145,6 +173,44 @@ export function usePersonDetails() {
     return entries;
   }, [getListTypes, person?.credits]);
 
+  // Full filmography merged across roles and ordered newest → oldest for the
+  // chronological timeline. Titles credited in several roles collapse into one
+  // entry that lists them all.
+  const timeline = useMemo<TimelineEntry[]>(() => {
+    const credits = person?.credits ?? [];
+    const map = new Map<string, TimelineEntry>();
+    credits.forEach((credit) => {
+      const key = `${credit.mediaType}:${credit.tmdbId}`;
+      const label = creditRoleLabel(credit);
+      const yearNum = Number(credit.year) || 0;
+      const existing = map.get(key);
+      if (existing) {
+        if (!existing.roles.includes(label)) existing.roles.push(label);
+        if (!existing.posterUrl && credit.posterUrl)
+          existing.posterUrl = credit.posterUrl;
+        if (!existing.year && credit.year) {
+          existing.year = credit.year;
+          existing.yearNum = yearNum;
+        }
+        if (!existing.voteAverage && credit.voteAverage)
+          existing.voteAverage = credit.voteAverage;
+        return;
+      }
+      map.set(key, {
+        key,
+        tmdbId: credit.tmdbId,
+        mediaType: credit.mediaType,
+        title: credit.title,
+        year: credit.year,
+        yearNum,
+        posterUrl: credit.posterUrl,
+        voteAverage: credit.voteAverage,
+        roles: [label],
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.yearNum - a.yearNum);
+  }, [person?.credits]);
+
   const pickQuery = useQuery({
     queryKey: webQueryKeys.personPick(id, activeRole),
     enabled: isValid && Boolean(user && accessToken),
@@ -157,32 +223,69 @@ export function usePersonDetails() {
     ? followed.getFollow(person.id, activeRole)
     : undefined;
 
-  const followTarget = useMemo(
-    () =>
+  // Roles this person can actually be followed as (actor / director), derived
+  // from their filmography. The active role always leads.
+  const availableRoles = useMemo<PersonRole[]>(() => {
+    const fromCredits = creditGroups
+      .map((group) => group.role)
+      .filter((role): role is PersonRole => role === "actor" || role === "director");
+    return fromCredits.length > 0 ? fromCredits : [activeRole];
+  }, [creditGroups, activeRole]);
+
+  const { toggleLike, toggleSubscribe, getFollow } = followed;
+
+  const roleFollows = useMemo<RoleFollow[]>(() => {
+    if (!person) return [];
+    return availableRoles.map((role) => {
+      const follow = getFollow(person.id, role);
+      return {
+        role,
+        label: roleWord(role),
+        liked: Boolean(follow),
+        subscribed: Boolean(follow?.subscribed),
+      };
+    });
+  }, [availableRoles, getFollow, person]);
+
+  const buildTarget = useCallback(
+    (role: PersonRole) =>
       person
         ? {
             tmdbId: person.id,
-            role: activeRole,
+            role,
             name: person.name,
             profileUrl: person.profileUrl,
             knownFor: person.knownForDepartment,
           }
         : null,
-    [activeRole, person]
+    [person]
   );
 
-  const { toggleLike, toggleSubscribe } = followed;
-  const handleToggleLike = useCallback(() => {
-    if (followTarget) {
-      toggleLike(followTarget);
-    }
-  }, [toggleLike, followTarget]);
+  const handleToggleLikeFor = useCallback(
+    (role: PersonRole) => {
+      const target = buildTarget(role);
+      if (target) toggleLike(target);
+    },
+    [buildTarget, toggleLike]
+  );
 
-  const handleToggleSubscribe = useCallback(() => {
-    if (followTarget) {
-      toggleSubscribe(followTarget);
-    }
-  }, [toggleSubscribe, followTarget]);
+  const handleToggleSubscribeFor = useCallback(
+    (role: PersonRole) => {
+      const target = buildTarget(role);
+      if (target) toggleSubscribe(target);
+    },
+    [buildTarget, toggleSubscribe]
+  );
+
+  const handleToggleLike = useCallback(
+    () => handleToggleLikeFor(activeRole),
+    [handleToggleLikeFor, activeRole]
+  );
+
+  const handleToggleSubscribe = useCallback(
+    () => handleToggleSubscribeFor(activeRole),
+    [handleToggleSubscribeFor, activeRole]
+  );
 
   const openTitle = useCallback(
     (credit: Pick<PersonCredit, "tmdbId" | "mediaType">) => {
@@ -226,13 +329,17 @@ export function usePersonDetails() {
       ? "Не вдалося завантажити інформацію про персону"
       : null,
     activeRole,
+    roleFollows,
     creditGroups,
+    timeline,
     savedCredits,
     pick: pickQuery.data ?? null,
     isAuthed,
     followState,
     onToggleLike: handleToggleLike,
     onToggleSubscribe: handleToggleSubscribe,
+    onToggleLikeFor: handleToggleLikeFor,
+    onToggleSubscribeFor: handleToggleSubscribeFor,
     openTitle,
     getListTypes,
     // search overlay / nav

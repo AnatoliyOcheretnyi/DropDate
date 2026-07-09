@@ -7,7 +7,7 @@ import { usePersonDetails } from "../hooks/usePersonDetails";
 import { PersonHero } from "../components/PersonHero";
 import { PersonRecommendation } from "../components/PersonRecommendation";
 import { PersonSavedStrip } from "../components/PersonSavedStrip";
-import { PersonFilmographySection } from "../components/PersonFilmographySection";
+import { PersonTimeline } from "../components/PersonTimeline";
 
 export function PersonScreen() {
   const router = useRouter();
@@ -16,13 +16,13 @@ export function PersonScreen() {
     isLoading,
     error,
     activeRole,
-    creditGroups,
+    roleFollows,
+    timeline,
     savedCredits,
     pick,
     isAuthed,
-    followState,
-    onToggleLike,
-    onToggleSubscribe,
+    onToggleLikeFor,
+    onToggleSubscribeFor,
     openTitle,
     blurTimeoutRef,
     savedCount,
@@ -88,11 +88,11 @@ export function PersonScreen() {
               <PersonHero
                 person={person}
                 activeRole={activeRole}
+                roleFollows={roleFollows}
                 isAuthed={isAuthed}
-                followState={followState}
                 onBack={() => router.back()}
-                onToggleLike={onToggleLike}
-                onToggleSubscribe={onToggleSubscribe}
+                onToggleLikeFor={onToggleLikeFor}
+                onToggleSubscribeFor={onToggleSubscribeFor}
               />
 
               {pick ? (
@@ -111,15 +111,7 @@ export function PersonScreen() {
                 </Reveal>
               ) : null}
 
-              {creditGroups.map((group) => (
-                <Reveal key={group.role}>
-                  <PersonFilmographySection
-                    group={group}
-                    isPrimary={group.role === activeRole}
-                    onSelect={openTitle}
-                  />
-                </Reveal>
-              ))}
+              <PersonTimeline entries={timeline} onSelect={openTitle} />
             </>
           ) : null}
 

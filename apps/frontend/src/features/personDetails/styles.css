@@ -110,6 +110,7 @@
 .person-hero__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.6rem;
   margin-top: 0.35rem;
 }
@@ -490,4 +491,373 @@
   .person-pick__inner {
     grid-template-columns: 72px 1fr;
   }
+}
+
+/* ---- Modernized hero: compact back button, role tabs, follow popover ---- */
+
+/* The back button sat in a stretching flex column, so it spanned the full
+   width. Pin it to its content like on the title-details page. */
+.person-hero__inner > .details-back {
+  align-self: flex-start;
+}
+.details-back {
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease,
+    transform 0.2s ease;
+}
+.person-hero__inner > .details-back:hover {
+  transform: translateX(-3px);
+}
+.person-hero__inner > .details-back:active {
+  transform: translateX(-1px) scale(0.98);
+}
+
+/* Staggered entrance for the hero content. */
+@media (prefers-reduced-motion: no-preference) {
+  .person-hero__photo,
+  .person-hero__main > * {
+    animation: person-rise 0.5s ease both;
+  }
+  .person-hero__photo {
+    animation-delay: 0.02s;
+  }
+  .person-hero__main > *:nth-child(1) {
+    animation-delay: 0.06s;
+  }
+  .person-hero__main > *:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+  .person-hero__main > *:nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  .person-hero__main > *:nth-child(4) {
+    animation-delay: 0.18s;
+  }
+  .person-hero__main > *:nth-child(n + 5) {
+    animation-delay: 0.22s;
+  }
+}
+@keyframes person-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Photo: subtle depth + hover zoom. */
+.person-hero__photo {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.person-hero__photo img {
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.person-hero__photo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 48px -24px rgba(0, 0, 0, 0.75);
+  border-color: var(--accent);
+}
+.person-hero__photo:hover img {
+  transform: scale(1.05);
+}
+
+/* Follow controls: two plain buttons laid out directly by .person-hero__actions.
+   Do not wrap them in a .person-follow element — that class is the follow button
+   on cast/person cards (features/people/styles.css) and would draw its own pill.
+   When the person can be followed under more than one role, clicking splits the
+   button open into role chips — inline, never an overlay, so nothing paints over it. */
+/* The button that stays behind recedes while its sibling is expanded. */
+.person-like.is-muted,
+.person-subscribe.is-muted {
+  opacity: 0.45;
+  transform: scale(0.97);
+}
+
+.person-follow__split {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.32rem 0.4rem 0.32rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  transform-origin: left center;
+  animation: person-split 0.34s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+/* Squash-and-stretch: the pill widens out of the button footprint. */
+@keyframes person-split {
+  from {
+    opacity: 0.4;
+    transform: scaleX(0.55) scaleY(1.08);
+  }
+  60% {
+    opacity: 1;
+    transform: scaleX(1.03) scaleY(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.person-follow__split-label {
+  font-size: 0.95rem;
+  line-height: 1;
+  padding-right: 0.1rem;
+}
+
+.person-follow__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(9, 15, 24, 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
+    transform 0.15s ease;
+  animation: person-hop 0.3s cubic-bezier(0.22, 1.3, 0.36, 1) both;
+  animation-delay: calc(0.06s + var(--i, 0) * 0.055s);
+}
+@keyframes person-hop {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.person-follow__chip:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.person-follow__chip:active {
+  transform: scale(0.95);
+}
+.person-follow__chip.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #04140d;
+}
+.person-follow__chip--both {
+  font-weight: 700;
+}
+.person-follow__chip-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 0.08rem 0.4rem;
+}
+.person-follow__chip.is-on .person-follow__chip-tag {
+  color: rgba(4, 20, 13, 0.7);
+  border-color: rgba(4, 20, 13, 0.3);
+}
+.person-follow__chip-check {
+  font-weight: 800;
+}
+.person-follow__chip-check:empty {
+  display: none;
+}
+
+.person-follow__close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  animation: person-hop 0.3s cubic-bezier(0.22, 1.3, 0.36, 1) both;
+  animation-delay: calc(0.06s + var(--i, 0) * 0.055s);
+}
+.person-follow__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person-follow__split,
+  .person-follow__chip,
+  .person-follow__close {
+    animation: none;
+  }
+}
+
+/* ---- Filmography as a chronological timeline ---- */
+.person-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.ptl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ptl__reveal {
+  display: block;
+}
+/* The vertical spine runs through the year rail. */
+.ptl__item {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: clamp(0.75rem, 2vw, 1.4rem);
+  align-items: stretch;
+}
+.ptl__rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0.35rem;
+}
+.ptl__rail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: -1.6rem;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    var(--border-strong),
+    var(--border-strong) 60%,
+    transparent
+  );
+}
+.ptl__reveal:last-child .ptl__rail::before {
+  bottom: auto;
+  height: 1.6rem;
+}
+.ptl__year {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.ptl__dot {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.4rem;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.14);
+}
+.ptl__card {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: clamp(0.9rem, 1.6vw, 1.35rem);
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 1.6rem;
+  padding: 0.95rem clamp(1rem, 1.8vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card-bg);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.ptl__card:hover {
+  transform: translateX(4px);
+  border-color: var(--accent);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.8);
+}
+.ptl__poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  place-items: center;
+}
+.ptl__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ptl__poster-fallback {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.ptl__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.ptl__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.ptl__title {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.ptl__rating {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+.ptl__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.ptl__type,
+.ptl__role {
+  font-size: 0.72rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.ptl__type {
+  color: var(--accent-strong);
+  border-color: var(--border-strong);
+}
+
+@media (max-width: 640px) {
+  .ptl__item {
+    grid-template-columns: 52px 1fr;
+  }
+  .ptl__card {
+    grid-template-columns: 48px 1fr;
+    padding: 0.8rem 0.85rem;
+  }
+}
+
+/* Button press feedback shared by like / subscribe. */
+.person-like:active,
+.person-subscribe:active {
+  transform: scale(0.97);
 }

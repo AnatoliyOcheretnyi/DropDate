@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import type { Person, PersonRole } from "../../../shared/lib/release";
+import { PersonFollowControls } from "./PersonFollowControls";
+import type { RoleFollow } from "../hooks/usePersonDetails";
 
 type Props = {
   person: Person;
   activeRole: PersonRole;
+  roleFollows: RoleFollow[];
   isAuthed: boolean;
-  followState?: { subscribed?: boolean };
   onBack: () => void;
-  onToggleLike: () => void;
-  onToggleSubscribe: () => void;
+  onToggleLikeFor: (role: PersonRole) => void;
+  onToggleSubscribeFor: (role: PersonRole) => void;
 };
 
 const formatDate = (value?: string) => {
@@ -43,11 +45,11 @@ const roleLabel = (role: PersonRole) =>
 export function PersonHero({
   person,
   activeRole,
+  roleFollows,
   isAuthed,
-  followState,
   onBack,
-  onToggleLike,
-  onToggleSubscribe,
+  onToggleLikeFor,
+  onToggleSubscribeFor,
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
 
@@ -55,10 +57,6 @@ export function PersonHero({
     () => computeAge(person.birthday, person.deathday),
     [person.birthday, person.deathday]
   );
-
-  const liked = Boolean(followState);
-  const subscribed = Boolean(followState?.subscribed);
-  const roleWord = activeRole === "director" ? "режисера" : "актора";
 
   const bio = person.biography?.trim() || "";
   const isLongBio = bio.length > 360;
@@ -119,27 +117,12 @@ export function PersonHero({
             </div>
 
             {isAuthed ? (
-              <div className="person-hero__actions">
-                <button
-                  type="button"
-                  className={`person-like${liked ? " is-active" : ""}`}
-                  aria-pressed={liked}
-                  onClick={onToggleLike}
-                >
-                  <span aria-hidden="true">{liked ? "♥" : "♡"}</span>
-                  {liked ? "У колекції" : `Улюблений ${roleWord}`}
-                </button>
-                <button
-                  type="button"
-                  className={`person-subscribe${subscribed ? " is-active" : ""}`}
-                  aria-pressed={subscribed}
-                  onClick={onToggleSubscribe}
-                  title={`Сповіщати про новинки цього ${roleWord}`}
-                >
-                  <span aria-hidden="true">🔔</span>
-                  {subscribed ? "Стежу за новинками" : "Стежити за новинками"}
-                </button>
-              </div>
+              <PersonFollowControls
+                activeRole={activeRole}
+                roleFollows={roleFollows}
+                onToggleLikeFor={onToggleLikeFor}
+                onToggleSubscribeFor={onToggleSubscribeFor}
+              />
             ) : null}
 
             {bio ? (
