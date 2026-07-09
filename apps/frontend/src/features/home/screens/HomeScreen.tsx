@@ -9,7 +9,6 @@ import { TrendingCarousel } from "../components/TrendingCarousel";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
-import { pingBackend } from "../api/homeApi";
 import { useRecommendations } from "../hooks/useRecommendations";
 import { useHomeSections } from "../hooks/useHomeSections";
 import { HomeShowcase } from "../components/HomeShowcase";
@@ -27,8 +26,6 @@ type Props = {
     topRated: Suggestion[];
   };
 };
-
-type BackendStatus = "idle" | "checking" | "waking" | "ready";
 
 const mixSuggestions = (movies: Suggestion[], series: Suggestion[]) => {
   const mixed: Suggestion[] = [];
@@ -61,16 +58,9 @@ function HomeScreenContent({ sections }: Props) {
   const isLoading = false;
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<Suggestion | null>(null);
-  const [isTrendingRefreshing, setIsTrendingRefreshing] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<BackendStatus>("idle");
   const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const backendCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const backendBannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const backendAttemptsRef = useRef(0);
-  const hasWakeAttemptRef = useRef(false);
-  const hadWakeFailureRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const handleClearSelection = useCallback(() => {
@@ -106,70 +96,9 @@ function HomeScreenContent({ sections }: Props) {
   const homeSectionsQuery = useHomeSections(sections);
   const sectionState = homeSectionsQuery.data ?? sections;
 
-  const refreshHome = useCallback(async () => {
-    setIsTrendingRefreshing(true);
-    try {
-      await homeSectionsQuery.refetch();
-    } catch {
-      // ignore refresh errors; we'll retry on next health check
-    } finally {
-      setIsTrendingRefreshing(false);
-    }
-  }, [homeSectionsQuery]);
-
-  useEffect(() => {
-    const hasContent =
-      sectionState.upcoming.length > 0 ||
-      sectionState.popularMovies.length > 0 ||
-      sectionState.popularSeries.length > 0 ||
-      sectionState.topRated.length > 0;
-
-    if (hasContent || hasWakeAttemptRef.current) {
-      return;
-    }
-
-    hasWakeAttemptRef.current = true;
-
-    const wakeBackend = async () => {
-      backendAttemptsRef.current += 1;
-      try {
-        const isHealthy = await pingBackend();
-        if (isHealthy) {
-          if (hadWakeFailureRef.current) {
-            setBackendStatus("ready");
-          }
-          backendAttemptsRef.current = 0;
-          await refreshHome();
-          if (backendBannerTimeoutRef.current) {
-            clearTimeout(backendBannerTimeoutRef.current);
-          }
-          if (hadWakeFailureRef.current) {
-            backendBannerTimeoutRef.current = setTimeout(() => {
-              setBackendStatus("idle");
-              hadWakeFailureRef.current = false;
-            }, 2400);
-          }
-          return;
-        }
-      } catch {
-        // ignore
-      }
-      hadWakeFailureRef.current = true;
-      setBackendStatus("waking");
-      const delay = Math.min(5000, 900 + backendAttemptsRef.current * 600);
-      backendCheckTimeoutRef.current = setTimeout(wakeBackend, delay);
-    };
-
-    wakeBackend();
-    return () => {
-      if (backendCheckTimeoutRef.current) {
-        clearTimeout(backendCheckTimeoutRef.current);
-      }
-      if (backendBannerTimeoutRef.current) {
-        clearTimeout(backendBannerTimeoutRef.current);
-      }
-    };
-  }, [refreshHome, sectionState]);
+  // The cold-start overlay invalidates queries once the backend wakes, so the
+  // rails just follow the query's own fetching state.
+  const isTrendingRefreshing = homeSectionsQuery.isFetching;
 
   const handleSuggestionSelect = useCallback(
     (suggestion: Suggestion) => {
@@ -267,21 +196,6 @@ function HomeScreenContent({ sections }: Props) {
           isSuggestionSaved,
         }}
       >
-      {backendStatus !== "idle" && (
-        <div
-          className={`backend-status-toast backend-status-toast--${backendStatus}`}
-          role="status"
-        >
-          <span className="backend-status-dot" aria-hidden="true" />
-          <span>
-            {backendStatus === "ready"
-              ? copy.hints.backendReady
-              : backendStatus === "checking"
-              ? copy.hints.backendChecking
-              : copy.hints.backendWaking}
-          </span>
-        </div>
-      )}
       <HomeShowcase
         spotlight={spotlight}
         supportingItems={supportingSpotlightItems}

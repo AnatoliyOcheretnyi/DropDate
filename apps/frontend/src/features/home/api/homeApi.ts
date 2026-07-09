@@ -52,12 +52,3 @@ export async function fetchHomeSections(signal?: AbortSignal): Promise<HomeSecti
     topRated: mixSuggestions(topRatedMovies, topRatedSeries),
   };
 }
-
-export async function pingBackend(signal?: AbortSignal) {
-  const response = await requestApi({
-    url: "/api/health",
-    method: "GET",
-    signal,
-  });
-  return response.ok;
-}

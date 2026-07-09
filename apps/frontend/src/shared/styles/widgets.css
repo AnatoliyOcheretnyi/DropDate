@@ -1427,3 +1427,132 @@
     text-align: left;
   }
 }
+
+/* ---- Cold-start overlay (free-tier backend waking up) ---- */
+.coldstart {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(4, 8, 14, 0.86);
+  backdrop-filter: blur(18px);
+  animation: coldstart-fade 0.25s ease both;
+}
+.coldstart--ready {
+  animation: coldstart-fade 0.25s ease both reverse;
+}
+@keyframes coldstart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.coldstart__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: min(92vw, 420px);
+  padding: clamp(1.4rem, 4vw, 2.2rem);
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(9, 15, 24, 0.92);
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9);
+}
+.coldstart__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 199, 106, 0.9);
+}
+.coldstart__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 3vw, 1.5rem);
+}
+.coldstart__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.coldstart__film {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  animation: coldstart-swap 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes coldstart-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.coldstart__poster {
+  width: 52px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+}
+.coldstart__film-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.coldstart__film-title {
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+.coldstart__film-year {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.coldstart__progress {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+.coldstart__progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(115, 240, 193, 0.6), var(--accent));
+  transition: width 0.3s linear;
+}
+.coldstart__timer {
+  margin: 0;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coldstart,
+  .coldstart__film {
+    animation: none;
+  }
+}
