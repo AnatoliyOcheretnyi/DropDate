@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PersonRole } from "../../../shared/lib/release";
+import type { ToastTone } from "../../../shared/hooks/useToasts";
 import type { RoleFollow } from "../hooks/usePersonDetails";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
   roleFollows: RoleFollow[];
   onToggleLikeFor: (role: PersonRole) => void;
   onToggleSubscribeFor: (role: PersonRole) => void;
+  onToast: (message: string, tone: ToastTone, undo: () => void) => void;
 };
 
 type MenuAction = "like" | "subscribe";
@@ -18,6 +20,7 @@ export function PersonFollowControls({
   roleFollows,
   onToggleLikeFor,
   onToggleSubscribeFor,
+  onToast,
 }: Props) {
   const [open, setOpen] = useState<MenuAction | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -51,12 +54,41 @@ export function PersonFollowControls({
   const toggleRole = (action: MenuAction, role: PersonRole) =>
     action === "like" ? onToggleLikeFor(role) : onToggleSubscribeFor(role);
 
-  // "Both" flips every role to the same state: off if all are on, on otherwise.
-  const toggleBoth = (action: MenuAction) => {
+  const message = (action: MenuAction, turningOn: boolean, scope: string) => {
+    if (action === "like") {
+      return turningOn
+        ? `Додано в улюблені — ${scope}`
+        : `Прибрано з улюблених — ${scope}`;
+    }
+    return turningOn
+      ? `Стежиш за новинками — ${scope}`
+      : `Підписку скасовано — ${scope}`;
+  };
+
+  // Applying a choice collapses the pill and offers an undo: every affected role
+  // is a plain toggle, so replaying the same flip reverses it.
+  const commit = (
+    action: MenuAction,
+    roles: PersonRole[],
+    turningOn: boolean,
+    scope: string
+  ) => {
+    const flip = () => roles.forEach((role) => toggleRole(action, role));
+    flip();
+    setOpen(null);
+    onToast(message(action, turningOn, scope), turningOn ? "success" : "warning", flip);
+  };
+
+  const commitRole = (action: MenuAction, entry: RoleFollow) =>
+    commit(action, [entry.role], !isOn(action, entry), entry.label);
+
+  // "Both" drives every role to the same state: off if all are on, on otherwise.
+  const commitBoth = (action: MenuAction) => {
     const allOn = roleFollows.every((entry) => isOn(action, entry));
-    roleFollows.forEach((entry) => {
-      if (allOn || !isOn(action, entry)) toggleRole(action, entry.role);
-    });
+    const roles = roleFollows
+      .filter((entry) => allOn || !isOn(action, entry))
+      .map((entry) => entry.role);
+    commit(action, roles, !allOn, "обидві ролі");
   };
 
   // A click either toggles the sole role directly, or splits the button open.
@@ -65,7 +97,10 @@ export function PersonFollowControls({
       setOpen((prev) => (prev === action ? null : action));
       return;
     }
-    toggleRole(action, soleRole);
+    const entry = roleFollows[0];
+    const label =
+      entry?.label ?? (soleRole === "director" ? "Режисер" : "Актор");
+    commit(action, [soleRole], entry ? !isOn(action, entry) : true, label);
   };
 
   const renderSplit = (action: MenuAction) => {
@@ -90,7 +125,7 @@ export function PersonFollowControls({
               aria-pressed={on}
               className={`person-follow__chip${on ? " is-on" : ""}`}
               style={{ "--i": index } as React.CSSProperties}
-              onClick={() => toggleRole(action, entry.role)}
+              onClick={() => commitRole(action, entry)}
             >
               {entry.label}
               {entry.role === activeRole ? (
@@ -110,7 +145,7 @@ export function PersonFollowControls({
             allOn ? " is-on" : ""
           }`}
           style={{ "--i": roleFollows.length } as React.CSSProperties}
-          onClick={() => toggleBoth(action)}
+          onClick={() => commitBoth(action)}
         >
           І так, і так
         </button>

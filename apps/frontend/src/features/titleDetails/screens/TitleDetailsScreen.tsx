@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { AppPageShell } from "../../../widgets/AppPageShell";
 import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 import { CoverImage } from "../../../shared/ui/CoverImage";
+import { ToastStack } from "../../../shared/ui/ToastStack";
 import { getReleaseStatusLabel } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
 import { TitleDetailsHero } from "../components/TitleDetailsHero";
@@ -186,31 +187,7 @@ export function TitleDetailsScreen() {
           ) : null}
         </div>
 
-        {toasts.length > 0 ? (
-          <div className="toast-stack" role="status" aria-live="polite">
-            {toasts.map((toast) => (
-              <div
-                key={toast.id}
-                className={`toast${toast.tone ? ` toast--${toast.tone}` : ""}`}
-              >
-                <span className="toast__msg">{toast.message}</span>
-                {toast.undo ? (
-                  <button
-                    type="button"
-                    className="toast__undo"
-                    onClick={() => {
-                      toast.undo?.();
-                      dismissToast(toast.id);
-                    }}
-                  >
-                    Скасувати
-                  </button>
-                ) : null}
-                <span className="toast__bar" aria-hidden="true" />
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </AppPageShell>
     </main>
   );

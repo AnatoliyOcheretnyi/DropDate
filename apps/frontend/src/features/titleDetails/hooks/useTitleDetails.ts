@@ -14,6 +14,7 @@ import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
+import { useToasts } from "../../../shared/hooks/useToasts";
 import type { ListType } from "../../../shared/types/releases";
 import { fetchDetails } from "../api/detailsApi";
 
@@ -59,14 +60,7 @@ export function useTitleDetails() {
     updateListStats,
     isSuggestionSaved,
   } = useSavedReleases();
-  const [toasts, setToasts] = useState<
-    {
-      id: string;
-      message: string;
-      tone?: "success" | "warning";
-      undo?: () => void;
-    }[]
-  >([]);
+  const { toasts, pushToast, dismissToast } = useToasts();
   const [localRating, setLocalRating] = useState<number | undefined>(undefined);
   const [localWatchCount, setLocalWatchCount] = useState<number>(0);
 
@@ -227,25 +221,6 @@ export function useTitleDetails() {
       watched: copy.lists?.watched ?? "Переглянуто",
       disliked: copy.lists?.disliked ?? "Не сподобалось",
     }),
-    []
-  );
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
-
-  const pushToast = useCallback(
-    (
-      message: string,
-      tone: "success" | "warning" = "success",
-      undo?: () => void
-    ) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setToasts((prev) => [...prev, { id, message, tone, undo }]);
-      window.setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-      }, 2600);
-    },
     []
   );
 

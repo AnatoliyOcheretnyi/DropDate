@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
+import { useToasts } from "../../../shared/hooks/useToasts";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import type {
   PersonCredit,
@@ -233,6 +234,7 @@ export function usePersonDetails() {
   }, [creditGroups, activeRole]);
 
   const { toggleLike, toggleSubscribe, getFollow } = followed;
+  const { toasts, pushToast, dismissToast } = useToasts();
 
   const roleFollows = useMemo<RoleFollow[]>(() => {
     if (!person) return [];
@@ -340,6 +342,9 @@ export function usePersonDetails() {
     onToggleSubscribe: handleToggleSubscribe,
     onToggleLikeFor: handleToggleLikeFor,
     onToggleSubscribeFor: handleToggleSubscribeFor,
+    toasts,
+    pushToast,
+    dismissToast,
     openTitle,
     getListTypes,
     // search overlay / nav

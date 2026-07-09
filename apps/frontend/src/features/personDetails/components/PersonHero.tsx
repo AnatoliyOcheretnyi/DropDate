@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Person, PersonRole } from "../../../shared/lib/release";
+import type { ToastTone } from "../../../shared/hooks/useToasts";
 import { PersonFollowControls } from "./PersonFollowControls";
 import type { RoleFollow } from "../hooks/usePersonDetails";
 
@@ -13,6 +14,7 @@ type Props = {
   onBack: () => void;
   onToggleLikeFor: (role: PersonRole) => void;
   onToggleSubscribeFor: (role: PersonRole) => void;
+  onToast: (message: string, tone: ToastTone, undo: () => void) => void;
 };
 
 const formatDate = (value?: string) => {
@@ -50,6 +52,7 @@ export function PersonHero({
   onBack,
   onToggleLikeFor,
   onToggleSubscribeFor,
+  onToast,
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
 
@@ -122,6 +125,7 @@ export function PersonHero({
                 roleFollows={roleFollows}
                 onToggleLikeFor={onToggleLikeFor}
                 onToggleSubscribeFor={onToggleSubscribeFor}
+                onToast={onToast}
               />
             ) : null}
 

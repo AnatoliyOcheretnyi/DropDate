@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { AppPageShell } from "../../../widgets/AppPageShell";
+import { ToastStack } from "../../../shared/ui/ToastStack";
 import { Reveal } from "../../titleDetails/components/Reveal";
 import { usePersonDetails } from "../hooks/usePersonDetails";
 import { PersonHero } from "../components/PersonHero";
@@ -38,6 +39,9 @@ export function PersonScreen() {
     handleSearchSubmit,
     handleSuggestionSelect,
     handleNav,
+    toasts,
+    pushToast,
+    dismissToast,
   } = usePersonDetails();
 
   return (
@@ -93,6 +97,7 @@ export function PersonScreen() {
                 onBack={() => router.back()}
                 onToggleLikeFor={onToggleLikeFor}
                 onToggleSubscribeFor={onToggleSubscribeFor}
+                onToast={pushToast}
               />
 
               {pick ? (
@@ -117,6 +122,8 @@ export function PersonScreen() {
 
           {error ? <p className="hint details-error">{error}</p> : null}
         </div>
+
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </AppPageShell>
     </main>
   );
