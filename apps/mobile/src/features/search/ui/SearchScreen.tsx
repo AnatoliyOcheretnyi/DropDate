@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 120,
     gap: 16,
   },
   hint: {

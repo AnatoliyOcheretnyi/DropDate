@@ -1,19 +1,24 @@
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
+import { useTheme } from '../../../shared/theme/ThemeProvider';
+import type { Palette } from '../../../shared/theme/palette';
 import { copy } from '../../../shared/strings';
 import { ProfileCard } from './components/ProfileCard';
 import { ProfileActions } from './components/ProfileActions';
 import { useProfileScreen } from '../hooks/useProfileScreen';
 import { MotionPressable } from '../../../shared/ui/MotionPressable';
+import { ThemeToggle } from '../../../shared/ui/ThemeToggle';
 import { useSavedStore } from '../../saved/store/savedStore';
 import { useTasteStore } from '../store/tasteStore';
 import { TasteRanker } from './components/TasteRanker';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const saved = useSavedStore((state) => state.saved);
   const taste = useTasteStore();
   const {
@@ -30,6 +35,7 @@ export default function ProfileScreen() {
       <Text style={styles.header}>{copy.auth.profile}</Text>
       <ProfileCard initials={initials} email={user?.email} verified={user?.verified} />
       <View style={styles.stats}><View style={styles.stat}><Text style={styles.statValue}>{saved.length}</Text><Text style={styles.statLabel}>У списках</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.listTypes.includes('watched')).length}</Text><Text style={styles.statLabel}>Переглянуто</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.mediaType==='tv').length}</Text><Text style={styles.statLabel}>Серіали</Text></View></View>
+      <ThemeToggle />
       {user ? <View style={styles.menu}>
         <MotionPressable style={styles.menuItem} onPress={() => router.push('/notifications' as Href)}><Ionicons name="notifications-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Сповіщення</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
         <MotionPressable style={styles.menuItem} onPress={() => router.push('/people' as Href)}><Ionicons name="people-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Улюблені люди</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
@@ -47,7 +53,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrapper: {
     flex: 1,
     backgroundColor: colors.background,
@@ -55,7 +61,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 120,
     gap: 16,
   },
   header: {

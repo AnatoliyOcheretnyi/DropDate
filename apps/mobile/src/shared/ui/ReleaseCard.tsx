@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { colors } from '../theme/colors';
+
+import { useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/palette';
 import { copy } from '../strings';
 import { getReleaseStatusLabel, type ReleaseInfo } from '../types/release';
 
@@ -13,6 +16,8 @@ type Props = {
 };
 
 export function ReleaseCard({ release }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const date = formatter.format(new Date(release.nextRelease));
   const heroImage = release.backdropUrl ?? release.posterUrl;
   const placeholder = !heroImage;
@@ -31,16 +36,16 @@ export function ReleaseCard({ release }: Props) {
       <View style={styles.infoColumn}>
         <Text style={styles.title}>{release.title}</Text>
         <View style={styles.details}>
-          <Detail label={copy.details.labels.type} value={release.type} />
-          <Detail label={copy.details.labels.date} value={date} />
-          <Detail label={copy.details.labels.source} value={release.source} />
+          <Detail styles={styles} label={copy.details.labels.type} value={release.type} />
+          <Detail styles={styles} label={copy.details.labels.date} value={date} />
+          <Detail styles={styles} label={copy.details.labels.source} value={release.source} />
         </View>
       </View>
     </View>
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ styles, label, value }: { styles: ReturnType<typeof makeStyles>; label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.metaLabel}>{label}</Text>
@@ -49,7 +54,7 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   card: {
     borderRadius: 24,
     padding: 20,
@@ -80,7 +85,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroPlaceholder: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
   },
   infoColumn: {
     flex: 1,

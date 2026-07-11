@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/palette';
 import { copy } from '../strings';
 import type { ListType } from '../types/lists';
 
@@ -15,6 +16,8 @@ type Props = {
 const LIST_OPTIONS: ListType[] = ['follow', 'watchlist', 'favorite', 'watched', 'disliked'];
 
 export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [selected, setSelected] = useState<ListType[]>(value);
 
   useEffect(() => {
@@ -68,10 +71,10 @@ export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(2,8,6,0.85)',
+    backgroundColor: colors.isDark ? 'rgba(2,8,6,0.85)' : 'rgba(13,18,32,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -80,9 +83,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     borderRadius: 20,
-    backgroundColor: 'rgba(10,16,14,0.98)',
+    backgroundColor: colors.isDark ? 'rgba(16,20,32,0.98)' : '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.border,
     padding: 18,
     gap: 16,
   },
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -113,7 +116,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   checkmark: {
-    color: '#001b12',
+    color: colors.isDark ? '#001b12' : '#ffffff',
     fontWeight: '700',
     fontSize: 14,
   },
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionPrimaryText: {
-    color: '#001b12',
+    color: colors.isDark ? '#001b12' : '#ffffff',
     fontWeight: '700',
   },
 });

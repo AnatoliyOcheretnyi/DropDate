@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { apiRequest } from '../api/client';
 import { queryClient } from '../api/queryClient';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/palette';
 import { MotionPressable } from './MotionPressable';
 
 type WakeState = 'probing' | 'waking' | 'failed' | 'idle';
@@ -13,6 +14,8 @@ const GRACE_MS = 1_200;
 const MAX_WAIT_MS = 45_000;
 
 export function BackendWakeOverlay() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [state, setState] = useState<WakeState>('probing');
   const stopped = useRef(false);
   const startedAt = useRef(Date.now());
@@ -94,9 +97,9 @@ export function BackendWakeOverlay() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, zIndex: 999, alignItems: 'center', justifyContent: 'center', padding: 34, backgroundColor: 'rgba(5,6,13,0.96)' },
-  orbit: { width: 78, height: 78, borderRadius: 39, borderWidth: 1, borderColor: 'rgba(84,255,182,0.35)', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  root: { ...StyleSheet.absoluteFillObject, zIndex: 999, alignItems: 'center', justifyContent: 'center', padding: 34, backgroundColor: colors.isDark ? 'rgba(5,6,13,0.96)' : 'rgba(244,246,251,0.97)' },
+  orbit: { width: 78, height: 78, borderRadius: 39, borderWidth: 1, borderColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   dot: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent, shadowColor: colors.accent, shadowOpacity: 0.8, shadowRadius: 18 },
   title: { color: colors.text, fontSize: 25, fontWeight: '900', textAlign: 'center' },
   copy: { color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10, maxWidth: 340 },

@@ -34,6 +34,8 @@ type DetailsPayload = {
 export type HomeSection = {
   id: string;
   title: string;
+  kicker?: string;
+  variant?: 'rail' | 'ranked';
   items: Suggestion[];
   reasons?: string[];
 };
@@ -80,14 +82,33 @@ export function useHomeScreen() {
 
   const sections = useMemo<HomeSection[]>(
     () => [
-      ...(personalized.length ? [{ id: 'personalized', title: 'Рекомендовано для тебе', items: personalized, reasons: (recommendationsQuery.data?.items ?? []).map(item => item.reason.text).filter((x): x is string => Boolean(x)).slice(0, 2) }] : []),
-      { id: 'upcoming', title: copy.sections.upcoming, items: upcoming },
-      { id: 'popularMovies', title: copy.sections.popularMovies, items: popularMovies },
-      { id: 'popularSeries', title: copy.sections.popularSeries, items: popularSeries },
-      { id: 'topRated', title: copy.sections.topRated, items: topRated },
+      ...(personalized.length ? [{ id: 'personalized', title: 'Рекомендовано для тебе', kicker: 'На основі улюблених і переглянутих', items: personalized, reasons: (recommendationsQuery.data?.items ?? []).map(item => item.reason.text).filter((x): x is string => Boolean(x)).slice(0, 2) }] : []),
+      { id: 'upcoming', title: copy.sections.upcoming, kicker: 'Календар релізів', items: upcoming },
+      { id: 'popularMovies', title: copy.sections.popularMovies, kicker: 'Топ-10 · що дивляться зараз', variant: 'ranked', items: popularMovies },
+      { id: 'popularSeries', title: copy.sections.popularSeries, kicker: 'Серіальний потік', items: popularSeries },
+      { id: 'topRated', title: copy.sections.topRated, kicker: 'Високі оцінки', items: topRated },
     ],
     [personalized, popularMovies, popularSeries, recommendationsQuery.data, topRated, upcoming]
   );
+
+  const spotlightPool = useMemo<Suggestion[]>(() => {
+    const seen = new Set<string>();
+    return [...upcoming, ...popularMovies, ...popularSeries, ...topRated].filter((item) => {
+      const key = `${item.mediaType}-${item.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [upcoming, popularMovies, popularSeries, topRated]);
+  const spotlight = spotlightPool[0] ?? null;
+  const supporting = useMemo(() => spotlightPool.slice(1, 7), [spotlightPool]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      homeQuery.refetch(),
+      isAuthenticated ? recommendationsQuery.refetch() : Promise.resolve(),
+    ]);
+  }, [homeQuery, isAuthenticated, recommendationsQuery]);
 
   const openPicker = useCallback((item: Suggestion) => {
     setPickerItem(item);
@@ -141,7 +162,11 @@ export function useHomeScreen() {
 
   return {
     sections,
+    spotlight,
+    supporting,
     isLoading: homeQuery.isLoading,
+    isRefreshing: homeQuery.isRefetching,
+    refetch,
     onAdd: openPicker,
     isSaved: isSuggestionSaved,
     pickerItem,

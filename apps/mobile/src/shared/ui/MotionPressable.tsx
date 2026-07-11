@@ -9,13 +9,14 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 type Props = {
   children: ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   accessibilityLabel?: string;
   haptic?: 'selection' | 'success' | 'error' | 'none';
 };
 
-export function MotionPressable({ children, onPress, style, disabled, accessibilityLabel, haptic = 'selection' }: Props) {
+export function MotionPressable({ children, onPress, onLongPress, style, disabled, accessibilityLabel, haptic = 'selection' }: Props) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const press = () => {
@@ -24,6 +25,12 @@ export function MotionPressable({ children, onPress, style, disabled, accessibil
     if (haptic === 'error') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     onPress?.();
   };
+  const longPress = onLongPress
+    ? () => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onLongPress();
+      }
+    : undefined;
   return <AnimatedPressable
     accessibilityRole="button"
     accessibilityLabel={accessibilityLabel}
@@ -31,6 +38,7 @@ export function MotionPressable({ children, onPress, style, disabled, accessibil
     onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 260 }); }}
     onPressOut={() => { scale.value = withSpring(1, { damping: 16, stiffness: 220 }); }}
     onPress={press}
+    onLongPress={longPress}
     style={[styles.base, style, animatedStyle, disabled && styles.disabled]}
   >{children}</AnimatedPressable>;
 }

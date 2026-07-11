@@ -9,20 +9,22 @@ type Props = {
   items: Suggestion[];
   onPress: (item: Suggestion) => void;
   onAdd: (item: Suggestion) => void;
+  onLongPress: (item: Suggestion) => void;
   isSaved: (item: Suggestion) => boolean;
 };
 
-export function HomeRow({ items, onPress, onAdd, isSaved }: Props) {
+export function HomeRow({ items, onPress, onAdd, onLongPress, isSaved }: Props) {
   const renderItem = useCallback(
     ({ item }: { item: Suggestion }) => (
       <PosterCard
         item={item}
         onPress={onPress}
         onAdd={onAdd}
+        onLongPress={onLongPress}
         isSaved={isSaved(item)}
       />
     ),
-    [isSaved, onAdd, onPress]
+    [isSaved, onAdd, onLongPress, onPress]
   );
 
   return (

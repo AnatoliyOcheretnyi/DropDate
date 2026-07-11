@@ -7,6 +7,7 @@ import { useAuthStore } from '../src/features/auth/store/authStore';
 import { useSavedStore } from '../src/features/saved/store/savedStore';
 import { queryClient } from '../src/shared/api/queryClient';
 import { BackendWakeOverlay } from '../src/shared/ui/BackendWakeOverlay';
+import { ThemeProvider, useTheme } from '../src/shared/theme/ThemeProvider';
 
 function AppBootstrap() {
   const initAuth = useAuthStore((state) => state.init);
@@ -26,9 +27,10 @@ function AppBootstrap() {
   return null;
 }
 
-export default function RootLayout() {
+function RootNavigator() {
+  const { scheme } = useTheme();
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <AppBootstrap />
       <Stack screenOptions={{ headerShown: false }} initialRouteName="welcome">
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
@@ -45,7 +47,17 @@ export default function RootLayout() {
         <Stack.Screen name="person/[id]" options={{ headerShown: false }} />
       </Stack>
       <BackendWakeOverlay />
-      <StatusBar style="light" />
+      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <RootNavigator />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

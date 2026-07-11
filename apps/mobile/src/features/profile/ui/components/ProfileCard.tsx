@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../../../shared/theme/colors';
+import { useTheme } from '../../../../shared/theme/ThemeProvider';
+import type { Palette } from '../../../../shared/theme/palette';
 import { copy } from '../../../../shared/strings';
 
 type Props = {
@@ -10,6 +12,8 @@ type Props = {
 };
 
 export function ProfileCard({ initials, email, verified }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.card}>
       <View style={styles.avatar}>
@@ -25,7 +29,7 @@ export function ProfileCard({ initials, email, verified }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -40,12 +44,12 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: colors.text,
+    color: colors.accent,
     fontSize: 22,
     fontWeight: '700',
   },
