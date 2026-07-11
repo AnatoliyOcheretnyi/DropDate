@@ -41,7 +41,6 @@ export default function SavedScreen() {
           listItems.length === 0 ? <Text style={styles.hint}>{copy.hints.listEmpty}</Text> : null
         }
         contentContainerStyle={styles.container}
-        estimatedItemSize={280}
         showsVerticalScrollIndicator={false}
       />
     </View>

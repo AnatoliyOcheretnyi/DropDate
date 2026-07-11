@@ -37,7 +37,6 @@ export function HomeRow({ items, onPress, onAdd, isSaved }: Props) {
         removeClippedSubviews={false}
         contentContainerStyle={styles.row}
         ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-        estimatedItemSize={180}
       />
     </View>
   );

@@ -63,7 +63,6 @@ export function SavedSection({ title, items, activeList, onRemove }: Props) {
           removeClippedSubviews={false}
           contentContainerStyle={styles.row}
           ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-          estimatedItemSize={160}
         />
       </View>
     </View>

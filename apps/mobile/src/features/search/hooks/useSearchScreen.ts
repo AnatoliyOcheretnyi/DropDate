@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
-import { getBackendURL } from '../../../shared/utils/config';
+import { apiRequest } from '../../../shared/api/client';
 import { buildFallbackRelease } from '../../../shared/utils/release';
 import { useSaved } from '../../saved/store/savedStore';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
@@ -19,7 +19,6 @@ type DetailsPayload = {
 };
 
 export function useSearchScreen() {
-  const backendURL = useMemo(() => getBackendURL(), []);
   const { addRelease, isSuggestionSaved } = useSaved();
 
   const [query, setQuery] = useState('');
@@ -40,17 +39,7 @@ export function useSearchScreen() {
       }
       setIsLoading(true);
       try {
-        const response = await fetch(
-          `${backendURL}/search?query=${encodeURIComponent(debouncedQuery)}&page=${nextPage}`,
-          { headers: { accept: 'application/json' } }
-        );
-        const payload = (await response.json()) as SearchPayload;
-        if (!response.ok) {
-          setResults([]);
-          setPage(1);
-          setTotalPages(1);
-          return;
-        }
+        const payload = await apiRequest<SearchPayload>(`/search?query=${encodeURIComponent(debouncedQuery)}&page=${nextPage}`);
         setResults((prev) => (append ? [...prev, ...payload.results] : payload.results));
         setPage(payload.page || nextPage);
         setTotalPages(payload.totalPages || 1);
@@ -60,7 +49,7 @@ export function useSearchScreen() {
         setIsLoading(false);
       }
     },
-    [backendURL, debouncedQuery]
+    [debouncedQuery]
   );
 
   useEffect(() => {
@@ -80,12 +69,8 @@ export function useSearchScreen() {
         return;
       }
       try {
-        const response = await fetch(
-          `${backendURL}/details?tmdbId=${item.id}&mediaType=${item.mediaType}`,
-          { headers: { accept: 'application/json' } }
-        );
-        const payload = (await response.json()) as DetailsPayload;
-        if (!response.ok || !payload.details) {
+        const payload = await apiRequest<DetailsPayload>(`/details?tmdbId=${item.id}&mediaType=${item.mediaType}`);
+        if (!payload.details) {
           return;
         }
         const release =
@@ -102,7 +87,7 @@ export function useSearchScreen() {
         // ignore network failures for now
       }
     },
-    [addRelease, backendURL, isSuggestionSaved]
+    [addRelease, isSuggestionSaved]
   );
 
   const filteredResults = useMemo(() => {

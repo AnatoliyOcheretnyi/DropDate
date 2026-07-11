@@ -48,7 +48,6 @@ export function SavedHeader({ activeList, onChangeList, stats }: Props) {
           removeClippedSubviews={false}
           contentContainerStyle={styles.tabs}
           ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-          estimatedItemSize={90}
         />
       </View>
       <View style={styles.statsRow}>

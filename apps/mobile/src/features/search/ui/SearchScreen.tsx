@@ -52,9 +52,7 @@ export default function SearchScreen() {
         data={filteredResults}
         keyExtractor={(item) => `${item.mediaType}-${item.id}`}
         numColumns={2}
-        columnWrapperStyle={styles.gridRow}
         renderItem={renderItem}
-        estimatedItemSize={220}
         ListHeaderComponent={
           <SearchHeader
             query={query}

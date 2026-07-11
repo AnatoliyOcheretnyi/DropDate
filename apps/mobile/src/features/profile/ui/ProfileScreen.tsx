@@ -1,12 +1,21 @@
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter, type Href } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { copy } from '../../../shared/strings';
 import { ProfileCard } from './components/ProfileCard';
 import { ProfileActions } from './components/ProfileActions';
 import { useProfileScreen } from '../hooks/useProfileScreen';
+import { MotionPressable } from '../../../shared/ui/MotionPressable';
+import { useSavedStore } from '../../saved/store/savedStore';
+import { useTasteStore } from '../store/tasteStore';
+import { TasteRanker } from './components/TasteRanker';
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const saved = useSavedStore((state) => state.saved);
+  const taste = useTasteStore();
   const {
     user,
     isGuest,
@@ -20,6 +29,12 @@ export default function ProfileScreen() {
     <ScrollView style={styles.wrapper} contentContainerStyle={styles.container}>
       <Text style={styles.header}>{copy.auth.profile}</Text>
       <ProfileCard initials={initials} email={user?.email} verified={user?.verified} />
+      <View style={styles.stats}><View style={styles.stat}><Text style={styles.statValue}>{saved.length}</Text><Text style={styles.statLabel}>У списках</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.listTypes.includes('watched')).length}</Text><Text style={styles.statLabel}>Переглянуто</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.mediaType==='tv').length}</Text><Text style={styles.statLabel}>Серіали</Text></View></View>
+      {user ? <View style={styles.menu}>
+        <MotionPressable style={styles.menuItem} onPress={() => router.push('/notifications' as Href)}><Ionicons name="notifications-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Сповіщення</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
+        <MotionPressable style={styles.menuItem} onPress={() => router.push('/people' as Href)}><Ionicons name="people-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Улюблені люди</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
+        <MotionPressable style={styles.menuItem} onPress={() => router.push('/calendar' as Href)}><Ionicons name="calendar-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Календар релізів</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
+      </View> : null}
       <ProfileActions
         isGuest={isGuest}
         hasUser={Boolean(user)}
@@ -27,6 +42,7 @@ export default function ProfileScreen() {
         onResetGuest={handleResetGuest}
         onSignOut={handleSignOut}
       />
+      {user ? <><TasteRanker title="Жанри" kind="genre" items={taste.genres} onMove={taste.move} onReset={taste.reset}/><TasteRanker title="Країни" kind="country" items={taste.countries} onMove={taste.move} onReset={taste.reset}/></> : null}
     </ScrollView>
   );
 }
@@ -47,4 +63,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  menu: { gap: 10 },
+  menuItem: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  menuText: { flex: 1, color: colors.text, fontWeight: '700', fontSize: 16 },
+  stats:{flexDirection:'row',gap:10},stat:{flex:1,padding:14,borderRadius:18,backgroundColor:colors.card,borderWidth:1,borderColor:colors.border},statValue:{color:colors.accent,fontSize:24,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:12,marginTop:4},
 });

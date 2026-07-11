@@ -11,12 +11,14 @@ type Props = {
   onPress: (item: Suggestion) => void;
   onAdd: (item: Suggestion) => void;
   isSaved: (item: Suggestion) => boolean;
+  reasons?: string[];
 };
 
-export function HomeSection({ title, items, isLoading, onPress, onAdd, isSaved }: Props) {
+export function HomeSection({ title, items, isLoading, onPress, onAdd, isSaved, reasons }: Props) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
+      {reasons?.map((reason) => <Text key={reason} style={styles.reason}>{reason}</Text>)}
       {isLoading ? (
         <ActivityIndicator color={colors.accent} />
       ) : (
@@ -35,4 +37,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  reason: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
 });

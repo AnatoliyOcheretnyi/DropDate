@@ -37,7 +37,6 @@ export function DetailsRecommendations({ items }: Props) {
         showsHorizontalScrollIndicator={false}
         removeClippedSubviews={false}
         contentContainerStyle={styles.row}
-        estimatedItemSize={160}
       />
     </View>
   );

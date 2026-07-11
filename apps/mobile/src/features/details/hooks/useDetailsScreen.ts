@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
-import { getBackendURL } from '../../../shared/utils/config';
+import { apiRequest } from '../../../shared/api/client';
+import { queryKeys } from '../../../shared/api/queryKeys';
 import { buildFallbackRelease } from '../../../shared/utils/release';
 import { useSaved } from '../../saved/store/savedStore';
 import { copy } from '../../../shared/strings';
@@ -19,25 +20,14 @@ export function useDetailsScreen() {
     mediaType: string;
     id: string;
   }>();
-  const backendURL = useMemo(() => getBackendURL(), []);
   const { addRelease, isSuggestionSaved } = useSaved();
 
   const isValidRequest = Boolean(id) && (mediaType === 'movie' || mediaType === 'tv');
 
   const detailsQuery = useQuery<DetailsPayload>({
-    queryKey: ['details', mediaType, id],
+    queryKey: queryKeys.details(mediaType ?? '', Number(id)),
     enabled: isValidRequest,
-    queryFn: async () => {
-      const response = await fetch(
-        `${backendURL}/details?tmdbId=${id}&mediaType=${mediaType}`,
-        { headers: { accept: 'application/json' } }
-      );
-      const payload = (await response.json()) as DetailsPayload;
-      if (!response.ok) {
-        throw new Error('details_failed');
-      }
-      return payload;
-    },
+    queryFn: ({ signal }) => apiRequest<DetailsPayload>(`/details?tmdbId=${id}&mediaType=${mediaType}`, { signal }),
     staleTime: 1000 * 60 * 10,
   });
 

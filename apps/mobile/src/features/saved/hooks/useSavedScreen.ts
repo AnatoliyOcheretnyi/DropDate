@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react';
 
 import type { ListType } from '../../../shared/types/lists';
 import { copy } from '../../../shared/strings';
-import { useSaved } from '../store/savedStore';
+import { useSaved, type SavedItem } from '../store/savedStore';
 
 type Section = {
   id: string;
   title: string;
-  items: ReturnType<typeof useSaved>['saved'];
+  items: SavedItem[];
 };
 
 export function useSavedScreen() {

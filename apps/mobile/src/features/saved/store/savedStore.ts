@@ -2,7 +2,6 @@ import { create } from 'zustand';
 
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
 import type { ListType } from '../../../shared/types/lists';
-import { STATUS_LISTS } from '../../../shared/types/lists';
 import { getBackendURL } from '../../../shared/utils/config';
 import { storageGetString, storageSetString, storageKeys } from '../../../shared/utils/storage';
 import { useAuthStore } from '../../auth/store/authStore';

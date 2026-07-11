@@ -2,11 +2,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
-import { getBackendURL } from '../../../shared/utils/config';
+import { apiRequest } from '../../../shared/api/client';
+import { queryKeys } from '../../../shared/api/queryKeys';
 import { buildFallbackRelease, interleaveSuggestions } from '../../../shared/utils/release';
 import { useSaved } from '../../saved/store/savedStore';
 import { copy } from '../../../shared/strings';
 import type { ListType } from '../../../shared/types/lists';
+import { useAuthStore } from '../../auth/store/authStore';
+import { getRecommendations } from '../../recommendations/api/recommendations';
 
 type HomePayload = {
   upcoming: {
@@ -32,28 +35,25 @@ export type HomeSection = {
   id: string;
   title: string;
   items: Suggestion[];
+  reasons?: string[];
 };
 
 export function useHomeScreen() {
-  const backendURL = useMemo(() => getBackendURL(), []);
+  const isAuthenticated = useAuthStore((state) => Boolean(state.user && state.accessToken));
   const { isSuggestionSaved, getListTypes, setListTypes, findByTmdbId } = useSaved();
   const queryClient = useQueryClient();
   const [pickerItem, setPickerItem] = useState<Suggestion | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const homeQuery = useQuery<Partial<HomePayload>>({
-    queryKey: ['home', backendURL],
-    queryFn: async () => {
-      const response = await fetch(`${backendURL}/home?limit=18`, {
-        headers: { accept: 'application/json' },
-      });
-      const payload = (await response.json()) as Partial<HomePayload>;
-      if (!response.ok) {
-        throw new Error('home_failed');
-      }
-      return payload;
-    },
+    queryKey: queryKeys.home(18),
+    queryFn: ({ signal }) => apiRequest<Partial<HomePayload>>('/home?limit=18', { signal }),
     staleTime: 1000 * 60 * 5,
+  });
+  const recommendationsQuery = useQuery({
+    queryKey: queryKeys.recommendations,
+    enabled: isAuthenticated,
+    queryFn: ({ signal }) => getRecommendations(signal),
   });
 
   const upcoming = useMemo(
@@ -64,8 +64,11 @@ export function useHomeScreen() {
       ),
     [homeQuery.data]
   );
-  const popularMovies = homeQuery.data?.popular?.movies ?? [];
-  const popularSeries = homeQuery.data?.popular?.series ?? [];
+  const popularMovies = useMemo(() => homeQuery.data?.popular?.movies ?? [], [homeQuery.data]);
+  const popularSeries = useMemo(() => homeQuery.data?.popular?.series ?? [], [homeQuery.data]);
+  const personalized = useMemo<Suggestion[]>(() => (recommendationsQuery.data?.items ?? []).map((item) => ({
+    id: item.tmdbId, mediaType: item.mediaType, title: item.title, year: item.year, posterUrl: item.posterUrl,
+  })), [recommendationsQuery.data]);
   const topRated = useMemo(
     () =>
       interleaveSuggestions(
@@ -77,12 +80,13 @@ export function useHomeScreen() {
 
   const sections = useMemo<HomeSection[]>(
     () => [
+      ...(personalized.length ? [{ id: 'personalized', title: 'Рекомендовано для тебе', items: personalized, reasons: (recommendationsQuery.data?.items ?? []).map(item => item.reason.text).filter((x): x is string => Boolean(x)).slice(0, 2) }] : []),
       { id: 'upcoming', title: copy.sections.upcoming, items: upcoming },
       { id: 'popularMovies', title: copy.sections.popularMovies, items: popularMovies },
       { id: 'popularSeries', title: copy.sections.popularSeries, items: popularSeries },
       { id: 'topRated', title: copy.sections.topRated, items: topRated },
     ],
-    [popularMovies, popularSeries, topRated, upcoming]
+    [personalized, popularMovies, popularSeries, recommendationsQuery.data, topRated, upcoming]
   );
 
   const openPicker = useCallback((item: Suggestion) => {
@@ -112,15 +116,7 @@ export function useHomeScreen() {
         const payload = await queryClient.fetchQuery<DetailsPayload>({
           queryKey: ['details', pickerItem.mediaType, pickerItem.id],
           queryFn: async () => {
-            const response = await fetch(
-              `${backendURL}/details?tmdbId=${pickerItem.id}&mediaType=${pickerItem.mediaType}`,
-              { headers: { accept: 'application/json' } }
-            );
-            const data = (await response.json()) as DetailsPayload;
-            if (!response.ok) {
-              throw new Error('details_failed');
-            }
-            return data;
+            return apiRequest<DetailsPayload>(`/details?tmdbId=${pickerItem.id}&mediaType=${pickerItem.mediaType}`);
           },
           staleTime: 1000 * 60 * 10,
         });
@@ -140,7 +136,7 @@ export function useHomeScreen() {
         setPickerVisible(false);
       }
     },
-    [backendURL, findByTmdbId, pickerItem, queryClient, setListTypes]
+    [findByTmdbId, pickerItem, queryClient, setListTypes]
   );
 
   return {

@@ -44,11 +44,11 @@ export default function HomeScreen() {
             onPress={handlePress}
             onAdd={onAdd}
             isSaved={isSaved}
+            reasons={item.reasons}
           />
         )}
         ListHeaderComponent={<HomeHero />}
         contentContainerStyle={styles.container}
-        estimatedItemSize={260}
         showsVerticalScrollIndicator={false}
       />
       <ListPickerModal

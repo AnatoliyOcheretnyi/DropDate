@@ -1,4 +1,4 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { DetailsHero } from './components/DetailsHero';
@@ -6,6 +6,9 @@ import { DetailsMetaCard } from './components/DetailsMetaCard';
 import { DetailsReleaseCard } from './components/DetailsReleaseCard';
 import { DetailsRecommendations } from './components/DetailsRecommendations';
 import { useDetailsScreen } from '../hooks/useDetailsScreen';
+import { DetailsCast } from './components/DetailsCast';
+import { MotionPressable } from '../../../shared/ui/MotionPressable';
+import { DetailsPersonalControls } from './components/DetailsPersonalControls';
 
 export default function DetailsScreen() {
   const { details, release, recommendations, isLoading, error, handleAdd, isSuggestionSaved } =
@@ -32,8 +35,16 @@ export default function DetailsScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {details && <DetailsMetaCard details={details} />}
+        {details ? <DetailsPersonalControls details={details} /> : null}
+
+        {details ? <MotionPressable
+          style={styles.shareButton}
+          onPress={() => void Share.share({ message: `${details.title} — подивись у DropDate` })}
+        ><Text style={styles.shareText}>Поділитися</Text></MotionPressable> : null}
 
         {release ? <DetailsReleaseCard release={release} /> : null}
+
+        {details ? <DetailsCast cast={details.cast} directors={details.directors} /> : null}
 
         <DetailsRecommendations items={recommendations} />
       </ScrollView>
@@ -73,4 +84,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
+  shareButton: { marginHorizontal: 20, marginTop: 18, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  shareText: { color: colors.text, fontWeight: '800', fontSize: 15 },
 });

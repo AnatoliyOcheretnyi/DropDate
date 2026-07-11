@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
-import { getBackendURL } from '../../../shared/utils/config';
+import { apiRequest, configureApiAuth } from '../../../shared/api/client';
+import { ApiError } from '../../../shared/api/errors';
+import { clearUserSessionCache } from '../../../shared/api/queryClient';
 import {
   storageDelete,
   storageGetString,
@@ -26,6 +28,8 @@ type AuthResponse = {
   user: { id: string; email: string; verified?: boolean };
 };
 
+type RegisterResponse = AuthResponse | { status: 'verification_required'; message?: string };
+
 type AuthState = {
   user: AuthUser | null;
   accessToken: string | null;
@@ -47,12 +51,16 @@ type AuthState = {
 const STORAGE_KEY = storageKeys.refreshToken;
 const GUEST_KEY = storageKeys.guestMode;
 
-const parseError = async (response: Response) => {
-  const payload = await response.json().catch(() => ({}));
-  return {
-    message: payload?.message || payload?.error || 'Request failed',
-    code: payload?.code,
-  };
+const authError = (error: unknown): AuthResult => ({
+  status: 'error',
+  message: error instanceof Error ? error.message : 'Network error',
+  code: error instanceof ApiError ? error.code : undefined,
+});
+
+const clearLocalSession = () => {
+  storageDelete(STORAGE_KEY);
+  storageDelete(GUEST_KEY);
+  void clearUserSessionCache();
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -82,19 +90,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   login: async (email: string, password: string) => {
     try {
-      const response = await fetch(`${getBackendURL()}/auth/login`, {
+      const payload = await apiRequest<AuthResponse>('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ email, password, returnRefresh: true, client: 'mobile' }),
+        body: { email, password, returnRefresh: true, client: 'mobile' },
       });
-      if (response.status === 403) {
-        return { status: 'email_not_verified' };
-      }
-      if (!response.ok) {
-        const error = await parseError(response);
-        return { status: 'error', message: error.message, code: error.code };
-      }
-      const payload = (await response.json()) as AuthResponse;
+      await clearUserSessionCache();
       const refreshToken = payload.refreshToken ?? null;
       set({
         user: {
@@ -111,28 +111,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         storageSetString(STORAGE_KEY, refreshToken);
       }
       return { status: 'ok' };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Network error';
-      return { status: 'error', message };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 403) return { status: 'email_not_verified' };
+      return authError(error);
     }
   },
   register: async (email: string, password: string) => {
     try {
-      const response = await fetch(`${getBackendURL()}/auth/register`, {
+      const payload = await apiRequest<RegisterResponse>('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ email, password, returnRefresh: true, client: 'mobile' }),
+        body: { email, password, returnRefresh: true, client: 'mobile' },
       });
-      if (response.status === 202) {
+      if (!('accessToken' in payload)) {
         set({ isGuest: false });
         storageDelete(GUEST_KEY);
         return { status: 'verification_required' };
       }
-      if (!response.ok) {
-        const error = await parseError(response);
-        return { status: 'error', message: error.message, code: error.code };
-      }
-      const payload = (await response.json()) as AuthResponse;
       const refreshToken = payload.refreshToken ?? null;
       set({
         user: {
@@ -149,9 +143,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         storageSetString(STORAGE_KEY, refreshToken);
       }
       return { status: 'ok' };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Network error';
-      return { status: 'error', message };
+    } catch (error) {
+      return authError(error);
     }
   },
   continueAsGuest: () => {
@@ -166,14 +159,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { refreshToken } = get();
     const token = refreshToken || storageGetString(STORAGE_KEY);
     if (token) {
-      await fetch(`${getBackendURL()}/auth/logout`, {
+      await apiRequest('/auth/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ refreshToken: token }),
+        body: { refreshToken: token },
       }).catch(() => undefined);
     }
-    storageDelete(STORAGE_KEY);
-    storageDelete(GUEST_KEY);
+    clearLocalSession();
     set({
       user: null,
       accessToken: null,
@@ -188,17 +179,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
     try {
-      const response = await fetch(`${getBackendURL()}/auth/refresh`, {
+      const payload = await apiRequest<AuthResponse>('/auth/refresh', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ refreshToken: token }),
+        body: { refreshToken: token },
+        retryAuth: false,
       });
-      if (!response.ok) {
-        storageDelete(STORAGE_KEY);
-        set({ refreshToken: null, accessToken: null, user: null });
-        return false;
-      }
-      const payload = (await response.json()) as AuthResponse;
       const nextRefresh = payload.refreshToken ?? token;
       set({
         user: {
@@ -213,24 +198,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       storageSetString(STORAGE_KEY, nextRefresh);
       return true;
     } catch {
+      storageDelete(STORAGE_KEY);
+      set({ refreshToken: null, accessToken: null, user: null });
       return false;
     }
   },
   resendVerification: async (email: string) => {
     try {
-      const response = await fetch(`${getBackendURL()}/auth/verify/resend`, {
+      await apiRequest('/auth/verify/resend', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ email }),
+        body: { email },
       });
-      if (!response.ok) {
-        const error = await parseError(response);
-        return { status: 'error', message: error.message, code: error.code };
-      }
       return { status: 'ok' };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Network error';
-      return { status: 'error', message };
+    } catch (error) {
+      return authError(error);
     }
   },
   setUserVerified: (value: boolean) => {
@@ -241,3 +222,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 export const useAuth = useAuthStore;
+
+configureApiAuth({
+  getAccessToken: () => useAuthStore.getState().accessToken,
+  refresh: () => useAuthStore.getState().refresh(),
+  onUnauthorized: () => {
+    clearLocalSession();
+    useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
+  },
+});
