@@ -349,6 +349,21 @@
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+.details-director--link {
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.details-director--link:hover .details-director__name {
+  color: var(--accent-strong);
+}
+
 .details-director__photo {
   width: 84px;
   height: 112px;
@@ -1214,6 +1229,16 @@
   gap: 0.35rem;
   scroll-snap-align: start;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cast-card--link {
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .cast-card:hover {

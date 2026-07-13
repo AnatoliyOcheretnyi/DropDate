@@ -29,3 +29,6 @@ apps/mobile/.env.local
 # Logs/temp
 npm-debug.log*
 yarn-error.log*
+
+.claude/worktrees
+.claude/settings.local.json

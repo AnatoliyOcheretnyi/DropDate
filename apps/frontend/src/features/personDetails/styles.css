@@ -6,29 +6,6 @@
   gap: clamp(1.5rem, 3vw, 2.75rem);
 }
 
-/* Clickable cast + director cards (buttonified). */
-.cast-card--link,
-.details-director--link {
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  width: 100%;
-}
-.cast-card--link {
-  appearance: none;
-  border: 0;
-  background: transparent;
-}
-.details-director--link {
-  appearance: none;
-  background: transparent;
-  border: 0;
-}
-.details-director--link:hover .details-director__name {
-  color: var(--accent-strong);
-}
-
 /* Hero */
 .person-hero {
   position: relative;

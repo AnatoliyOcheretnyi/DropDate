@@ -125,10 +125,6 @@ function HomeScreenContent({ sections }: Props) {
 
   const handleGallerySelect = useCallback(
     (suggestion: Suggestion) => {
-      setSelectedSuggestion(suggestion);
-      setIsInputFocused(false);
-      setIsSearchOpen(false);
-      setTitle(suggestion.title);
       router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
     [router]
