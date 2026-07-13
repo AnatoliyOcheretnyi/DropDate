@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import { NotificationBell } from '../../../shared/ui/NotificationBell';
 
 import { colors } from '../../../shared/theme/colors';
 import { copy } from '../../../shared/strings';
@@ -19,6 +20,7 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.wrapper}>
+      <NotificationBell />
       <FlashList
         data={sections}
         keyExtractor={(item) => item.id}
@@ -55,7 +57,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 148,
     gap: 18,
   },
   hint: {

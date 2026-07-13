@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { AccessibilityRole, AccessibilityState, StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -13,10 +13,12 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   accessibilityLabel?: string;
+  accessibilityRole?: AccessibilityRole;
+  accessibilityState?: AccessibilityState;
   haptic?: 'selection' | 'success' | 'error' | 'none';
 };
 
-export function MotionPressable({ children, onPress, onLongPress, style, disabled, accessibilityLabel, haptic = 'selection' }: Props) {
+export function MotionPressable({ children, onPress, onLongPress, style, disabled, accessibilityLabel, accessibilityRole = 'button', accessibilityState, haptic = 'selection' }: Props) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const press = () => {
@@ -32,11 +34,12 @@ export function MotionPressable({ children, onPress, onLongPress, style, disable
       }
     : undefined;
   return <AnimatedPressable
-    accessibilityRole="button"
+    accessibilityRole={accessibilityRole}
     accessibilityLabel={accessibilityLabel}
+    accessibilityState={accessibilityState}
     disabled={disabled}
-    onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 260 }); }}
-    onPressOut={() => { scale.value = withSpring(1, { damping: 16, stiffness: 220 }); }}
+    onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 260, reduceMotion: ReduceMotion.System }); }}
+    onPressOut={() => { scale.value = withSpring(1, { damping: 16, stiffness: 220, reduceMotion: ReduceMotion.System }); }}
     onPress={press}
     onLongPress={longPress}
     style={[styles.base, style, animatedStyle, disabled && styles.disabled]}

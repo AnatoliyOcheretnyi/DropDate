@@ -4,6 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 
 import { PosterCard } from '../../../shared/ui/PosterCard';
+import { NotificationBell } from '../../../shared/ui/NotificationBell';
 import { colors } from '../../../shared/theme/colors';
 import { copy } from '../../../shared/strings';
 import type { Suggestion } from '../../../shared/types/release';
@@ -48,6 +49,7 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.wrapper}>
+      <NotificationBell />
       <FlashList
         data={filteredResults}
         keyExtractor={(item) => `${item.mediaType}-${item.id}`}
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 148,
     gap: 16,
   },
   hint: {

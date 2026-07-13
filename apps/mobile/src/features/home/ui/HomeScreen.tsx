@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { ListPickerModal } from '../../../shared/ui/ListPickerModal';
 import { useTheme } from '../../../shared/theme/ThemeProvider';
 import { AnimatedSection } from '../../../shared/ui/AnimatedScreen';
+import { NotificationBell } from '../../../shared/ui/NotificationBell';
 import type { Suggestion } from '../../../shared/types/release';
 import { HomeSpotlight } from './components/HomeSpotlight';
 import { HomeQuickActions } from './components/HomeQuickActions';
@@ -66,6 +67,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
+      <NotificationBell />
       <FlashList
         data={sections}
         keyExtractor={(item) => item.id}
@@ -120,7 +122,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 60,
     paddingHorizontal: 20,
-    paddingBottom: 130,
+    paddingBottom: 148,
   },
   header: {
     gap: 22,

@@ -11,6 +11,7 @@ import { ProfileActions } from './components/ProfileActions';
 import { useProfileScreen } from '../hooks/useProfileScreen';
 import { MotionPressable } from '../../../shared/ui/MotionPressable';
 import { ThemeToggle } from '../../../shared/ui/ThemeToggle';
+import { NotificationBell } from '../../../shared/ui/NotificationBell';
 import { useSavedStore } from '../../saved/store/savedStore';
 import { useTasteStore } from '../store/tasteStore';
 import { TasteRanker } from './components/TasteRanker';
@@ -31,7 +32,9 @@ export default function ProfileScreen() {
   } = useProfileScreen();
 
   return (
-    <ScrollView style={styles.wrapper} contentContainerStyle={styles.container}>
+    <View style={styles.wrapper}>
+      <NotificationBell />
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>{copy.auth.profile}</Text>
       <ProfileCard initials={initials} email={user?.email} verified={user?.verified} />
       <View style={styles.stats}><View style={styles.stat}><Text style={styles.statValue}>{saved.length}</Text><Text style={styles.statLabel}>У списках</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.listTypes.includes('watched')).length}</Text><Text style={styles.statLabel}>Переглянуто</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.mediaType==='tv').length}</Text><Text style={styles.statLabel}>Серіали</Text></View></View>
@@ -49,7 +52,8 @@ export default function ProfileScreen() {
         onSignOut={handleSignOut}
       />
       {user ? <><TasteRanker title="Жанри" kind="genre" items={taste.genres} onMove={taste.move} onReset={taste.reset}/><TasteRanker title="Країни" kind="country" items={taste.countries} onMove={taste.move} onReset={taste.reset}/></> : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -61,7 +65,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   container: {
     paddingTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 148,
     gap: 16,
   },
   header: {
