@@ -45,6 +45,16 @@ export function ListBadges({ listTypes }: Props) {
           </svg>
         </span>
       )}
+      {listTypes.includes("liked") && (
+        <span className="list-badge" title="Сподобалось">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M21 10h-4V6.5C17 4.6 15.7 4 14.8 4c-.5 0-.9.3-1 .8l-1.2 5.2c-.1.5-.5 1-1 1.3L9 12v8h8.3c.8 0 1.5-.5 1.8-1.2l2.1-5.3c.5-1.3-.5-2.5-1.9-2.5H21Zm-18 2h3v8H3v-8Z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
+      )}
       {listTypes.includes("watched") && (
         <span className="list-badge" title="Переглянуто">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -58,10 +68,12 @@ export function ListBadges({ listTypes }: Props) {
       {listTypes.includes("disliked") && (
         <span className="list-badge" title="Не сподобалось">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M3 10h4v10H3V10Zm6.2 0h6.1c.9 0 1.7.4 2.2 1.1l2.2 3.3c.3.5.5 1 .5 1.6V20a2 2 0 0 1-2 2h-5c-.8 0-1.5-.4-1.9-1l-2.1-3.1v-7.9Z"
-              fill="currentColor"
-            />
+            <g transform="scale(1,-1) translate(0,-24)">
+              <path
+                d="M21 10h-4V6.5C17 4.6 15.7 4 14.8 4c-.5 0-.9.3-1 .8l-1.2 5.2c-.1.5-.5 1-1 1.3L9 12v8h8.3c.8 0 1.5-.5 1.8-1.2l2.1-5.3c.5-1.3-.5-2.5-1.9-2.5H21Zm-18 2h3v8H3v-8Z"
+                fill="currentColor"
+              />
+            </g>
           </svg>
         </span>
       )}

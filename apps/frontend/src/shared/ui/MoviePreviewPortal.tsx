@@ -96,6 +96,7 @@ export function MoviePreviewPortal({
           aria-label={heading}
           onMouseEnter={onHoverEnter}
           onMouseLeave={onHoverLeave}
+          onClick={(event) => event.stopPropagation()}
         >
           {backdrop ? (
             <div className="movie-preview-media">
