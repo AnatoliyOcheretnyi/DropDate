@@ -600,6 +600,67 @@
   cursor: default;
 }
 
+.taste-chips__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 220px;
+  padding: 2.2rem 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.025);
+  text-align: center;
+}
+
+.taste-chips__empty-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+  margin-bottom: 0.2rem;
+}
+
+.taste-chips__empty-title {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.taste-chips__empty-text {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.taste-chips__empty-reset {
+  margin-top: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(115, 240, 193, 0.4);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.taste-chips__empty-reset:hover {
+  border-color: rgba(115, 240, 193, 0.65);
+  background: rgba(115, 240, 193, 0.22);
+}
+
+.taste-chips__empty-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
 /* ---- Ranked (Top 10) rail ---- */
 .ranked-carousel {
   overflow-x: auto;

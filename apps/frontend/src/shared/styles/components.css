@@ -193,7 +193,9 @@ dd.date span:last-child {
 .poster-grid {
   margin-top: 1.15rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  /* auto-fill (not auto-fit) keeps a lone card at its natural width instead of
+     stretching it to fill the row when there aren't enough items to wrap. */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
 }
 
@@ -267,6 +269,39 @@ dd.date span:last-child {
 .poster-card:focus-visible img {
   transform: scale(1.06);
   filter: saturate(1.08);
+}
+
+.poster-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+
+.poster-card--skeleton .poster-card__media {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.poster-card--skeleton .poster-card__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: poster-card-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes poster-card-shimmer {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
 }
 
 .poster-card__content {

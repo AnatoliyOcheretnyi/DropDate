@@ -40,6 +40,11 @@ const COUNTRIES: Chip[] = [
   { id: "in", label: "Індія", icon: "🇮🇳" },
 ];
 
+// A few reliably-populated genres to offer as a quick escape from a dead end.
+const RETRY_SUGGESTIONS = GENRES.filter((chip) =>
+  ["comedy", "drama", "action"].includes(chip.id)
+);
+
 function ChipRow({
   items,
   selected,
@@ -70,6 +75,75 @@ function ChipRow({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function EmptyState({
+  onReset,
+  onTryGenre,
+}: {
+  onReset: () => void;
+  onTryGenre: (id: string) => void;
+}) {
+  return (
+    <div className="taste-chips__empty">
+      <span className="taste-chips__empty-icon" aria-hidden="true">
+        🍿
+      </span>
+      <strong className="taste-chips__empty-title">
+        Нічого не знайшли під цю комбінацію
+      </strong>
+      <p className="taste-chips__empty-text">
+        Спробуй прибрати один із фільтрів або обрати інше поєднання жанру й
+        країни.
+      </p>
+      <button
+        type="button"
+        className="taste-chips__empty-reset"
+        onClick={onReset}
+      >
+        Скинути всі фільтри
+      </button>
+      <div className="taste-chips__empty-suggestions">
+        <span>Спробуй натомість:</span>
+        {RETRY_SUGGESTIONS.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            className="taste-chip"
+            onClick={() => onTryGenre(chip.id)}
+          >
+            <span className="taste-chip__icon" aria-hidden="true">
+              {chip.icon}
+            </span>
+            <span>{chip.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="taste-chips__empty">
+      <span className="taste-chips__empty-icon" aria-hidden="true">
+        ⚠️
+      </span>
+      <strong className="taste-chips__empty-title">
+        Не вдалося завантажити добірку
+      </strong>
+      <p className="taste-chips__empty-text">
+        Схоже, щось пішло не так. Спробуй ще раз.
+      </p>
+      <button
+        type="button"
+        className="taste-chips__empty-reset"
+        onClick={onRetry}
+      >
+        Спробувати знову
+      </button>
     </div>
   );
 }
@@ -124,6 +198,11 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
     setCountries(new Set());
   };
 
+  const handleTryGenre = (id: string) => {
+    setGenres(new Set([id]));
+    setCountries(new Set());
+  };
+
   return (
     <section className="taste-chips trend-bleed">
       <div className="trend-inner">
@@ -144,9 +223,9 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
               <p className="hint">
                 {discoverQuery.isError
                   ? "Не вдалося завантажити добірку."
-                  : `Показуємо збіги за твоїм вибором${
-                      isLoading ? "…" : ` · ${results.length}`
-                    }`}
+                  : isLoading && results.length === 0
+                    ? "Шукаємо збіги за твоїм вибором…"
+                    : `Показуємо збіги за твоїм вибором · ${results.length}`}
               </p>
               <button
                 type="button"
@@ -164,7 +243,13 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
               getListTypes={getListTypes}
               onChangeLists={onChangeLists}
               title="Результати"
-              emptyLabel="Нічого не знайшли під цей смак. Спробуй інше поєднання."
+              emptySlot={
+                discoverQuery.isError ? (
+                  <ErrorState onRetry={() => discoverQuery.refetch()} />
+                ) : (
+                  <EmptyState onReset={handleReset} onTryGenre={handleTryGenre} />
+                )
+              }
               showEmpty
             />
 
