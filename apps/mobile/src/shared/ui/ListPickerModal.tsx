@@ -37,9 +37,11 @@ export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
   );
 
   const toggle = (key: ListType) => {
-    setSelected((prev) =>
-      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
-    );
+    const next = selected.includes(key)
+      ? selected.filter((item) => item !== key)
+      : [...selected, key];
+    setSelected(next);
+    onApply(next);
   };
 
   return (
@@ -58,11 +60,8 @@ export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
             ))}
           </View>
           <View style={styles.actions}>
-            <Pressable style={styles.actionGhost} onPress={onClose}>
-              <Text style={styles.actionGhostText}>Скасувати</Text>
-            </Pressable>
-            <Pressable style={styles.actionPrimary} onPress={() => onApply(selected)}>
-              <Text style={styles.actionPrimaryText}>Зберегти</Text>
+            <Pressable style={styles.actionPrimary} onPress={onClose}>
+              <Text style={styles.actionPrimaryText}>Готово</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -128,18 +127,6 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-  },
-  actionGhost: {
-    flex: 1,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  actionGhostText: {
-    color: colors.text,
-    fontWeight: '600',
   },
   actionPrimary: {
     flex: 1,

@@ -73,6 +73,12 @@ export function useSavedReleases() {
   // `refreshAll` has already merged the fresh list with refreshed dates).
   const lastRemoteRef = useRef<SavedRelease[] | null>(null);
 
+  // Guards against a slow/in-flight GET (e.g. the very first `saved` fetch
+  // after login) resolving *after* the user has already made a local change
+  // and clobbering it with the pre-change snapshot. A GET is only applied if
+  // it resolved at or after our last optimistic write.
+  const lastLocalMutationAtRef = useRef(0);
+
   useEffect(() => {
     if (!isAuthed) {
       lastRemoteRef.current = null;
@@ -82,9 +88,16 @@ export function useSavedReleases() {
     const remoteItems = savedRemoteQuery.data;
     if (remoteItems && remoteItems !== lastRemoteRef.current) {
       lastRemoteRef.current = remoteItems;
-      setSaved(remoteItems);
+      if (savedRemoteQuery.dataUpdatedAt >= lastLocalMutationAtRef.current) {
+        setSaved(remoteItems);
+      }
     }
-  }, [isAuthed, savedRemoteQuery.data, setSaved]);
+  }, [
+    isAuthed,
+    savedRemoteQuery.data,
+    savedRemoteQuery.dataUpdatedAt,
+    setSaved,
+  ]);
 
   const savedById = useMemo(() => {
     const index = new Map<string, SavedRelease>();
@@ -161,6 +174,7 @@ export function useSavedReleases() {
 
   const persist = useCallback(
     (updater: (items: SavedRelease[]) => SavedRelease[]) => {
+      lastLocalMutationAtRef.current = Date.now();
       updateSaved(updater);
     },
     [updateSaved]

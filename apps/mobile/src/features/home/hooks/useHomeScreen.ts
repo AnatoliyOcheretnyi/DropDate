@@ -130,7 +130,6 @@ export function useHomeScreen() {
           release: existing,
           details: existing.details,
         });
-        setPickerVisible(false);
         return;
       }
       try {
@@ -153,8 +152,6 @@ export function useHomeScreen() {
         await setListTypes(pickerItem, listTypes, { release, details: payload.details });
       } catch {
         // ignore network failures for now
-      } finally {
-        setPickerVisible(false);
       }
     },
     [findByTmdbId, pickerItem, queryClient, setListTypes]
