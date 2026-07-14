@@ -7,9 +7,11 @@ import { AuthModal } from "../../../widgets/AuthModal";
 import { Reveal } from "../../../shared/ui/Reveal";
 import { useProfile } from "../hooks/useProfile";
 import { useTasteRanking } from "../hooks/useTasteRanking";
+import { useAchievements } from "../hooks/useAchievements";
 import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
 import { ProfileCard } from "../components/ProfileCard";
 import { TasteRanker } from "../components/TasteRanker";
+import { AchievementsSection } from "../components/AchievementsSection";
 import type { SavedRelease } from "../../../shared/types/releases";
 
 const isSeries = (item: SavedRelease) =>
@@ -49,6 +51,8 @@ export function ProfileScreen() {
 
   const { genres, countries, reorder, reset } = useTasteRanking();
   const { people } = useFollowedPeople();
+  const { lists: achievementLists, isLoading: achievementsLoading } =
+    useAchievements();
 
   const stats = useMemo(() => {
     const movies = saved.filter((item) => !isSeries(item)).length;
@@ -135,6 +139,21 @@ export function ProfileScreen() {
               ))}
             </div>
           </Reveal>
+
+          {user ? (
+            <Reveal>
+              <div className="profile-section-head">
+                <div>
+                  <p className="trend-kicker">Твій прогрес</p>
+                  <h2>Досягнення</h2>
+                </div>
+              </div>
+              <AchievementsSection
+                lists={achievementLists}
+                isLoading={achievementsLoading}
+              />
+            </Reveal>
+          ) : null}
 
           <Reveal>
             <div className="profile-section-head">

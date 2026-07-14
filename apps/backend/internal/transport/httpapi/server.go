@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
@@ -41,6 +42,7 @@ type ServerOptions struct {
 	AI               *airecs.Service
 	Capabilities     capabilities.Resolver
 	People           *people.Service
+	Achievements     *achievements.Service
 }
 
 type Server struct {
@@ -55,6 +57,7 @@ type Server struct {
 	people           *people.Service
 	ai               *airecs.Service
 	caps             capabilities.Resolver
+	achievements     *achievements.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -91,6 +94,7 @@ func NewServer(
 		people:           options.People,
 		ai:               options.AI,
 		caps:             options.Capabilities,
+		achievements:     options.Achievements,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,

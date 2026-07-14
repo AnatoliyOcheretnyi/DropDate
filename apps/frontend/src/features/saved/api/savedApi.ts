@@ -2,6 +2,7 @@
 
 import { requestApi, webApi } from "../../../shared/api/http";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import type { UnlockedAchievement } from "../../../shared/lib/achievements";
 import type { ListType, SavedRelease } from "../../../shared/types/releases";
 
 export type BulkRefreshResult = {
@@ -40,13 +41,16 @@ export async function createSavedRemote(
     backdropUrl?: string;
     listType: ListType;
   }
-) {
-  await webApi.post("/api/saved", payload, {
+): Promise<UnlockedAchievement[]> {
+  const response = await webApi.post<{
+    unlockedAchievements?: UnlockedAchievement[];
+  }>("/api/saved", payload, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
   });
+  return response.data?.unlockedAchievements ?? [];
 }
 
 export async function removeSavedRemote(

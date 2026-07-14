@@ -9,6 +9,7 @@ import {
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
+import { publishUnlocks } from "../../../shared/lib/achievementBus";
 import { useAuth } from "../../../shared/state/auth";
 import {
   bulkRefreshSaved,
@@ -118,7 +119,8 @@ export function useSavedReleases() {
       if (!accessToken) {
         return;
       }
-      await createSavedRemote(accessToken, payload);
+      const unlocked = await createSavedRemote(accessToken, payload);
+      publishUnlocks(unlocked);
     },
     onSettled: () => {
       invalidateSavedSideEffects();

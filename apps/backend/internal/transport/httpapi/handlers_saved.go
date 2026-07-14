@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
@@ -294,7 +295,26 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.invalidateRecommendations(userID)
-	writeJSON(w, http.StatusOK, mapSavedItem(item))
+
+	var unlocked []achievements.UnlockedEvent
+	if s.achievements != nil && len(item.ListTypes) > 0 {
+		events, err := s.achievements.RecordProgress(r.Context(), userID, item.ListTypes[0])
+		if err != nil {
+			s.logger.Printf("achievements record failed: %v", err)
+		} else {
+			unlocked = events
+		}
+	}
+
+	writeJSON(w, http.StatusOK, saveResponse{
+		savedItem:            mapSavedItem(item),
+		UnlockedAchievements: unlocked,
+	})
+}
+
+type saveResponse struct {
+	savedItem
+	UnlockedAchievements []achievements.UnlockedEvent `json:"unlockedAchievements,omitempty"`
 }
 
 // invalidateRecommendations schedules a debounced refresh of the user's cached

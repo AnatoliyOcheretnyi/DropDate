@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
@@ -65,6 +66,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		savedService         *saved.Service
 		notificationsService *notifications.Service
 		peopleService        *people.Service
+		achievementsService  *achievements.Service
 		closeDB              func() error
 		db                   *sql.DB
 	)
@@ -87,6 +89,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		savedService = saved.NewService(saved.NewStore(openedDB))
 		notificationsService = notifications.NewService(notifications.NewStore(openedDB))
 		peopleService = people.NewService(people.NewStore(openedDB))
+		achievementsService = achievements.NewService(achievements.NewStore(openedDB), logger)
 	}
 
 	var recommendationsService *recommendations.Service
@@ -153,6 +156,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			AI:               aiService,
 			Capabilities:     capabilitiesResolver,
 			People:           peopleService,
+			Achievements:     achievementsService,
 		},
 	)
 
