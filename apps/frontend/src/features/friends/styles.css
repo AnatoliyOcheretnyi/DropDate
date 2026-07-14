@@ -1,0 +1,998 @@
+/* Escape the base 1200px cap on main.page — same trick as page--details,
+   whose content spans 95vw. */
+main.page--friends,
+main.page--friend-profile {
+  width: 100%;
+  max-width: none;
+  gap: 0;
+  position: relative;
+  isolation: isolate;
+}
+
+.friends-backdrop {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 640px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+      ellipse 55% 60% at 12% 0%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 40% 50% at 88% 10%,
+      rgba(115, 170, 240, 0.12),
+      transparent 70%
+    );
+  filter: blur(4px);
+}
+
+.friends-shell {
+  width: 95vw;
+  margin: 0 auto;
+  padding: 1.25rem 0 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  min-height: 70vh;
+}
+
+/* ---- hero row: copy left, search right ---- */
+
+.friends-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.friends-hero__copy {
+  min-width: 260px;
+}
+
+.friends-hero h1 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  margin: 0.2rem 0 0.5rem;
+}
+
+.friends-hero p {
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 42rem;
+  font-size: 1.02rem;
+}
+
+.friends-hero__search {
+  flex: 1 1 340px;
+  max-width: 560px;
+  padding-bottom: 0.25rem;
+}
+
+/* ---- segmented control ---- */
+
+.friend-seg {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+.friend-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 1.05rem;
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.friend-seg button:hover {
+  color: var(--text-muted);
+}
+
+.friend-seg button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.friend-seg__badge {
+  min-width: 1.35rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(162, 182, 212, 0.14);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.friend-seg button.is-active .friend-seg__badge {
+  background: rgba(115, 240, 193, 0.22);
+  color: var(--accent-strong);
+}
+
+.friend-seg__badge--alert {
+  background: rgba(255, 199, 106, 0.18);
+  color: var(--warning);
+}
+
+/* ---- empty states ---- */
+
+.friends-empty {
+  padding: 1.5rem;
+  border-radius: 1.1rem;
+  border: 1px dashed var(--border);
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.friends-empty--cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 3.5rem 1.5rem;
+}
+
+.friends-empty__icon {
+  font-size: 2rem;
+  margin-bottom: 0.3rem;
+}
+
+.friends-empty--cta strong {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.friends-empty--cta p {
+  margin: 0;
+  max-width: 26rem;
+}
+
+/* ---- entrance stagger ---- */
+
+.friend-stagger-in {
+  animation: friend-rise-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes friend-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .friend-stagger-in,
+  .friend-tab-panel {
+    animation: none !important;
+  }
+}
+
+/* ---- avatar ---- */
+
+.friend-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-weight: 700;
+  color: #06170f;
+  background: linear-gradient(150deg, var(--accent-strong), var(--accent-dark));
+  box-shadow: 0 10px 24px -10px rgba(115, 240, 193, 0.45);
+}
+
+.friend-avatar--sm {
+  width: 40px;
+  height: 40px;
+  font-size: 0.85rem;
+}
+
+.friend-avatar--md {
+  width: 48px;
+  height: 48px;
+  font-size: 0.95rem;
+}
+
+.friend-avatar--lg {
+  width: 64px;
+  height: 64px;
+  font-size: 1.15rem;
+}
+
+.friend-avatar--xl {
+  width: 84px;
+  height: 84px;
+  font-size: 1.5rem;
+}
+
+/* ---- shared pill buttons ---- */
+
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-pill:disabled {
+  cursor: default;
+}
+
+.btn-pill--accent {
+  background: var(--accent);
+  color: #06170f;
+}
+
+.btn-pill--accent:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-pill--muted {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  opacity: 0.75;
+}
+
+.btn-pill--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.btn-pill--ghost:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.btn-pill--pending {
+  background: rgba(255, 199, 106, 0.14);
+  border-color: rgba(255, 199, 106, 0.4);
+  color: var(--warning);
+}
+
+/* ---- search combobox ---- */
+
+.friend-search {
+  position: relative;
+}
+
+.friend-search__field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.friend-search__field:focus-within,
+.friend-search__field.is-open {
+  border-color: rgba(115, 240, 193, 0.45);
+  box-shadow: 0 0 0 3px rgba(115, 240, 193, 0.08);
+}
+
+.friend-search__field svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-dim);
+  flex: none;
+}
+
+.friend-search__field input {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.friend-search__clear {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(162, 182, 212, 0.14);
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.friend-search__clear:hover {
+  color: var(--text);
+}
+
+.friend-search__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: friend-spin 0.7s linear infinite;
+  flex: none;
+}
+
+@keyframes friend-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.friend-search__panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-strong);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-strong);
+  animation: friend-panel-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+@keyframes friend-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.friend-search__hint {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.84rem;
+  color: var(--text-dim);
+}
+
+.friend-search__skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.friend-search__skeletons span {
+  height: 56px;
+  border-radius: 0.9rem;
+  background: linear-gradient(
+    100deg,
+    var(--card-bg) 30%,
+    rgba(115, 240, 193, 0.08) 50%,
+    var(--card-bg) 70%
+  );
+  background-size: 220% 100%;
+  animation: friend-shimmer 1.4s ease-in-out infinite;
+}
+
+.friend-result-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.9rem;
+  transition: background 0.15s ease;
+}
+
+.friend-result-row:hover {
+  background: rgba(115, 240, 193, 0.06);
+}
+
+.friend-result-row__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.friend-result-row__meta strong {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 0.88rem;
+}
+
+.friend-result-row__meta span {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- requests ---- */
+
+.friend-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 760px;
+}
+
+.friend-request-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  transition: border-color 0.2s ease;
+}
+
+.friend-request-row:hover {
+  border-color: var(--border-strong);
+}
+
+.friend-request-row__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.friend-request-row__meta strong {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-request-row__meta span {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-request-row__actions {
+  display: flex;
+  gap: 0.45rem;
+  flex: none;
+}
+
+@media (max-width: 560px) {
+  .friend-request-row {
+    flex-wrap: wrap;
+  }
+  .friend-request-row__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* ---- friends grid + rich cards (poster strip on top, à la Letterboxd) ---- */
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.1rem;
+}
+
+.friend-card {
+  position: relative;
+  border-radius: 1.2rem;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.friend-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(115, 240, 193, 0.4);
+  box-shadow: 0 18px 36px -20px rgba(2, 8, 16, 0.65);
+}
+
+.friend-card--loading {
+  min-height: 250px;
+  background: linear-gradient(
+    100deg,
+    var(--card-bg) 30%,
+    rgba(115, 240, 193, 0.08) 50%,
+    var(--card-bg) 70%
+  );
+  background-size: 220% 100%;
+  animation: friend-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes friend-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+
+.friend-card__link {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.friend-card__posters {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.friend-card__poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.friend-card__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.friend-card:hover .friend-card__poster img {
+  transform: scale(1.04);
+}
+
+.friend-card__poster--empty {
+  display: block;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(115, 240, 193, 0.16), transparent 60%),
+    linear-gradient(160deg, #14202f, #0a121d);
+}
+
+.friend-card__posters-fade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 70%;
+  background: linear-gradient(0deg, rgba(16, 26, 39, 0.97), transparent);
+  pointer-events: none;
+}
+
+.friend-card__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 1.1rem 1.1rem;
+}
+
+.friend-card__body .friend-avatar {
+  margin-top: -30px;
+  box-shadow:
+    0 0 0 3px var(--bg-elevated),
+    0 10px 24px -10px rgba(115, 240, 193, 0.45);
+}
+
+.friend-card__id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  margin-top: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.friend-card__id strong {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-card__email {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  margin-top: 0.55rem;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
+.friend-card__meta b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.friend-card__mutual b {
+  color: var(--accent-strong);
+}
+
+.friend-card__open {
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.friend-card:hover .friend-card__open,
+.friend-card__link:focus-visible .friend-card__open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.friend-card__remove {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.friend-card:hover .friend-card__remove,
+.friend-card__remove:focus-visible,
+.friend-card__remove.is-confirming {
+  opacity: 1;
+}
+
+.friend-card__remove:hover {
+  color: var(--error);
+}
+
+.friend-card__remove.is-confirming {
+  border-color: rgba(255, 140, 150, 0.5);
+  background: rgba(255, 140, 150, 0.12);
+  color: var(--error);
+}
+
+/* ---- friend profile ---- */
+
+.friend-profile-back {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.friend-profile-back:hover {
+  color: var(--text);
+}
+
+.friend-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.4rem;
+  padding: 1.5rem;
+  border-radius: 1.4rem;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+      140deg,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      transparent 55%
+    ),
+    var(--card-bg);
+}
+
+.friend-profile-header--loading {
+  height: 130px;
+  border-radius: 1.4rem;
+  background: var(--card-bg);
+}
+
+.friend-profile-header__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.friend-profile-header__meta h1 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-profile-header__meta span {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.friend-profile-header__since {
+  color: var(--accent-strong) !important;
+  font-weight: 600;
+}
+
+.friend-profile-metrics {
+  margin-bottom: 1.6rem;
+}
+
+/* ---- mutual titles ---- */
+
+.friend-mutual {
+  margin-bottom: 1.8rem;
+}
+
+.friend-mutual__head h2 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.2rem;
+  margin: 0.1rem 0 0.9rem;
+}
+
+.friend-mutual__row {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+  scrollbar-width: thin;
+}
+
+.friend-mutual__poster {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex: none;
+  width: 92px;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.4rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.friend-mutual__poster:hover {
+  transform: translateY(-3px);
+  border-color: rgba(115, 240, 193, 0.4);
+}
+
+.friend-mutual__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.friend-mutual__more {
+  flex: none;
+  width: 92px;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.7rem;
+  border: 1px dashed var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+/* ---- profile tabs ---- */
+
+.friend-tabs {
+  display: flex;
+  gap: 1.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.2rem;
+}
+
+.friend-tabs button {
+  background: transparent;
+  border: none;
+  padding: 0 0 0.7rem;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.friend-tabs button:hover {
+  color: var(--text-muted);
+}
+
+.friend-tabs button::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.friend-tabs button.is-active {
+  color: var(--text);
+}
+
+.friend-tabs button.is-active::after {
+  transform: scaleX(1);
+}
+
+.friend-tab-panel {
+  animation: friend-rise-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.friend-list-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+
+.friend-list-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.friend-list-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.friend-list-chip b {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.friend-list-chip.is-active {
+  border-color: rgba(115, 240, 193, 0.4);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.friend-list-chip.is-active b {
+  color: var(--accent-strong);
+}
+
+/* The saved screen shifts the info button left to clear its remove ✕;
+   friend cards have no remove, so pin it back to the corner. */
+.saved-banner-card .saved-info-btn.friend-saved-info-btn {
+  right: 0.75rem;
+}
+
+/* The friend profile shell stretches wider than the saved screen (95vw), so
+   its banner grid defaults to 4 columns on desktop instead of the base 3;
+   below 980px the saved styles' own 2-col/1-col breakpoints take over. */
+@media (min-width: 981px) {
+  .page--friend-profile .saved-grid:not(.saved-grid--single):not(.saved-grid--double) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2400px) {
+  .page--friend-profile .saved-grid:not(.saved-grid--single):not(.saved-grid--double) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* ---- username editor (profile page) ---- */
+
+.username-editor,
+.username-editor__display {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.username-editor__display {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.username-editor__display:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.username-editor__at {
+  color: var(--text-dim);
+}
+
+.username-editor input {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  width: 10rem;
+}
+
+.username-editor__error {
+  width: 100%;
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  color: var(--error);
+}

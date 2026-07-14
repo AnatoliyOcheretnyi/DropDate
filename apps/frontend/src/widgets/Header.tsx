@@ -208,6 +208,11 @@ export function Header({
               </Link>
             ) : null}
             {user ? (
+              <Link href="/friends" className="header-nav-link">
+                Друзі
+              </Link>
+            ) : null}
+            {user ? (
               <button
                 type="button"
                 className={`header-nav-link${active === "saved" ? " active" : ""}`}
@@ -374,6 +379,16 @@ export function Header({
                     }}
                   >
                     {copy.header.savedList}
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-popover-action"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push("/friends");
+                    }}
+                  >
+                    Друзі
                   </button>
                   <button
                     type="button"

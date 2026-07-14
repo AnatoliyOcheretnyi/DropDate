@@ -12,6 +12,7 @@ import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
 import { ProfileCard } from "../components/ProfileCard";
 import { TasteRanker } from "../components/TasteRanker";
 import { AchievementsSection } from "../components/AchievementsSection";
+import { UsernameEditor } from "../../friends/components/UsernameEditor";
 import type { SavedRelease } from "../../../shared/types/releases";
 
 const isSeries = (item: SavedRelease) =>
@@ -124,6 +125,7 @@ export function ProfileScreen() {
               onSignOut={handleLogout}
               onSignIn={() => setIsAuthOpen(true)}
             />
+            {user ? <UsernameEditor /> : null}
           </div>
 
           <Reveal>

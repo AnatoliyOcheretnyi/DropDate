@@ -27,8 +27,9 @@ type resendVerificationRequest struct {
 }
 
 type authUserResponse struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
 }
 
 type authResponse struct {
@@ -315,8 +316,9 @@ func (s *Server) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair,
 		ExpiresAt:    result.AccessExpiresAt,
 		RefreshToken: refresh,
 		User: authUserResponse{
-			ID:    result.User.ID,
-			Email: result.User.Email,
+			ID:       result.User.ID,
+			Email:    result.User.Email,
+			Username: result.User.Username,
 		},
 	})
 }

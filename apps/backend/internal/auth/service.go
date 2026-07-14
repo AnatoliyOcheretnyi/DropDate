@@ -32,6 +32,9 @@ var (
 	ErrVerificationTokenExpired  = errors.New("verification token expired")
 	ErrVerificationTokenUsed     = errors.New("verification token already used")
 	ErrVerificationResendTooSoon = errors.New("verification resend too soon")
+	ErrUserNotFound              = errors.New("user not found")
+	ErrUsernameTaken             = errors.New("username already taken")
+	ErrInvalidUsername           = errors.New("invalid username")
 )
 
 const minPasswordLength = 8
@@ -89,6 +92,7 @@ type Service struct {
 type User struct {
 	ID              string
 	Email           string
+	Username        string
 	CreatedAt       time.Time
 	EmailVerifiedAt *time.Time
 }
@@ -284,6 +288,11 @@ func (s *Service) ResendVerification(ctx context.Context, email string) error {
 }
 
 func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error) {
+	user, err := s.ensureUsername(ctx, user)
+	if err != nil {
+		return TokenPair{}, err
+	}
+
 	accessToken, expiresAt, err := s.createAccessToken(user)
 	if err != nil {
 		return TokenPair{}, err
@@ -306,6 +315,77 @@ func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error)
 		AccessExpiresAt:  expiresAt,
 		RefreshExpiresAt: refreshExpires,
 	}, nil
+}
+
+// GetByID returns a user by id, e.g. for the "who am I" profile endpoint.
+func (s *Service) GetByID(ctx context.Context, id string) (User, error) {
+	return s.users.GetByID(ctx, id)
+}
+
+// FindByUsernameOrEmail resolves a user for the friend-search flow — the
+// caller supplies either an exact @username or an exact email address.
+func (s *Service) FindByUsernameOrEmail(ctx context.Context, query string) (User, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return User{}, ErrUserNotFound
+	}
+	user, err := s.users.FindByUsernameOrEmail(ctx, query)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, err
+	}
+	return user, nil
+}
+
+// SearchUsers powers the friend-search typeahead: username prefix match
+// (case-insensitive) plus an exact email match, excluding the caller.
+func (s *Service) SearchUsers(ctx context.Context, callerID, query string, limit int) ([]User, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 8
+	}
+	return s.users.SearchUsers(ctx, escapeLikePattern(query), callerID, limit)
+}
+
+// UpdateUsername lets a user pick their own public handle, replacing the
+// auto-generated one issued at login.
+func (s *Service) UpdateUsername(ctx context.Context, userID, username string) (User, error) {
+	normalized, err := normalizeUsername(username)
+	if err != nil {
+		return User{}, err
+	}
+	if err := s.users.UpdateUsername(ctx, userID, normalized); err != nil {
+		return User{}, err
+	}
+	return s.users.GetByID(ctx, userID)
+}
+
+// ensureUsername lazily backfills a username for accounts created before
+// this field existed (or for any user who hasn't set one yet) so friend
+// search always has something to match against, with no separate data
+// migration script — mirrors the achievements ladder's self-healing backfill.
+func (s *Service) ensureUsername(ctx context.Context, user User) (User, error) {
+	if user.Username != "" {
+		return user, nil
+	}
+	for attempt := 0; attempt < 6; attempt++ {
+		candidate := generateUsername(user.Email, attempt)
+		username, err := s.users.SetUsernameIfEmpty(ctx, user.ID, candidate)
+		if err == nil {
+			user.Username = username
+			return user, nil
+		}
+		if errors.Is(err, ErrUsernameTaken) {
+			continue
+		}
+		return user, err
+	}
+	return user, fmt.Errorf("could not allocate a unique username")
 }
 
 func (s *Service) sendVerificationEmail(ctx context.Context, user User) error {
@@ -392,6 +472,81 @@ func hashToken(token string) string {
 
 func normalizeEmail(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
+}
+
+// escapeLikePattern neutralizes SQL LIKE/ILIKE wildcards in user-supplied
+// search input so "%" or "_" behave as literal characters, not wildcards.
+func escapeLikePattern(value string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+	return replacer.Replace(value)
+}
+
+const (
+	minUsernameLength = 3
+	maxUsernameLength = 24
+)
+
+func normalizeUsername(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if len(value) < minUsernameLength || len(value) > maxUsernameLength {
+		return "", ErrInvalidUsername
+	}
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '.':
+			continue
+		default:
+			return "", ErrInvalidUsername
+		}
+	}
+	return value, nil
+}
+
+// generateUsername derives a candidate handle from the email's local part.
+// attempt 0 tries the bare local part; later attempts append a random suffix
+// so a collision (checked by the caller) can retry with a fresh candidate.
+func generateUsername(emailAddr string, attempt int) string {
+	local := emailAddr
+	if idx := strings.IndexByte(emailAddr, '@'); idx >= 0 {
+		local = emailAddr[:idx]
+	}
+	local = strings.ToLower(local)
+
+	var b strings.Builder
+	for _, r := range local {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '.':
+			b.WriteRune(r)
+		}
+	}
+	base := b.String()
+	if len(base) < minUsernameLength {
+		base = "user" + base
+	}
+	if len(base) > 18 {
+		base = base[:18]
+	}
+	if attempt == 0 {
+		return base
+	}
+	return base + randomDigits(4)
+}
+
+func randomDigits(n int) string {
+	digits := make([]byte, n)
+	buf := make([]byte, n)
+	if _, err := rand.Read(buf); err != nil {
+		// Extremely unlikely; fall back to a fixed suffix rather than fail
+		// username generation outright.
+		for i := range digits {
+			digits[i] = '0'
+		}
+		return string(digits)
+	}
+	for i, v := range buf {
+		digits[i] = '0' + v%10
+	}
+	return string(digits)
 }
 
 func validateEmail(value string) error {

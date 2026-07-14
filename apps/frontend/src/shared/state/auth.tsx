@@ -9,6 +9,7 @@ import { webApi } from "../api/http";
 type AuthUser = {
   id: string;
   email: string;
+  username: string;
 };
 
 type AuthResult = {
@@ -53,6 +54,7 @@ type AuthStore = {
   }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  updateUsername: (username: string) => Promise<void>;
 };
 
 type AuthPayload = Partial<AuthResult> & {
@@ -81,6 +83,7 @@ const toAuthResult = (payload: AuthPayload | null): AuthResult | null => {
     user: {
       id: payload.user.id,
       email: payload.user.email,
+      username: typeof payload.user.username === "string" ? payload.user.username : "",
     },
   };
 };
@@ -235,6 +238,32 @@ const useAuthStore = create<AuthStore>((set, get) => ({
 
     set({ user: result.user, accessToken: result.accessToken });
   },
+  updateUsername: async (username: string) => {
+    const current = get().user;
+    const response = await webApi.request<
+      Partial<{ id: string; email: string; username: string }> & AuthPayload
+    >({
+      url: "/api/me",
+      method: "PATCH",
+      data: { username },
+      headers: { "content-type": "application/json" },
+      validateStatus: () => true,
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new AuthError(
+        getAuthMessage(response.data, "Не вдалося оновити юзернейм"),
+        response.data?.code,
+        response.status
+      );
+    }
+
+    const nextUsername =
+      typeof response.data?.username === "string" ? response.data.username : username;
+    if (current) {
+      set({ user: { ...current, username: nextUsername } });
+    }
+  },
 }));
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -259,6 +288,7 @@ export function useAuth() {
       register: state.register,
       logout: state.logout,
       refresh: state.refresh,
+      updateUsername: state.updateUsername,
     }))
   );
 }

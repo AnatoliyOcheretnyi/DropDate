@@ -11,6 +11,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/friends"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
@@ -29,6 +30,10 @@ type AuthService interface {
 	ResendVerification(ctx context.Context, email string) error
 	ParseAccessToken(token string) (string, error)
 	Config() auth.Config
+	GetByID(ctx context.Context, id string) (auth.User, error)
+	FindByUsernameOrEmail(ctx context.Context, query string) (auth.User, error)
+	SearchUsers(ctx context.Context, callerID, query string, limit int) ([]auth.User, error)
+	UpdateUsername(ctx context.Context, userID, username string) (auth.User, error)
 }
 
 type ReadinessChecker interface {
@@ -43,6 +48,7 @@ type ServerOptions struct {
 	Capabilities     capabilities.Resolver
 	People           *people.Service
 	Achievements     *achievements.Service
+	Friends          *friends.Service
 }
 
 type Server struct {
@@ -58,6 +64,7 @@ type Server struct {
 	ai               *airecs.Service
 	caps             capabilities.Resolver
 	achievements     *achievements.Service
+	friends          *friends.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -95,6 +102,7 @@ func NewServer(
 		ai:               options.AI,
 		caps:             options.Capabilities,
 		achievements:     options.Achievements,
+		friends:          options.Friends,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,
