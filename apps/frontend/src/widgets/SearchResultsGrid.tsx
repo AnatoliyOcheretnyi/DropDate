@@ -10,6 +10,7 @@ type Props = {
   isLoading: boolean;
   onSelect: (suggestion: Suggestion) => void;
   getListTypes: (suggestion: Suggestion) => ListType[];
+  onChangeLists?: (suggestion: Suggestion, next: ListType[]) => void;
   title?: string;
   emptyLabel?: string;
   showEmpty?: boolean;
@@ -20,6 +21,7 @@ export function SearchResultsGrid({
   isLoading,
   onSelect,
   getListTypes,
+  onChangeLists,
   title = copy.sections.recommendations,
   emptyLabel = copy.search.empty,
   showEmpty = false,
@@ -48,6 +50,7 @@ export function SearchResultsGrid({
                 listTypes={listTypes}
                 imageSizes="(max-width: 900px) 40vw, 180px"
                 onSelect={onSelect}
+                onChangeLists={onChangeLists}
               />
             );
           })}

@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import type { Suggestion } from "../../../shared/lib/release";
+import type { ListType } from "../../../shared/types/releases";
+import { webQueryKeys } from "../../../shared/api/queryKeys";
+import { fetchDiscoverResults } from "../api/discoverApi";
+import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 
 type Chip = {
   id: string;
@@ -68,7 +74,13 @@ function ChipRow({
   );
 }
 
-export function TasteChips() {
+type Props = {
+  onSelect: (suggestion: Suggestion) => void;
+  getListTypes: (suggestion: Suggestion) => ListType[];
+  onChangeLists: (suggestion: Suggestion, next: ListType[]) => void;
+};
+
+export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
   const [genres, setGenres] = useState<Set<string>>(new Set());
   const [countries, setCountries] = useState<Set<string>>(new Set());
 
@@ -86,6 +98,32 @@ export function TasteChips() {
       });
     };
 
+  const genreList = useMemo(() => [...genres].sort(), [genres]);
+  const countryList = useMemo(() => [...countries].sort(), [countries]);
+  const hasSelection = genreList.length > 0 || countryList.length > 0;
+
+  const discoverQuery = useInfiniteQuery({
+    queryKey: webQueryKeys.discover(genreList, countryList),
+    enabled: hasSelection,
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) =>
+      fetchDiscoverResults(genreList, countryList, pageParam, signal),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.page + 1 : undefined,
+  });
+
+  const results = useMemo(
+    () => discoverQuery.data?.pages.flatMap((page) => page.results) ?? [],
+    [discoverQuery.data]
+  );
+  const isLoading =
+    discoverQuery.isLoading || discoverQuery.isFetchingNextPage;
+
+  const handleReset = () => {
+    setGenres(new Set());
+    setCountries(new Set());
+  };
+
   return (
     <section className="taste-chips trend-bleed">
       <div className="trend-inner">
@@ -99,6 +137,49 @@ export function TasteChips() {
           selected={countries}
           onToggle={toggle(setCountries)}
         />
+
+        {hasSelection ? (
+          <div className="taste-chips__results">
+            <div className="taste-chips__results-head">
+              <p className="hint">
+                {discoverQuery.isError
+                  ? "Не вдалося завантажити добірку."
+                  : `Показуємо збіги за твоїм вибором${
+                      isLoading ? "…" : ` · ${results.length}`
+                    }`}
+              </p>
+              <button
+                type="button"
+                className="taste-chips__reset"
+                onClick={handleReset}
+              >
+                Скинути
+              </button>
+            </div>
+
+            <SearchResultsGrid
+              items={results}
+              isLoading={isLoading}
+              onSelect={onSelect}
+              getListTypes={getListTypes}
+              onChangeLists={onChangeLists}
+              title="Результати"
+              emptyLabel="Нічого не знайшли під цей смак. Спробуй інше поєднання."
+              showEmpty
+            />
+
+            {discoverQuery.hasNextPage && (
+              <button
+                type="button"
+                className="taste-chips__load-more"
+                onClick={() => discoverQuery.fetchNextPage()}
+                disabled={isLoading}
+              >
+                {isLoading ? "Завантажуємо…" : "Показати ще"}
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );

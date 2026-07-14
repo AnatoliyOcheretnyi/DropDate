@@ -206,7 +206,11 @@ function HomeScreenContent({ sections }: Props) {
       </Reveal>
 
       <Reveal>
-        <TasteChips />
+        <TasteChips
+          onSelect={handleGallerySelect}
+          getListTypes={getListTypes}
+          onChangeLists={handleChangeLists}
+        />
       </Reveal>
 
       {shouldShowTrending && (

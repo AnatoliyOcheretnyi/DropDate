@@ -519,6 +519,87 @@
   font-size: 1rem;
 }
 
+.taste-chips__results {
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+}
+
+.taste-chips__results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.taste-chips__results-head .hint {
+  margin-top: 0;
+}
+
+.taste-chips__reset {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.taste-chips__reset:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.taste-chips__results .search-grid {
+  margin-top: 0.4rem;
+}
+
+.taste-chips__results .grid-head {
+  display: none;
+}
+
+.taste-chips__results .search-grid > .hint {
+  min-height: 140px;
+  margin: 0;
+  padding: 1.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.taste-chips__load-more {
+  align-self: center;
+  display: block;
+  margin: 1rem auto 0;
+  min-height: 44px;
+  padding: 0.6rem 1.3rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.taste-chips__load-more:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.taste-chips__load-more:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 /* ---- Ranked (Top 10) rail ---- */
 .ranked-carousel {
   overflow-x: auto;

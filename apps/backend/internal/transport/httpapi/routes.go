@@ -13,6 +13,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/upcoming", s.upcomingHandler)
 	mux.HandleFunc("/home", s.homeHandler)
 	mux.HandleFunc("/search", s.searchHandler)
+	mux.HandleFunc("/discover", s.discoverHandler)
 	mux.HandleFunc("/details", s.detailsHandler)
 	mux.HandleFunc("/person", s.personHandler)
 	mux.HandleFunc("/person/recommend", s.personRecommendHandler)
