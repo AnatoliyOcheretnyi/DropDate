@@ -10,6 +10,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/akinator"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
@@ -31,6 +32,8 @@ import (
 type App struct {
 	server                *http.Server
 	notifier              *notifications.ReleaseNotifier
+	akinatorBuilder       *akinator.Builder
+	akinatorNeedsSeed     bool
 	notificationsInterval time.Duration
 	shutdownTimeout       time.Duration
 	closeDB               func() error
@@ -102,6 +105,22 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 	}
 
 	gamesService := games.NewService(releaseService, logger)
+	var akinatorService *akinator.Service
+	var akinatorBuilder *akinator.Builder
+	akinatorNeedsSeed := false
+	if db != nil {
+		akinatorStore := akinator.NewStore(db)
+		akinatorService = akinator.NewService(akinatorStore)
+		if err := akinatorService.Reload(context.Background()); err != nil {
+			logger.Printf("akinator dataset load failed: %v", err)
+		}
+		if tmdbClient != nil {
+			akinatorBuilder = akinator.NewBuilder(tmdbClient, akinatorStore, akinatorService)
+			if count, err := akinatorStore.Count(context.Background()); err == nil {
+				akinatorNeedsSeed = count == 0
+			}
+		}
+	}
 	moodService := moodpicker.NewService(releaseService, savedService, logger)
 	matchService := cinematch.NewService(releaseService, savedService, logger)
 
@@ -161,6 +180,8 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			People:           peopleService,
 			Achievements:     achievementsService,
 			Friends:          friendsService,
+			Akinator:         akinatorService,
+			AkinatorBuilder:  akinatorBuilder,
 		},
 	)
 
@@ -181,6 +202,8 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 	return &App{
 		server:                server,
 		notifier:              notifier,
+		akinatorBuilder:       akinatorBuilder,
+		akinatorNeedsSeed:     akinatorNeedsSeed,
 		notificationsInterval: cfg.Notifications.Interval,
 		shutdownTimeout:       cfg.Shutdown.Timeout,
 		closeDB:               closeDB,
@@ -207,6 +230,24 @@ func (a *App) Run(ctx context.Context) error {
 		})
 	}
 
+	if a.akinatorBuilder != nil {
+		group.Go(func() error {
+			if a.akinatorNeedsSeed {
+				a.refreshAkinator(ctx)
+			}
+			ticker := time.NewTicker(24 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					a.refreshAkinator(ctx)
+				}
+			}
+		})
+	}
+
 	// Block until context cancellation, then attempt graceful shutdown.
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), a.shutdownTimeout)
@@ -220,6 +261,15 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (a *App) refreshAkinator(ctx context.Context) {
+	count, err := a.akinatorBuilder.Refresh(ctx, 0)
+	if err != nil {
+		a.logger.Printf("akinator dataset refresh failed after %d movies: %v", count, err)
+		return
+	}
+	a.logger.Printf("akinator dataset refreshed: %d movies", count)
 }
 
 func (a *App) closeResources() {

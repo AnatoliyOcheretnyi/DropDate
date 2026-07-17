@@ -1,6 +1,6 @@
 # Movie Akinator Spec
 
-Status: Draft — not started (idea backlog; див. `discovery-ideas.md`, розділ 17)
+Status: Phase 1 implemented (engine, API, dataset builder, Games UI); production dataset refresh pending deployment
 
 Scope: DropDate web and backend
 
@@ -70,8 +70,11 @@ films.
   a daily feature-build job.
 - The games feature gives us the Games surface and frontend structure to reuse.
 
-Gap: there is no precomputed catalog feature dataset and no information-gain
-engine. Both are new.
+Implemented: the precomputed catalog schema, TMDB feature builder with a daily
+refresh, in-memory information-gain engine, stateless API, result logging, and
+Games UI. Deployment must run migration 012; the backend then populates and
+refreshes the snapshot automatically (`POST /jobs/akinator` remains available
+for a manual refresh).
 
 ## Technical design
 

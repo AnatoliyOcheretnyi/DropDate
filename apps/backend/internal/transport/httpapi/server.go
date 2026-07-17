@@ -8,6 +8,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/akinator"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
@@ -49,6 +50,8 @@ type ServerOptions struct {
 	People           *people.Service
 	Achievements     *achievements.Service
 	Friends          *friends.Service
+	Akinator         *akinator.Service
+	AkinatorBuilder  *akinator.Builder
 }
 
 type Server struct {
@@ -65,6 +68,8 @@ type Server struct {
 	caps             capabilities.Resolver
 	achievements     *achievements.Service
 	friends          *friends.Service
+	akinator         *akinator.Service
+	akinatorBuilder  *akinator.Builder
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -103,6 +108,8 @@ func NewServer(
 		caps:             options.Capabilities,
 		achievements:     options.Achievements,
 		friends:          options.Friends,
+		akinator:         options.Akinator,
+		akinatorBuilder:  options.AkinatorBuilder,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,

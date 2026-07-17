@@ -22,6 +22,15 @@ type HubCard = {
 
 const CARDS: HubCard[] = [
   {
+    id: "akinator",
+    href: "/games/akinator",
+    emoji: "🔮",
+    title: "Кіноакінатор",
+    description: "Задумай фільм — я спробую вгадати його за 20 питань",
+    accentA: "rgba(255, 190, 92, 0.38)",
+    accentB: "rgba(92, 51, 18, 0.55)",
+  },
+  {
     id: "battle_release_date",
     href: "/games/battle?mode=release_date",
     emoji: "🎬",

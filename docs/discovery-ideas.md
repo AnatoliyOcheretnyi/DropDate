@@ -374,4 +374,4 @@
   таблиці `game_sessions`/`game_player_stats`; потрібна для лідербордів.
 - 💡 Ачівки за ігри (стріки, перемоги) поверх achievements-модуля.
 - 💡 Режим популярності; budget/box-office (потребують розширення details).
-- 💡 **Movie Akinator** — окрема спека `movie-akinator-spec.md`, не розпочато.
+- ✅ **Movie Akinator** — Phase 1 реалізовано; окрема спека `movie-akinator-spec.md`.
