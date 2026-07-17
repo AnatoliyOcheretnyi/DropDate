@@ -1,34 +1,54 @@
 # AI Assistant Spec
 
-Status: Draft
+Status: Draft — not started. Parts of the original premise are already
+superseded by shipped work; see "Current state" below.
 
 Scope: DropDate web and backend
 
 Document type: Combined product + technical spec
 
+## Current state (updated 2026-07)
+
+When this spec was written, DropDate had no LLM integration. That is no longer
+true:
+
+- **Gemini is already integrated** (`internal/airecs`): grounded AI
+  recommendations (`/recommendations/me?ai=1`), adaptive mood next-question
+  selection (`/mood/next`), and the person-page AI pick (`/person/recommend`).
+- **Capability layer exists** (`internal/capabilities`): `AIRecommendations` /
+  `AIMood` / `AIMatch` flags, ready for per-user gating without changing
+  call-sites.
+- **Monetization decision** (see `discovery-ideas.md`, розділ 11): billing is
+  deliberately **deferred**. All users get all features; AI features hide
+  behind capability flags so a paid gate can be turned on later without a
+  rewrite. The Stripe half of this spec is design-for-later, not current work.
+
+What remains live here: the **provider-agnostic gateway** idea (today features
+call Gemini directly) and the flagship use case — **natural-language search**
+(розділ 6 беклогу, ще не реалізовано).
+
 ## Why this spec
 
-This covers DropDate's first real LLM integration: a **provider-agnostic AI
-layer** plus its first user-facing use case (natural-language movie search), and
-the **monetization** that pays for it (Stripe subscriptions gating AI usage).
+This covers a **provider-agnostic AI gateway** plus its first dedicated
+user-facing use case (natural-language movie search), and — when we decide to
+monetize — the Stripe subscription design that would gate AI usage.
 
 These belong in one spec because they are coupled: AI calls cost money and are
-abusable, so quotas and a paid tier are not an afterthought — they are part of
-shipping AI at all. The mood picker and Akinator specs reference this layer for
-their optional LLM bits; they do not own an LLM integration of their own.
+abusable, so quotas and a paid tier are not an afterthought. The mood picker
+and Akinator reference this layer for their optional LLM bits; they do not own
+an LLM integration of their own.
 
 ## Problem / opportunity
 
 - Today search is literal TMDB title search. Users who half-remember a film
   ("той фільм де мужик застряг на Марсі", "щось як Інтерстеллар, але смішне")
   can't find it.
-- We have no monetization. AI features are the natural premium hook and the
-  reason to introduce subscriptions.
+- We have no monetization. AI features are the natural premium hook if/when we
+  introduce subscriptions (currently deferred by decision).
 
 Opportunity: a natural-language search that actually finds films from vague
-descriptions, packaged as a flagship feature, with a free tier (limited AI
-queries) and a paid tier (more/unlimited + extras). The same AI layer later
-powers mood flavor text, smart pitches, and conversational refinement.
+descriptions, packaged as a flagship feature. The same AI layer later powers
+mood flavor text, smart pitches, and conversational refinement.
 
 ## Goals
 
@@ -49,9 +69,13 @@ powers mood flavor text, smart pitches, and conversational refinement.
 
 ## Provider strategy
 
-Primary provider: **Grok (xAI)** using a free model/tier where available. xAI's
-API is OpenAI-compatible (chat completions + JSON/structured output), which makes
-the gateway simple.
+Reality check: **Gemini is already the de-facto provider** (used by `airecs`
+without a gateway). The gateway should be introduced by wrapping the existing
+Gemini integration first, then optionally adding others.
+
+Original candidate for a second/free provider: **Grok (xAI)** using a free
+model/tier where available. xAI's API is OpenAI-compatible (chat completions +
+JSON/structured output), which makes the gateway simple.
 
 Design principle: **provider-agnostic gateway.** We program against an internal
 `llm.Provider` interface, not against Grok directly. This lets us:
@@ -171,9 +195,10 @@ resolution is the source of truth.
 
 ## Use case 2 — Mood flavor text (reuses gateway)
 
-Phase 3 of `mood-picker-spec.md`: after deterministic selection, optionally ask
-the gateway for a one-line "why this fits your mood" per pick. Cacheable per
-`(tmdbId, mood)`. Never selects titles. Premium-gated.
+After the mood picker's selection, optionally ask the gateway for a one-line
+"why this fits your mood" per pick. Cacheable per `(tmdbId, mood)`. Never
+selects titles. Candidate for premium gating (via the existing capability
+layer).
 
 ## Use case 3 — Smart pitch on details (optional, later)
 
@@ -191,9 +216,16 @@ reuses the same gateway and quota model rather than spawning a new integration.
 - **Quotas/rate-limit:** enforced server-side per user (and a small per-IP cap for
   anonymous) to stop scraping/cost abuse.
 
-## Monetization — Stripe subscriptions
+## Monetization — Stripe subscriptions (DEFERRED)
 
-AI calls cost money, so a paid tier ships **with** the AI feature, not later.
+> **Decision (see беклог, розділ 11):** billing is not being built now. All
+> users get everything; AI features sit behind capability flags
+> (`internal/capabilities`) so a paid gate can be enabled later without
+> rewriting call-sites. This section is the design to pick up when that
+> changes.
+
+AI calls cost money, so a paid tier ships **with** a public AI feature, not
+later.
 
 ### Tiers (illustrative)
 
@@ -268,6 +300,10 @@ The check reads `user_subscriptions` + `ai_usage`; the client never decides.
 - Entitlements fetched once into auth/app state to toggle premium UI.
 
 ## Rollout plan
+
+Note: while billing stays deferred, Phase 1 can ship AI search gated by a
+capability flag (like the other AI features) and skip the Stripe items until
+the monetization decision flips.
 
 ### Phase 1 — AI search + paywall foundation
 

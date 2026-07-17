@@ -1,6 +1,6 @@
 # Movie Akinator Spec
 
-Status: Draft
+Status: Draft — not started (idea backlog; див. `discovery-ideas.md`, розділ 17)
 
 Scope: DropDate web and backend
 

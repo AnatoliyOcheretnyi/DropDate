@@ -18,24 +18,26 @@ decomposition, and production-safe state boundaries.
 - Web layouts are adapted to native navigation, gestures, bottom sheets,
   haptics, accessibility, app lifecycle, and constrained screens.
 
-## Current gap
+## Current gap (updated 2026-07)
 
-| Area | Web | Mobile baseline | Migration work |
+| Area | Web | Mobile | Remaining work |
 | --- | --- | --- | --- |
-| Auth | Complete | Partial | Shared API client, refresh retry, verification deep link, session cleanup |
-| Home | Complete | Basic | Full discovery sections, feature entries, personalized row |
-| Search | Complete | Basic | Shared queries, complete states and native result UX |
-| Details | Complete | Partial | Cast, richer metadata, follow/share/undo and recommendation parity |
+| Auth | Complete | Done | — |
+| Home | Complete | Done | — |
+| Search | Complete | Done | Still on its isolated query implementation |
+| Details | Complete | Done | — |
 | Saved | Complete | Partial | Move remote data from Zustand to Query, optimistic mutations |
-| Profile | Complete | Partial | Stats, taste ranking and followed people |
-| Recommendations | Complete | Missing | Personalized query, reasons and invalidation |
-| Mood | Complete | Missing | Adaptive native question/result session |
-| Cinematch | Complete | Missing | Questions, picks and iterative session state |
-| Games | Complete | Missing | Native rounds, reveal, score, streak and haptics |
-| Calendar | Complete | Missing | Mobile-first agenda/week/month experience |
-| People | Complete | Missing | Person details, credits, timeline and follows |
-| Notifications | Complete | Missing | Feed, unread badge and mark-read mutations |
-| Cold start | Complete | Missing | Backend wake overlay/state adapted to app bootstrap |
+| Profile | Complete | Done | Automated user-boundary tests |
+| Recommendations | Complete | Done | — |
+| Mood | Complete | Done | — |
+| Cinematch | Complete | Done | — |
+| Games | Complete | Done | — |
+| Calendar | Complete | Done | — |
+| People | Complete | Done | — |
+| Notifications | Complete | Baseline done | Push notifications remain future work |
+| Cold start | Complete | Done | — |
+| Friends | Complete (Jul 2026) | Missing | Username, search, requests, friend profile with saved/achievements |
+| Achievements | Complete (Jul 2026) | Missing | List-size tiers, unlock flow, profile display |
 
 ## Target structure
 
@@ -117,7 +119,13 @@ apps/mobile/
 - [x] Notification center baseline with unread state and mark-read mutations.
   Navigation badge and foreground polling included; push remains future work.
 
-### Phase 6 - hardening
+### Phase 6 - social parity (new web features from Jul 2026)
+
+- [ ] Friends: search, requests, friends list, friend profile with saved lists
+  and achievements.
+- [ ] Achievements: unlock tiers, unlock feedback, profile display.
+
+### Phase 7 - hardening
 
 - [ ] Offline/read-only behavior and selective persisted query cache.
 - [x] Expo-scheme email verification deep link and native title sharing.

@@ -1,4 +1,15 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/anatoliyocheretnyi/Documents/Go/DropDate log --oneline -15)",
+      "Bash(git -C /Users/anatoliyocheretnyi/Documents/Go/DropDate status --short)",
+      "Bash(git -C /Users/anatoliyocheretnyi/Documents/Go/DropDate branch -a)",
+      "Bash(git rm *)"
+    ]
+  },
+  "enabledPlugins": {
+    "nx@nx-claude-plugins": true
+  },
   "extraKnownMarketplaces": {
     "nx-claude-plugins": {
       "source": {
@@ -6,9 +17,6 @@
         "repo": "nrwl/nx-ai-agents-config"
       }
     }
-  },
-  "enabledPlugins": {
-    "nx@nx-claude-plugins": true
   },
   "sandbox": {
     "network": {

@@ -1,12 +1,12 @@
 # DropDate Monorepo
 
-DropDate is a small playground for tracking the next release date of a show or movie. The repository runs as an Nx-powered monorepo and ships a Go backend, a Next.js frontend, and an Expo-based mobile client (draft/mocked).
+DropDate is a small playground for tracking the next release date of a show or movie. The repository runs as an Nx-powered monorepo and ships a Go backend, a Next.js frontend, and an Expo-based mobile client (near feature parity with web).
 
 ## Stack
 
 - **Backend (`apps/backend`)** — Go HTTP API that talks to TMDB for both series and movies; exposes releases/search/details/saved lists + notifications; runs a scheduled notifications job; caches popular titles in‑memory.
 - **Frontend (`apps/frontend`)** — Next.js 14 app with trending rows, full search, details page, saved lists, and profile activity center (bell + notifications). All traffic goes through internal API routes (`/api/*`).
-- **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`. Draft state only.
+- **Mobile (`apps/mobile`)** — Expo Router TypeScript app mimicking the web design; points directly to the Go API via `EXPO_PUBLIC_BACKEND_URL`. Near feature parity with web (friends/achievements and hardening remain — see `docs/mobile-feature-parity-plan.md`).
 
 ## Getting Started
 
