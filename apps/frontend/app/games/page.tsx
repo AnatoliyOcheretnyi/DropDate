@@ -1,7 +1,7 @@
 "use client";
 
-import { GamesScreen } from "../../src/features/games/screens/GamesScreen";
+import { GamesHubScreen } from "../../src/features/games/screens/GamesHubScreen";
 
 export default function GamesPage() {
-  return <GamesScreen />;
+  return <GamesHubScreen />;
 }

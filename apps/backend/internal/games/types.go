@@ -7,12 +7,20 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 )
 
-// Mode identifies a comparison game variant.
+// Mode identifies a game variant.
 type Mode string
 
 const (
+	// Pair comparison modes (left vs right).
 	ModeReleaseDate Mode = "release_date"
 	ModeRating      Mode = "rating"
+	// ModePoster is a multiple-choice round: a backdrop still plus four title
+	// options, one correct.
+	ModePoster Mode = "poster"
+	// ModeTimeline asks the player to order several titles by release date.
+	ModeTimeline Mode = "timeline"
+	// ModeYear asks the player to guess a single title's release year.
+	ModeYear Mode = "year"
 )
 
 // catalogSource exposes the TMDB-backed catalog used to build candidate pools
@@ -24,26 +32,39 @@ type catalogSource interface {
 	Details(ctx context.Context, id int, mediaType string) (release.Details, error)
 }
 
-// TitleCard is one side of a comparison question.
+// TitleCard is one playable title in a question.
 type TitleCard struct {
 	TMDBID      int     `json:"tmdbId"`
 	MediaType   string  `json:"mediaType"`
 	Title       string  `json:"title"`
 	Year        string  `json:"year,omitempty"`
 	PosterURL   string  `json:"posterUrl,omitempty"`
+	BackdropURL string  `json:"backdropUrl,omitempty"`
 	ReleaseDate string  `json:"releaseDate,omitempty"`
 	Rating      float64 `json:"rating,omitempty"`
 }
 
-// Question is a single comparison round. Answer holds the correct side
-// ("left" or "right") so the client can reveal results without a round trip.
+// Question is a single round. Pair modes fill Left/Right/Answer ("left" or
+// "right"); poster fills Card/Options/AnswerID; timeline fills Items (shuffled,
+// each carrying its release date for the reveal); year fills Card only. The
+// correct answer always ships with the question so the client can reveal
+// results without a round trip.
 type Question struct {
-	ID     string    `json:"id"`
-	Mode   Mode      `json:"mode"`
-	Prompt string    `json:"prompt"`
-	Left   TitleCard `json:"left"`
-	Right  TitleCard `json:"right"`
-	Answer string    `json:"answer"`
+	ID     string     `json:"id"`
+	Mode   Mode       `json:"mode"`
+	Prompt string     `json:"prompt"`
+	Left   *TitleCard `json:"left,omitempty"`
+	Right  *TitleCard `json:"right,omitempty"`
+	Answer string     `json:"answer,omitempty"`
+
+	// Card is the subject title for poster/year rounds.
+	Card *TitleCard `json:"card,omitempty"`
+	// Options are the poster-round choices (correct one included, shuffled).
+	Options []TitleCard `json:"options,omitempty"`
+	// AnswerID is the tmdbId of the correct poster-round option.
+	AnswerID int `json:"answerId,omitempty"`
+	// Items are the timeline-round titles in shuffled order.
+	Items []TitleCard `json:"items,omitempty"`
 }
 
 // Meta describes a generated question set.

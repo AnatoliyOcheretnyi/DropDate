@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
 )
@@ -31,7 +32,14 @@ func (s *Server) gamesQuestionsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := s.games.Generate(r.Context(), mode, games.NormalizeCount(count))
+	var result games.Questions
+	var err error
+	if daily := strings.TrimSpace(r.URL.Query().Get("daily")); daily == "1" || daily == "true" {
+		seed := games.DailySeed(mode, time.Now().UTC())
+		result, err = s.games.GenerateSeeded(r.Context(), mode, games.NormalizeCount(count), seed)
+	} else {
+		result, err = s.games.Generate(r.Context(), mode, games.NormalizeCount(count))
+	}
 	if err != nil {
 		s.logger.Printf("games generation failed: %v", err)
 		writeError(w, http.StatusInternalServerError, "failed to generate questions")

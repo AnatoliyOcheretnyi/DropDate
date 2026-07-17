@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchGameQuestions,
   type GameMode,
@@ -9,10 +9,22 @@ import {
 
 const DEFAULT_COUNT = 10;
 const STARTING_LIVES = 3;
+const ENDLESS_LIVES = 1;
+const ENDLESS_BATCH = 15;
+// Refill the endless queue when this few unanswered questions remain.
+const ENDLESS_LOW_WATER = 4;
 
 type SessionStatus = "idle" | "loading" | "playing" | "finished" | "error";
 
 type Side = "left" | "right";
+
+type StartOptions = {
+  count?: number;
+  /** One life, unlimited questions, batches refilled on the fly. */
+  endless?: boolean;
+  /** Deterministic daily set — same questions for every player. */
+  daily?: boolean;
+};
 
 type SessionState = {
   status: SessionStatus;
@@ -24,6 +36,9 @@ type SessionState = {
   streak: number;
   bestStreak: number;
   lives: number;
+  maxLives: number;
+  endless: boolean;
+  daily: boolean;
 };
 
 const initialState: SessionState = {
@@ -36,43 +51,96 @@ const initialState: SessionState = {
   streak: 0,
   bestStreak: 0,
   lives: STARTING_LIVES,
+  maxLives: STARTING_LIVES,
+  endless: false,
+  daily: false,
 };
 
+const pairKey = (q: GameQuestion) =>
+  [q.left?.tmdbId ?? 0, q.right?.tmdbId ?? 0].sort((a, b) => a - b).join("-");
+
 /**
- * useGameSession owns the lightweight single-player game state described in the
- * spec: current question, selected answer, reveal, score and streak. It does
- * not require a global store.
+ * useGameSession owns the pair-battle state: current question, selected
+ * answer, reveal, score, streak and lives. Endless mode plays with one life
+ * and keeps appending fresh (deduplicated) batches as the queue runs low.
  */
 export function useGameSession() {
   const [state, setState] = useState<SessionState>(initialState);
   const requestRef = useRef<AbortController | null>(null);
+  const refillingRef = useRef(false);
 
-  const start = useCallback(
-    async (mode: GameMode, count: number = DEFAULT_COUNT) => {
-      requestRef.current?.abort();
-      const controller = new AbortController();
-      requestRef.current = controller;
+  const start = useCallback(async (mode: GameMode, options: StartOptions = {}) => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
 
-      setState({ ...initialState, status: "loading", mode });
-      try {
-        const questions = await fetchGameQuestions(mode, count, controller.signal);
-        if (controller.signal.aborted) {
-          return;
-        }
-        if (questions.length === 0) {
-          setState({ ...initialState, status: "error", mode });
-          return;
-        }
-        setState({ ...initialState, status: "playing", mode, questions });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-        setState({ ...initialState, status: "error", mode });
+    const endless = Boolean(options.endless);
+    const daily = Boolean(options.daily);
+    const lives = endless ? ENDLESS_LIVES : STARTING_LIVES;
+    const count = endless ? ENDLESS_BATCH : options.count ?? DEFAULT_COUNT;
+
+    setState({
+      ...initialState,
+      status: "loading",
+      mode,
+      endless,
+      daily,
+      lives,
+      maxLives: lives,
+    });
+    try {
+      const questions = await fetchGameQuestions(mode, count, {
+        signal: controller.signal,
+        daily,
+      });
+      if (controller.signal.aborted) {
+        return;
       }
-    },
-    []
-  );
+      if (questions.length === 0) {
+        setState((prev) => ({ ...prev, status: "error" }));
+        return;
+      }
+      setState((prev) => ({ ...prev, status: "playing", questions }));
+    } catch {
+      if (!controller.signal.aborted) {
+        setState((prev) => ({ ...prev, status: "error" }));
+      }
+    }
+  }, []);
+
+  // Endless mode: top up the queue in the background before it drains.
+  const remaining = state.questions.length - state.index;
+  useEffect(() => {
+    if (
+      !state.endless ||
+      state.status !== "playing" ||
+      remaining > ENDLESS_LOW_WATER ||
+      refillingRef.current ||
+      !state.mode
+    ) {
+      return;
+    }
+    refillingRef.current = true;
+    const mode = state.mode;
+    void fetchGameQuestions(mode, ENDLESS_BATCH)
+      .then((batch) => {
+        setState((prev) => {
+          if (prev.status !== "playing" || prev.mode !== mode) {
+            return prev;
+          }
+          const seen = new Set(prev.questions.map(pairKey));
+          const fresh = batch.filter((q) => !seen.has(pairKey(q)));
+          if (fresh.length === 0) {
+            return prev;
+          }
+          return { ...prev, questions: [...prev.questions, ...fresh] };
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        refillingRef.current = false;
+      });
+  }, [state.endless, state.status, state.mode, remaining]);
 
   const selectAnswer = useCallback((side: Side) => {
     setState((prev) => {
@@ -102,7 +170,6 @@ export function useGameSession() {
         return prev;
       }
       const nextIndex = prev.index + 1;
-      // End the run when lives are gone or all questions are answered.
       if (prev.lives <= 0 || nextIndex >= prev.questions.length) {
         return { ...prev, status: "finished" };
       }
@@ -130,8 +197,10 @@ export function useGameSession() {
     streak: state.streak,
     bestStreak: state.bestStreak,
     lives: state.lives,
-    maxLives: STARTING_LIVES,
+    maxLives: state.maxLives,
     isOutOfLives: state.lives <= 0,
+    isEndless: state.endless,
+    isDaily: state.daily,
     start,
     selectAnswer,
     next,

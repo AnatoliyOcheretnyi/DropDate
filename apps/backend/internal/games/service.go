@@ -3,8 +3,10 @@ package games
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"math/rand"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +29,15 @@ const (
 var prompts = map[Mode]string{
 	ModeReleaseDate: "Який фільм вийшов раніше?",
 	ModeRating:      "У якого фільму вищий рейтинг TMDB?",
+	ModePoster:      "Що це за фільм?",
+	ModeTimeline:    "Розстав фільми від найстарішого до найновішого",
+	ModeYear:        "Якого року вийшов цей фільм?",
 }
+
+const (
+	posterOptionCount = 4
+	timelineItemCount = 4
+)
 
 // Service generates comparison questions from TMDB-backed catalog data.
 type Service struct {
@@ -51,13 +61,11 @@ func NewService(catalog catalogSource, logger *log.Logger) *Service {
 	}
 }
 
-// SupportedMode reports whether a mode string maps to a known v1 game mode.
+// SupportedMode reports whether a mode string maps to a known game mode.
 func SupportedMode(value string) (Mode, bool) {
-	switch Mode(strings.TrimSpace(strings.ToLower(value))) {
-	case ModeReleaseDate:
-		return ModeReleaseDate, true
-	case ModeRating:
-		return ModeRating, true
+	switch mode := Mode(strings.TrimSpace(strings.ToLower(value))); mode {
+	case ModeReleaseDate, ModeRating, ModePoster, ModeTimeline, ModeYear:
+		return mode, true
 	default:
 		return "", false
 	}
@@ -74,9 +82,27 @@ func NormalizeCount(count int) int {
 	return count
 }
 
-// Generate builds a set of comparison questions for the requested mode. Movie
-// scope only in v1.
+// Generate builds a set of questions for the requested mode. Movie scope only.
 func (s *Service) Generate(ctx context.Context, mode Mode, count int) (Questions, error) {
+	return s.generate(ctx, mode, count, s.intn)
+}
+
+// GenerateSeeded builds a deterministic question set for the given seed —
+// used by the daily challenge so every player gets the same rounds.
+func (s *Service) GenerateSeeded(ctx context.Context, mode Mode, count int, seed int64) (Questions, error) {
+	rng := rand.New(rand.NewSource(seed))
+	return s.generate(ctx, mode, count, rng.Intn)
+}
+
+// DailySeed derives a deterministic RNG seed from a mode and a calendar day.
+func DailySeed(mode Mode, day time.Time) int64 {
+	h := fnv.New64a()
+	h.Write([]byte(day.Format("2006-01-02")))
+	h.Write([]byte(mode))
+	return int64(h.Sum64())
+}
+
+func (s *Service) generate(ctx context.Context, mode Mode, count int, intn func(int) int) (Questions, error) {
 	count = NormalizeCount(count)
 	start := s.now()
 
@@ -89,7 +115,17 @@ func (s *Service) Generate(ctx context.Context, mode Mode, count int) (Questions
 		return Questions{}, err
 	}
 
-	questions := s.buildQuestions(mode, pool, count)
+	var questions []Question
+	switch mode {
+	case ModePoster:
+		questions = buildPosterQuestions(pool, count, intn)
+	case ModeTimeline:
+		questions = buildTimelineQuestions(pool, count, intn)
+	case ModeYear:
+		questions = buildYearQuestions(pool, count, intn)
+	default:
+		questions = buildPairQuestions(mode, pool, count, intn)
+	}
 	s.logf("games questions mode=%s pool=%d requested=%d generated=%d took=%s",
 		mode, len(pool), count, len(questions), s.now().Sub(start))
 
@@ -112,7 +148,7 @@ func (s *Service) buildPool(ctx context.Context, mode Mode) ([]candidate, error)
 
 	pool := make([]candidate, 0, len(enriched))
 	switch mode {
-	case ModeReleaseDate:
+	case ModeReleaseDate, ModeTimeline, ModeYear:
 		for _, c := range enriched {
 			if c.hasDate {
 				pool = append(pool, c)
@@ -121,6 +157,12 @@ func (s *Service) buildPool(ctx context.Context, mode Mode) ([]candidate, error)
 	case ModeRating:
 		for _, c := range enriched {
 			if c.card.Rating > 0 {
+				pool = append(pool, c)
+			}
+		}
+	case ModePoster:
+		for _, c := range enriched {
+			if c.card.Title != "" && (c.card.BackdropURL != "" || c.card.PosterURL != "") {
 				pool = append(pool, c)
 			}
 		}
@@ -201,6 +243,7 @@ func (s *Service) enrichPool(ctx context.Context, suggestions []release.Suggesti
 				Title:       item.Title,
 				Year:        item.Year,
 				PosterURL:   item.PosterURL,
+				BackdropURL: details.BackdropURL,
 				ReleaseDate: details.ReleaseDate,
 				Rating:      details.VoteAverage,
 			}
@@ -223,10 +266,10 @@ func (s *Service) enrichPool(ctx context.Context, suggestions []release.Suggesti
 	return pool
 }
 
-// buildQuestions greedily forms valid, varied pairs from the pool. A first pass
-// caps each title to two appearances; a second pass relaxes that cap if the
-// pool is too small to reach the requested count.
-func (s *Service) buildQuestions(mode Mode, pool []candidate, count int) []Question {
+// buildPairQuestions greedily forms valid, varied pairs from the pool. A first
+// pass caps each title to two appearances; a second pass relaxes that cap if
+// the pool is too small to reach the requested count.
+func buildPairQuestions(mode Mode, pool []candidate, count int, intn func(int) int) []Question {
 	questions := make([]Question, 0, count)
 	if len(pool) < 2 {
 		return questions
@@ -240,8 +283,8 @@ func (s *Service) buildQuestions(mode Mode, pool []candidate, count int) []Quest
 		limit := count * maxPairAttempts
 		for len(questions) < count && attempts < limit {
 			attempts++
-			i := s.intn(len(pool))
-			j := s.intn(len(pool))
+			i := intn(len(pool))
+			j := intn(len(pool))
 			if i == j {
 				continue
 			}
@@ -278,12 +321,13 @@ func makeQuestion(mode Mode, a, b candidate, index int) (Question, bool) {
 	if !ok {
 		return Question{}, false
 	}
+	left, right := a.card, b.card
 	return Question{
 		ID:     fmt.Sprintf("q_%02d", index+1),
 		Mode:   mode,
 		Prompt: prompts[mode],
-		Left:   a.card,
-		Right:  b.card,
+		Left:   &left,
+		Right:  &right,
 		Answer: answer,
 	}, true
 }
@@ -315,6 +359,147 @@ func evaluate(mode Mode, a, b candidate) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// buildPosterQuestions turns pool titles into multiple-choice rounds: one
+// correct card (shown as a backdrop still) plus shuffled decoy options. Each
+// title is the correct answer at most once per set.
+func buildPosterQuestions(pool []candidate, count int, intn func(int) int) []Question {
+	questions := make([]Question, 0, count)
+	if len(pool) < posterOptionCount {
+		return questions
+	}
+	for _, idx := range permute(len(pool), intn) {
+		if len(questions) >= count {
+			break
+		}
+		correct := pool[idx]
+		seen := map[int]bool{correct.card.TMDBID: true}
+		options := []TitleCard{correct.card}
+		attempts := 0
+		for len(options) < posterOptionCount && attempts < maxPairAttempts {
+			attempts++
+			decoy := pool[intn(len(pool))]
+			if seen[decoy.card.TMDBID] {
+				continue
+			}
+			seen[decoy.card.TMDBID] = true
+			options = append(options, decoy.card)
+		}
+		if len(options) < posterOptionCount {
+			continue
+		}
+		shuffleCards(options, intn)
+		card := correct.card
+		questions = append(questions, Question{
+			ID:       fmt.Sprintf("q_%02d", len(questions)+1),
+			Mode:     ModePoster,
+			Prompt:   prompts[ModePoster],
+			Card:     &card,
+			Options:  options,
+			AnswerID: correct.card.TMDBID,
+		})
+	}
+	return questions
+}
+
+// buildTimelineQuestions samples sets of titles with pairwise-distinct release
+// years (so the ordering is never ambiguous) and ships them shuffled.
+func buildTimelineQuestions(pool []candidate, count int, intn func(int) int) []Question {
+	questions := make([]Question, 0, count)
+	if len(pool) < timelineItemCount {
+		return questions
+	}
+	usedSets := make(map[string]bool)
+	attempts := 0
+	limit := count * maxPairAttempts
+	for len(questions) < count && attempts < limit {
+		attempts++
+		picked := make([]candidate, 0, timelineItemCount)
+		years := make(map[int]bool)
+		ids := make(map[int]bool)
+		inner := 0
+		for len(picked) < timelineItemCount && inner < maxPairAttempts {
+			inner++
+			c := pool[intn(len(pool))]
+			year := c.releaseDate.Year()
+			if ids[c.card.TMDBID] || years[year] {
+				continue
+			}
+			ids[c.card.TMDBID] = true
+			years[year] = true
+			picked = append(picked, c)
+		}
+		if len(picked) < timelineItemCount {
+			continue
+		}
+		key := setKey(picked)
+		if usedSets[key] {
+			continue
+		}
+		usedSets[key] = true
+		items := make([]TitleCard, 0, len(picked))
+		for _, c := range picked {
+			items = append(items, c.card)
+		}
+		shuffleCards(items, intn)
+		questions = append(questions, Question{
+			ID:     fmt.Sprintf("q_%02d", len(questions)+1),
+			Mode:   ModeTimeline,
+			Prompt: prompts[ModeTimeline],
+			Items:  items,
+		})
+	}
+	return questions
+}
+
+// buildYearQuestions picks distinct titles; the client scores the guess against
+// the card's release date.
+func buildYearQuestions(pool []candidate, count int, intn func(int) int) []Question {
+	questions := make([]Question, 0, count)
+	for _, idx := range permute(len(pool), intn) {
+		if len(questions) >= count {
+			break
+		}
+		card := pool[idx].card
+		questions = append(questions, Question{
+			ID:     fmt.Sprintf("q_%02d", len(questions)+1),
+			Mode:   ModeYear,
+			Prompt: prompts[ModeYear],
+			Card:   &card,
+		})
+	}
+	return questions
+}
+
+// permute returns a shuffled index order via the provided RNG.
+func permute(n int, intn func(int) int) []int {
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
+	}
+	for i := n - 1; i > 0; i-- {
+		j := intn(i + 1)
+		order[i], order[j] = order[j], order[i]
+	}
+	return order
+}
+
+func shuffleCards(cards []TitleCard, intn func(int) int) {
+	for i := len(cards) - 1; i > 0; i-- {
+		j := intn(i + 1)
+		cards[i], cards[j] = cards[j], cards[i]
+	}
+}
+
+// setKey identifies an unordered candidate set for dedup.
+func setKey(picked []candidate) string {
+	ids := make([]int, 0, len(picked))
+	for _, c := range picked {
+		ids = append(ids, c.card.TMDBID)
+	}
+	sort.Ints(ids)
+	return fmt.Sprint(ids)
 }
 
 func pairKey(a, b int) string {

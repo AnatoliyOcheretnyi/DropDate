@@ -1,6 +1,6 @@
 import { requestApi } from "../../../shared/api/http";
 
-export type GameMode = "release_date" | "rating";
+export type GameMode = "release_date" | "rating" | "poster" | "timeline" | "year";
 
 export type GameTitleCard = {
   tmdbId: number;
@@ -8,17 +8,27 @@ export type GameTitleCard = {
   title: string;
   year?: string;
   posterUrl?: string;
+  backdropUrl?: string;
   releaseDate?: string;
   rating?: number;
 };
 
+/**
+ * One round. Pair modes fill left/right/answer; poster fills card/options/
+ * answerId; timeline fills items (shuffled, dates included for the reveal);
+ * year fills card.
+ */
 export type GameQuestion = {
   id: string;
   mode: GameMode;
   prompt: string;
-  left: GameTitleCard;
-  right: GameTitleCard;
-  answer: "left" | "right";
+  left?: GameTitleCard;
+  right?: GameTitleCard;
+  answer?: "left" | "right";
+  card?: GameTitleCard;
+  options?: GameTitleCard[];
+  answerId?: number;
+  items?: GameTitleCard[];
 };
 
 export type GameQuestionsResponse = {
@@ -30,21 +40,27 @@ export type GameQuestionsResponse = {
   };
 };
 
+type FetchOptions = {
+  signal?: AbortSignal;
+  /** Request the deterministic daily set (same for every player). */
+  daily?: boolean;
+};
+
 /**
- * fetchGameQuestions loads a set of comparison questions for a mode through the
- * Next.js proxy. Throws on transport/backend failure so callers can show an
- * error state.
+ * fetchGameQuestions loads a set of questions for a mode through the Next.js
+ * proxy. Throws on transport/backend failure so callers can show an error
+ * state.
  */
 export async function fetchGameQuestions(
   mode: GameMode,
   count: number,
-  signal?: AbortSignal
+  options: FetchOptions = {}
 ): Promise<GameQuestion[]> {
   const response = await requestApi<GameQuestionsResponse>({
     url: "/api/games/questions",
     method: "GET",
-    params: { mode, count },
-    signal,
+    params: { mode, count, ...(options.daily ? { daily: 1 } : {}) },
+    signal: options.signal,
   });
 
   if (!response.ok || !response.payload) {

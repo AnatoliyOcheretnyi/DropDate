@@ -31,7 +31,7 @@ decomposition, and production-safe state boundaries.
 | Recommendations | Complete | Done | — |
 | Mood | Complete | Done | — |
 | Cinematch | Complete | Done | — |
-| Games | Complete | Done | — |
+| Games | Complete | Partial | Web shipped a games expansion (Jul 2026): hub, wheel, poster blitz, timeline, year, endless streak, friend taste, daily challenge — mobile has only the original pair battle |
 | Calendar | Complete | Done | — |
 | People | Complete | Done | — |
 | Notifications | Complete | Baseline done | Push notifications remain future work |
