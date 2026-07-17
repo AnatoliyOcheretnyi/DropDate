@@ -5,6 +5,7 @@ import type { Suggestion } from "../../../shared/lib/release";
 import type { SavedRelease } from "../../../shared/types/releases";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
+import { StarRating } from "../../../shared/ui/StarRating";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 
 type Props = {
@@ -41,6 +42,11 @@ export function FriendSavedGrid({ items }: Props) {
 
         return (
           <div key={item.id} className="saved-banner-card">
+            {item.userRating ? (
+              <div className="saved-banner-rating saved-banner-rating--readonly">
+                <StarRating value={item.userRating} readOnly />
+              </div>
+            ) : null}
             {suggestion ? (
               <MovieInfoButton
                 tmdbId={suggestion.id}

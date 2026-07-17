@@ -667,6 +667,14 @@ dd.date span:last-child {
   transform: scale(1.2);
 }
 
+.star-rating--readonly .star-rating__star {
+  cursor: default;
+}
+
+.star-rating--readonly .star-rating__star:hover {
+  transform: none;
+}
+
 .star-rating__value {
   margin-left: 0.35rem;
   font-size: 0.72rem;

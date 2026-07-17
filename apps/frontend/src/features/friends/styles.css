@@ -798,6 +798,9 @@ main.page--friend-profile {
 .friend-mutual__poster {
   all: unset;
   box-sizing: border-box;
+  /* Containing block for the CoverImage fill — without this the absolute
+     image escapes to main.page and covers the whole screen. */
+  position: relative;
   cursor: pointer;
   flex: none;
   width: 92px;
