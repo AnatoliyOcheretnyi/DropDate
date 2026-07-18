@@ -146,9 +146,56 @@ export function GamesHubScreen() {
   const [opponent, setOpponent] = useState("");
   const [challengeGame, setChallengeGame] = useState("release_date");
   const [challengeLink, setChallengeLink] = useState("");
-  const challenges=useQuery({queryKey:["game-challenges",user?.id],enabled:Boolean(user&&accessToken),queryFn:async()=>{const r=await fetch("/api/games/challenges",{headers:{authorization:`Bearer ${accessToken}`}});return(await r.json()).items as Array<{id:string;creatorId:string;opponentId:string;gameId:string;seed:number;opponentScore?:number}>}});
-  const progress=useQuery({queryKey:["game-progress-summary",user?.id],enabled:Boolean(user&&accessToken),queryFn:async()=>{const r=await fetch("/api/games/stats",{headers:{authorization:`Bearer ${accessToken}`}});return r.json() as Promise<{dailyStreak:number;achievements:string[]}>}});
-  const leaders=useQuery({queryKey:["game-leaderboard",user?.id],enabled:Boolean(user&&accessToken),queryFn:async()=>{const r=await fetch("/api/games/leaderboard",{headers:{authorization:`Bearer ${accessToken}`}});return(await r.json()).items as Array<{userId:string;name:string;score:number;plays:number}>}});
+  const challenges = useQuery({
+    queryKey: ["game-challenges", user?.id],
+    enabled: Boolean(user && accessToken),
+    queryFn: async () => {
+      const r = await fetch("/api/games/challenges", {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      const payload = (await r.json()) as {
+        items?: Array<{
+          id: string;
+          creatorId: string;
+          opponentId: string;
+          gameId: string;
+          seed: number;
+          opponentScore?: number | null;
+        }> | null;
+      };
+      return Array.isArray(payload.items) ? payload.items : [];
+    },
+  });
+  const progress = useQuery({
+    queryKey: ["game-progress-summary", user?.id],
+    enabled: Boolean(user && accessToken),
+    queryFn: async () => {
+      const r = await fetch("/api/games/stats", {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      const payload = (await r.json()) as {
+        dailyStreak?: number | null;
+        achievements?: string[] | null;
+      };
+      return {
+        dailyStreak: typeof payload.dailyStreak === "number" ? payload.dailyStreak : 0,
+        achievements: Array.isArray(payload.achievements) ? payload.achievements : [],
+      };
+    },
+  });
+  const leaders = useQuery({
+    queryKey: ["game-leaderboard", user?.id],
+    enabled: Boolean(user && accessToken),
+    queryFn: async () => {
+      const r = await fetch("/api/games/leaderboard", {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      const payload = (await r.json()) as {
+        items?: Array<{ userId: string; name: string; score: number; plays: number }> | null;
+      };
+      return Array.isArray(payload.items) ? payload.items : [];
+    },
+  });
   const { saved } = useSavedReleases();
   const watchlistCount = saved.filter((item) =>
     (item.listTypes ?? []).includes("watchlist")
@@ -183,8 +230,38 @@ export function GamesHubScreen() {
       </Reveal>
 
       {user && friends.length > 0 ? <Reveal><section className="games-challenge"><div><p className="eyebrow">Дуель із другом</p><h2>Однакові питання. Різні результати.</h2></div><select value={opponent} onChange={e=>setOpponent(e.target.value)}><option value="">Обери друга</option>{friends.map(f=><option key={f.user.id} value={f.user.id}>{f.user.username||f.user.email}</option>)}</select><select value={challengeGame} onChange={e=>setChallengeGame(e.target.value)}><option value="release_date">Дати релізу</option><option value="rating">Рейтинги</option></select><button disabled={!opponent} onClick={async()=>{const r=await fetch("/api/games/challenges",{method:"POST",headers:{authorization:`Bearer ${accessToken}`,"content-type":"application/json"},body:JSON.stringify({opponentId:opponent,gameId:challengeGame})});const p=await r.json();if(r.ok)setChallengeLink(`/games/battle?mode=${challengeGame}&challenge=${p.id}&seed=${p.seed}`)}}>Створити виклик</button>{challengeLink?<button onClick={()=>router.push(challengeLink)}>Грати свій раунд →</button>:null}</section></Reveal>:null}
-      {(challenges.data??[]).filter(item=>item.opponentId===user?.id&&item.opponentScore==null).map(item=><button key={item.id} className="games-daily" onClick={()=>router.push(`/games/battle?mode=${item.gameId}&challenge=${item.id}&seed=${item.seed}`)}><span className="games-daily__badge">Виклик від друга</span><span className="games-daily__title">Зіграти однаковий раунд →</span></button>)}
-      {user?<section className="games-progress"><div><p className="eyebrow">Твій прогрес</p><strong>{progress.data?.dailyStreak??0} днів поспіль</strong><span>{progress.data?.achievements?.length??0} ігрових досягнень</span></div><ol>{(leaders.data??[]).map((item,index)=><li key={item.userId}><b>{index+1}</b><span>{item.name}</span><strong>{item.score}</strong></li>)}</ol></section>:null}
+      {challenges.data
+        ?.filter((item) => item.opponentId === user?.id && item.opponentScore == null)
+        .map((item) => (
+          <button
+            key={item.id}
+            className="games-daily"
+            onClick={() =>
+              router.push(`/games/battle?mode=${item.gameId}&challenge=${item.id}&seed=${item.seed}`)
+            }
+          >
+            <span className="games-daily__badge">Виклик від друга</span>
+            <span className="games-daily__title">Зіграти однаковий раунд →</span>
+          </button>
+        ))}
+      {user ? (
+        <section className="games-progress">
+          <div>
+            <p className="eyebrow">Твій прогрес</p>
+            <strong>{progress.data?.dailyStreak ?? 0} днів поспіль</strong>
+            <span>{progress.data?.achievements.length ?? 0} ігрових досягнень</span>
+          </div>
+          <ol>
+            {leaders.data?.map((item, index) => (
+              <li key={item.userId}>
+                <b>{index + 1}</b>
+                <span>{item.name}</span>
+                <strong>{item.score}</strong>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       <div className="games-hub-grid">
         {CARDS.map((card, index) => {

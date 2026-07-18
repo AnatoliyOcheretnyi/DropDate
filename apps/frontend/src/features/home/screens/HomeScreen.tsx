@@ -197,6 +197,7 @@ function HomeScreenContent({ sections }: Props) {
           isSuggestionSaved,
         }}
       >
+      <TasteOnboarding emphasis="overlay" />
       <HomeShowcase
         spotlight={spotlight}
         supportingItems={supportingSpotlightItems}
@@ -205,8 +206,6 @@ function HomeScreenContent({ sections }: Props) {
         getListTypes={getListTypes}
         onChangeLists={handleChangeLists}
       />
-
-      <TasteOnboarding />
       <ContinueWatching />
 
       {dailyPick ? (

@@ -82,6 +82,9 @@ export function useTasteTournament(kind: TasteKind) {
       queryClient.setQueryData([...key, "next"], nextPair);
       void queryClient.invalidateQueries({ queryKey: key, exact: true });
       void queryClient.invalidateQueries({
+        queryKey: webQueryKeys.tasteOnboarding(user?.id ?? "guest"),
+      });
+      void queryClient.invalidateQueries({
         queryKey: webQueryKeys.recommendations(user?.id ?? "guest"),
       });
     },

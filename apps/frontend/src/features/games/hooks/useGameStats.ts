@@ -91,8 +91,35 @@ export function useAllGameStats(): StatsMap {
   }, []);
   const remote = useQuery({
     queryKey: ["game-stats", user?.id], enabled: Boolean(user && accessToken),
-    queryFn: async () => { const response=await fetch("/api/games/stats",{headers:{authorization:`Bearer ${accessToken}`}});if(!response.ok)throw new Error("stats");return response.json() as Promise<{items:Array<{gameId:string;plays:number;bestScore:number;bestStreak:number;lastPlayedAt:string}>}>; },
+    queryFn: async () => {
+      const response = await fetch("/api/games/stats", {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      if (!response.ok) {
+        throw new Error("stats");
+      }
+      return response.json() as Promise<{
+        items?: Array<{
+          gameId: string;
+          plays: number;
+          bestScore: number;
+          bestStreak: number;
+          lastPlayedAt: string;
+        }> | null;
+      }>;
+    },
   });
   if (!remote.data) return map;
-  return Object.fromEntries(remote.data.items.map(item => [item.gameId, { plays:item.plays,bestScore:item.bestScore,bestStreak:item.bestStreak,lastPlayedAt:item.lastPlayedAt }]));
+  const items = Array.isArray(remote.data.items) ? remote.data.items : [];
+  return Object.fromEntries(
+    items.map((item) => [
+      item.gameId,
+      {
+        plays: item.plays,
+        bestScore: item.bestScore,
+        bestStreak: item.bestStreak,
+        lastPlayedAt: item.lastPlayedAt,
+      },
+    ])
+  );
 }

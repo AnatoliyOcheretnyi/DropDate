@@ -6,12 +6,18 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"time"
 )
 
 var catalogs = map[string][]string{
 	"genre":   {"action", "comedy", "drama", "science_fiction", "thriller", "adventure", "horror", "romance", "animation", "fantasy", "mystery", "documentary"},
 	"country": {"US", "GB", "KR", "JP", "UA", "FR", "ES", "IN"},
 }
+
+const (
+	TargetComparisons  = 8
+	TargetTitleSignals = 12
+)
 
 type Item struct {
 	ID          string  `json:"id"`
@@ -26,19 +32,237 @@ type Pair struct {
 	Round int    `json:"round"`
 }
 
+type TitleFeedback struct {
+	TMDBID    int    `json:"tmdbId"`
+	MediaType string `json:"mediaType"`
+	Title     string `json:"title"`
+	PosterURL string `json:"posterUrl,omitempty"`
+	Year      string `json:"year,omitempty"`
+	Sentiment string `json:"sentiment"`
+}
+
+type OnboardingStatus struct {
+	Stage                string         `json:"stage"`
+	Completed            bool           `json:"completed"`
+	GenreComparisons     int            `json:"genreComparisons"`
+	CountryComparisons   int            `json:"countryComparisons"`
+	TitleFeedbackCount   int            `json:"titleFeedbackCount"`
+	TargetComparisons    int            `json:"targetComparisons"`
+	TargetTitleFeedback  int            `json:"targetTitleFeedback"`
+	SnoozedUntil         *time.Time     `json:"snoozedUntil,omitempty"`
+	GenresCompletedAt    *time.Time     `json:"genresCompletedAt,omitempty"`
+	CountriesCompletedAt *time.Time     `json:"countriesCompletedAt,omitempty"`
+	TitlesCompletedAt    *time.Time     `json:"titlesCompletedAt,omitempty"`
+	Titles               []TitleFeedback `json:"titles,omitempty"`
+}
+
 type Service struct{ db *sql.DB }
 
 func NewService(db *sql.DB) *Service { return &Service{db: db} }
 
 func (s *Service) OnboardingCompleted(ctx context.Context, userID string) (bool, error) {
-	var completed bool
-	err := s.db.QueryRowContext(ctx, `select taste_onboarding_completed_at is not null from users where id=$1`, userID).Scan(&completed)
-	return completed, err
+	status, err := s.OnboardingStatus(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return status.Completed, nil
 }
 
 func (s *Service) CompleteOnboarding(ctx context.Context, userID string) error {
-	_, err := s.db.ExecContext(ctx, `update users set taste_onboarding_completed_at=coalesce(taste_onboarding_completed_at,now()) where id=$1`, userID)
+	_, err := s.db.ExecContext(ctx, `
+		update users
+		set taste_onboarding_stage='completed',
+		    taste_onboarding_titles_completed_at=coalesce(taste_onboarding_titles_completed_at, now()),
+		    taste_onboarding_completed_at=coalesce(taste_onboarding_completed_at, now()),
+		    taste_onboarding_snoozed_until=null
+		where id=$1
+	`, userID)
 	return err
+}
+
+func (s *Service) SnoozeOnboarding(ctx context.Context, userID string, until time.Time) error {
+	_, err := s.db.ExecContext(ctx, `update users set taste_onboarding_snoozed_until=$2 where id=$1`, userID, until.UTC())
+	return err
+}
+
+func (s *Service) RecordTitleFeedback(ctx context.Context, userID string, feedback TitleFeedback) error {
+	if feedback.TMDBID == 0 || feedback.Title == "" {
+		return errors.New("invalid title feedback")
+	}
+	switch feedback.MediaType {
+	case "movie", "tv":
+	default:
+		return errors.New("invalid media type")
+	}
+	switch feedback.Sentiment {
+	case "liked", "disliked", "watchlist":
+	default:
+		return errors.New("invalid sentiment")
+	}
+	_, err := s.db.ExecContext(ctx, `
+		insert into taste_onboarding_title_feedback(user_id, tmdb_id, media_type, title, poster_url, year, sentiment)
+		values($1,$2,$3,$4,$5,$6,$7)
+		on conflict (user_id, tmdb_id, media_type) do update
+		set title=excluded.title,
+		    poster_url=excluded.poster_url,
+		    year=excluded.year,
+		    sentiment=excluded.sentiment,
+		    updated_at=now()
+	`, userID, feedback.TMDBID, feedback.MediaType, feedback.Title, feedback.PosterURL, feedback.Year, feedback.Sentiment)
+	if err != nil {
+		return err
+	}
+	_, err = s.OnboardingStatus(ctx, userID)
+	return err
+}
+
+func (s *Service) OnboardingStatus(ctx context.Context, userID string) (OnboardingStatus, error) {
+	var status OnboardingStatus
+	status.TargetComparisons = TargetComparisons
+	status.TargetTitleFeedback = TargetTitleSignals
+
+	var (
+		stage                string
+		completedAt          sql.NullTime
+		genresCompletedAt    sql.NullTime
+		countriesCompletedAt sql.NullTime
+		titlesCompletedAt    sql.NullTime
+		snoozedUntil         sql.NullTime
+	)
+	err := s.db.QueryRowContext(ctx, `
+		select
+		  taste_onboarding_stage,
+		  taste_onboarding_completed_at,
+		  taste_onboarding_genres_completed_at,
+		  taste_onboarding_countries_completed_at,
+		  taste_onboarding_titles_completed_at,
+		  taste_onboarding_snoozed_until
+		from users
+		where id=$1
+	`, userID).Scan(&stage, &completedAt, &genresCompletedAt, &countriesCompletedAt, &titlesCompletedAt, &snoozedUntil)
+	if err != nil {
+		return status, err
+	}
+
+	genreCount, err := s.comparisonsForKind(ctx, userID, "genre")
+	if err != nil {
+		return status, err
+	}
+	countryCount, err := s.comparisonsForKind(ctx, userID, "country")
+	if err != nil {
+		return status, err
+	}
+	titleCount, err := s.titleFeedbackCount(ctx, userID)
+	if err != nil {
+		return status, err
+	}
+
+	status.GenreComparisons = genreCount
+	status.CountryComparisons = countryCount
+	status.TitleFeedbackCount = titleCount
+
+	now := time.Now().UTC()
+	promotedStage := "genre"
+	if genreCount >= TargetComparisons {
+		promotedStage = "country"
+		if !genresCompletedAt.Valid {
+			genresCompletedAt = sql.NullTime{Time: now, Valid: true}
+		}
+	}
+	if genreCount >= TargetComparisons && countryCount >= TargetComparisons {
+		promotedStage = "titles"
+		if !countriesCompletedAt.Valid {
+			countriesCompletedAt = sql.NullTime{Time: now, Valid: true}
+		}
+	}
+	if titleCount >= TargetTitleSignals {
+		promotedStage = "completed"
+		if !titlesCompletedAt.Valid {
+			titlesCompletedAt = sql.NullTime{Time: now, Valid: true}
+		}
+		if !completedAt.Valid {
+			completedAt = sql.NullTime{Time: now, Valid: true}
+		}
+	}
+	if completedAt.Valid {
+		promotedStage = "completed"
+	}
+	if stage == "" || stage == "completed" && !completedAt.Valid {
+		stage = promotedStage
+	}
+	if promotedStage != "genre" && stage == "genre" {
+		stage = promotedStage
+	}
+	if promotedStage == "completed" {
+		stage = "completed"
+	}
+
+	if stage == "country" && genreCount < TargetComparisons {
+		stage = "genre"
+	}
+	if stage == "titles" && countryCount < TargetComparisons {
+		stage = "country"
+	}
+
+	if genresCompletedAt.Valid {
+		value := genresCompletedAt.Time.UTC()
+		status.GenresCompletedAt = &value
+	}
+	if countriesCompletedAt.Valid {
+		value := countriesCompletedAt.Time.UTC()
+		status.CountriesCompletedAt = &value
+	}
+	if titlesCompletedAt.Valid {
+		value := titlesCompletedAt.Time.UTC()
+		status.TitlesCompletedAt = &value
+	}
+	if snoozedUntil.Valid {
+		value := snoozedUntil.Time.UTC()
+		status.SnoozedUntil = &value
+	}
+	status.Stage = stage
+	status.Completed = stage == "completed"
+
+	_, err = s.db.ExecContext(ctx, `
+		update users
+		set taste_onboarding_stage=$2,
+		    taste_onboarding_genres_completed_at=coalesce(taste_onboarding_genres_completed_at, $3),
+		    taste_onboarding_countries_completed_at=coalesce(taste_onboarding_countries_completed_at, $4),
+		    taste_onboarding_titles_completed_at=coalesce(taste_onboarding_titles_completed_at, $5),
+		    taste_onboarding_completed_at=coalesce(taste_onboarding_completed_at, $6)
+		where id=$1
+	`, userID, status.Stage, status.GenresCompletedAt, status.CountriesCompletedAt, status.TitlesCompletedAt, nullTimePtr(completedAt))
+	return status, err
+}
+
+func (s *Service) SetOnboardingTitles(ctx context.Context, userID string, titles []TitleFeedback) error {
+	_, err := s.db.ExecContext(ctx, `update users set taste_onboarding_snoozed_until=null where id=$1`, userID)
+	if err != nil {
+		return err
+	}
+	if len(titles) == 0 {
+		return nil
+	}
+	return nil
+}
+
+func (s *Service) comparisonsForKind(ctx context.Context, userID, kind string) (int, error) {
+	var total int
+	err := s.db.QueryRowContext(ctx, `select coalesce(sum(comparisons), 0) / 2 from taste_rankings where user_id=$1 and kind=$2`, userID, kind).Scan(&total)
+	return total, err
+}
+
+func (s *Service) titleFeedbackCount(ctx context.Context, userID string) (int, error) {
+	var total int
+	err := s.db.QueryRowContext(ctx, `select count(*) from taste_onboarding_title_feedback where user_id=$1`, userID).Scan(&total)
+	return total, err
+}
+
+func nullTimePtr(value sql.NullTime) any {
+	if !value.Valid {
+		return nil
+	}
+	return value.Time.UTC()
 }
 
 func Catalog(kind string) ([]string, bool) {

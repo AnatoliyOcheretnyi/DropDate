@@ -12,6 +12,7 @@ import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
 import { ProfileCard } from "../components/ProfileCard";
 import { TasteRanker } from "../components/TasteRanker";
 import { TasteTournament } from "../components/TasteTournament";
+import { TasteCalibrationCard } from "../components/TasteCalibrationCard";
 import { AchievementsSection } from "../components/AchievementsSection";
 import { UsernameEditor } from "../../friends/components/UsernameEditor";
 import type { SavedRelease } from "../../../shared/types/releases";
@@ -172,6 +173,7 @@ export function ProfileScreen() {
             <div className="taste-grid">
               {user ? (
                 <>
+                  <TasteCalibrationCard />
                   <TasteTournament kind="genre" title="Жанри" />
                   <TasteTournament kind="country" title="Країни" />
                 </>

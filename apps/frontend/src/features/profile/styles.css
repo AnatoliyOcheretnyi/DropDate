@@ -452,6 +452,40 @@
   gap: 1rem;
 }
 
+.taste-calibration-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.2rem;
+  border-radius: 1.3rem;
+  border: 1px solid rgba(255, 193, 92, 0.24);
+  background: linear-gradient(145deg, rgba(255, 193, 92, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.taste-calibration-card strong {
+  display: block;
+  margin: 0.15rem 0 0.35rem;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.15rem;
+}
+
+.taste-calibration-card span {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+}
+
+.taste-calibration-card button {
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
 .taste-ranker {
   padding: 1.2rem;
   border-radius: 1.3rem;
@@ -698,6 +732,10 @@
   }
   .taste-grid {
     grid-template-columns: 1fr;
+  }
+  .taste-calibration-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
