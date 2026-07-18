@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
@@ -143,4 +144,28 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
 	return s.withMiddleware(mux)
+}
+
+const superuserEmail = "svito014@gmail.com"
+
+func (s *Server) isSuperuserEmail(email string) bool {
+	return strings.EqualFold(strings.TrimSpace(email), superuserEmail)
+}
+
+func (s *Server) requireSuperuser(r *http.Request) (auth.User, error) {
+	userID, err := s.requireUserID(r)
+	if err != nil {
+		return auth.User{}, err
+	}
+	if s.auth == nil {
+		return auth.User{}, http.ErrNoCookie
+	}
+	user, err := s.auth.GetByID(r.Context(), userID)
+	if err != nil {
+		return auth.User{}, err
+	}
+	if !s.isSuperuserEmail(user.Email) {
+		return auth.User{}, auth.ErrInvalidToken
+	}
+	return user, nil
 }

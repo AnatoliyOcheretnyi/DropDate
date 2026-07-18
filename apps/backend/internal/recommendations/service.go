@@ -514,6 +514,13 @@ func (s *Service) saveCache(userID string, limit int, variant string, result Res
 	s.cacheMu.Unlock()
 }
 
+func (s *Service) ClearCache() {
+	s.cacheMu.Lock()
+	s.cache = make(map[string]cacheEntry)
+	s.dirty = make(map[string]time.Time)
+	s.cacheMu.Unlock()
+}
+
 // purgeUserLocked removes every cached feed for a user. Callers must hold cacheMu.
 func (s *Service) purgeUserLocked(userID string) {
 	prefix := fmt.Sprintf("recommendations:user:%s:", userID)

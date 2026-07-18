@@ -27,9 +27,10 @@ type resendVerificationRequest struct {
 }
 
 type authUserResponse struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	Username    string `json:"username"`
+	IsSuperuser bool   `json:"isSuperuser"`
 }
 
 type authResponse struct {
@@ -316,9 +317,10 @@ func (s *Server) writeAuthResponse(w http.ResponseWriter, result auth.TokenPair,
 		ExpiresAt:    result.AccessExpiresAt,
 		RefreshToken: refresh,
 		User: authUserResponse{
-			ID:       result.User.ID,
-			Email:    result.User.Email,
-			Username: result.User.Username,
+			ID:          result.User.ID,
+			Email:       result.User.Email,
+			Username:    result.User.Username,
+			IsSuperuser: s.isSuperuserEmail(result.User.Email),
 		},
 	})
 }

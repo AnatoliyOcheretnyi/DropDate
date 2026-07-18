@@ -470,6 +470,269 @@ func (s *Service) Upcoming(ctx context.Context, mediaType string, limit int) ([]
 	return out, nil
 }
 
+// HomeUpcoming returns a curated "coming soon" feed for the homepage. Unlike
+// raw TMDB upcoming endpoints, it intentionally mixes several origin-country
+// buckets so the rail is not dominated by one market.
+func (s *Service) HomeUpcoming(ctx context.Context, limit int) ([]Suggestion, []Suggestion, error) {
+	limit = clampHomeUpcomingLimit(limit)
+	if s.discover == nil {
+		movies, err := s.Upcoming(ctx, "movie", limit)
+		if err != nil {
+			return nil, nil, err
+		}
+		series, err := s.Upcoming(ctx, "tv", limit)
+		if err != nil {
+			return nil, nil, err
+		}
+		return movies, series, nil
+	}
+
+	now := time.Now().UTC()
+	windowStart := now.Format(time.DateOnly)
+	windowEnd := now.AddDate(1, 0, 0).Format(time.DateOnly)
+
+	movieBuckets := s.fetchUpcomingBuckets(ctx, []DiscoverParams{
+		{MediaType: "movie", ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 10, VoteAverageGTE: 4.8},
+		{MediaType: "movie", WithOriginCountry: []string{"US"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 120, VoteAverageGTE: 5.8},
+		{MediaType: "movie", WithOriginCountry: []string{"GB"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 50, VoteAverageGTE: 5.8},
+		{MediaType: "movie", WithOriginCountry: []string{"JP"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 25, VoteAverageGTE: 5.5},
+		{MediaType: "movie", WithOriginCountry: []string{"KR"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 25, VoteAverageGTE: 5.5},
+		{MediaType: "movie", WithOriginCountry: []string{"FR"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 20, VoteAverageGTE: 5.4},
+		{MediaType: "movie", WithOriginCountry: []string{"ES"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 18, VoteAverageGTE: 5.4},
+		{MediaType: "movie", WithOriginCountry: []string{"IN"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 25, VoteAverageGTE: 5.3},
+	}, limit)
+	seriesBuckets := s.fetchUpcomingBuckets(ctx, []DiscoverParams{
+		{MediaType: "tv", ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 8, VoteAverageGTE: 4.8},
+		{MediaType: "tv", WithOriginCountry: []string{"US"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 80, VoteAverageGTE: 5.8},
+		{MediaType: "tv", WithOriginCountry: []string{"GB"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 35, VoteAverageGTE: 5.6},
+		{MediaType: "tv", WithOriginCountry: []string{"JP"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 15, VoteAverageGTE: 5.3},
+		{MediaType: "tv", WithOriginCountry: []string{"KR"}, ReleaseDateGTE: windowStart, ReleaseDateLTE: windowEnd, SortBy: "popularity.desc", VoteCountGTE: 15, VoteAverageGTE: 5.3},
+	}, limit)
+
+	movies := interleaveDiscoverBuckets(movieBuckets, limit)
+	seriesLimit := limit
+	if seriesLimit > 8 {
+		seriesLimit = 8
+	}
+	series := interleaveDiscoverBuckets(seriesBuckets, seriesLimit)
+
+	if len(movies) < limit && s.upcoming != nil {
+		fallback, err := s.Upcoming(ctx, "movie", limit)
+		if err == nil {
+			movies = mergeSuggestionsUnique(movies, fallback, limit)
+		}
+	}
+	if len(series) < seriesLimit && s.upcoming != nil {
+		fallback, err := s.Upcoming(ctx, "tv", seriesLimit)
+		if err == nil {
+			series = mergeSuggestionsUnique(series, fallback, seriesLimit)
+		}
+	}
+	if len(movies) < limit {
+		movies = s.supplementFutureSuggestions(ctx, movies, "movie", limit)
+	}
+	if len(series) < seriesLimit {
+		series = s.supplementFutureSuggestions(ctx, series, "tv", seriesLimit)
+	}
+
+	return movies, series, nil
+}
+
+func (s *Service) supplementFutureSuggestions(
+	ctx context.Context,
+	base []Suggestion,
+	mediaType string,
+	limit int,
+) []Suggestion {
+	if len(base) >= limit || s.details == nil {
+		return base
+	}
+
+	candidates := make([]Suggestion, 0, limit*6)
+	nowUTC := time.Now().UTC()
+	windowStart := nowUTC.Format(time.DateOnly)
+	windowEnd := nowUTC.AddDate(1, 0, 0).Format(time.DateOnly)
+
+	if s.discover != nil {
+		for page := 1; page <= 3 && len(candidates) < limit*4; page++ {
+			items, err := s.discover.Discover(ctx, DiscoverParams{
+				MediaType:      mediaType,
+				ReleaseDateGTE: windowStart,
+				ReleaseDateLTE: windowEnd,
+				SortBy:         "popularity.desc",
+				VoteCountGTE:   0,
+				VoteAverageGTE: 0,
+				Page:           page,
+			})
+			if err != nil {
+				continue
+			}
+			for _, item := range items {
+				candidates = append(candidates, Suggestion{
+					ID:        item.TMDBID,
+					Title:     item.Title,
+					MediaType: item.MediaType,
+					Year:      item.Year,
+					PosterURL: item.PosterURL,
+				})
+			}
+		}
+	}
+
+	if s.popular != nil {
+		if items, err := s.popular.Popular(ctx, mediaType, limit*3); err == nil {
+			candidates = append(candidates, items...)
+		}
+	}
+	if len(candidates) < limit*5 && s.topRated != nil {
+		if items, err := s.topRated.TopRated(ctx, mediaType, limit*3); err == nil {
+			candidates = append(candidates, items...)
+		}
+	}
+
+	out := append([]Suggestion(nil), base...)
+	seen := make(map[string]bool, len(out))
+	for _, item := range out {
+		seen[fmt.Sprintf("%s:%d", item.MediaType, item.ID)] = true
+	}
+
+	now := time.Now()
+	startToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	for _, item := range candidates {
+		if len(out) >= limit {
+			break
+		}
+		key := fmt.Sprintf("%s:%d", item.MediaType, item.ID)
+		if seen[key] {
+			continue
+		}
+		details, err := s.details.Details(ctx, item.ID, mediaType)
+		if err != nil {
+			continue
+		}
+		if !isFutureTitle(details, mediaType, startToday) {
+			continue
+		}
+		seen[key] = true
+		out = append(out, item)
+	}
+
+	return out
+}
+
+func isFutureTitle(details Details, mediaType string, startToday time.Time) bool {
+	dateSource := ""
+	if mediaType == "movie" {
+		dateSource = details.ReleaseDate
+	} else {
+		dateSource = details.NextAirDate
+		if dateSource == "" {
+			dateSource = details.FirstAirDate
+		}
+		if details.LastEpisodeSeason > 0 && details.NextEpisodeSeason > 0 && details.NextEpisodeSeason == details.LastEpisodeSeason {
+			return false
+		}
+	}
+	if dateSource == "" {
+		return false
+	}
+	parsed, err := time.Parse("2006-01-02", dateSource)
+	if err != nil {
+		return false
+	}
+	return !parsed.Before(startToday)
+}
+
+func (s *Service) fetchUpcomingBuckets(ctx context.Context, params []DiscoverParams, limit int) [][]DiscoverItem {
+	buckets := make([][]DiscoverItem, 0, len(params))
+	perBucket := limit
+	if perBucket < 6 {
+		perBucket = 6
+	}
+	for _, p := range params {
+		items, err := s.discover.Discover(ctx, p)
+		if err != nil {
+			continue
+		}
+		if len(items) > perBucket {
+			items = items[:perBucket]
+		}
+		buckets = append(buckets, items)
+	}
+	return buckets
+}
+
+func interleaveDiscoverBuckets(buckets [][]DiscoverItem, limit int) []Suggestion {
+	out := make([]Suggestion, 0, limit)
+	seen := make(map[string]bool, limit)
+	for round := 0; len(out) < limit; round++ {
+		added := false
+		for _, bucket := range buckets {
+			if round >= len(bucket) {
+				continue
+			}
+			item := bucket[round]
+			key := fmt.Sprintf("%s:%d", item.MediaType, item.TMDBID)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, Suggestion{
+				ID:        item.TMDBID,
+				Title:     item.Title,
+				MediaType: item.MediaType,
+				Year:      item.Year,
+				PosterURL: item.PosterURL,
+			})
+			added = true
+			if len(out) >= limit {
+				break
+			}
+		}
+		if !added {
+			break
+		}
+	}
+	return out
+}
+
+func mergeSuggestionsUnique(base []Suggestion, extra []Suggestion, limit int) []Suggestion {
+	out := append([]Suggestion(nil), base...)
+	seen := make(map[string]bool, len(out))
+	for _, item := range out {
+		seen[fmt.Sprintf("%s:%d", item.MediaType, item.ID)] = true
+	}
+	for _, item := range extra {
+		if len(out) >= limit {
+			break
+		}
+		key := fmt.Sprintf("%s:%d", item.MediaType, item.ID)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, item)
+	}
+	return out
+}
+
+func clampHomeUpcomingLimit(limit int) int {
+	if limit <= 0 {
+		return 18
+	}
+	if limit > 24 {
+		return 24
+	}
+	return limit
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (s *Service) Search(ctx context.Context, query string, page int) (SearchResults, error) {
 	if s.searcher == nil {
 		return SearchResults{Results: []Suggestion{}, Page: page}, nil
@@ -534,6 +797,12 @@ func (s *Service) saveCache(key string, info Info) {
 		info:    info,
 		expires: time.Now().Add(s.cacheTTL),
 	}
+	s.cacheMu.Unlock()
+}
+
+func (s *Service) ClearCache() {
+	s.cacheMu.Lock()
+	s.cache = make(map[string]cacheEntry)
 	s.cacheMu.Unlock()
 }
 

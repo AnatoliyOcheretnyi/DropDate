@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppPageShell } from "../../../widgets/AppPageShell";
 import { AuthModal } from "../../../widgets/AuthModal";
 import { Reveal } from "../../../shared/ui/Reveal";
+import { useAuth } from "../../../shared/state/auth";
 import { useProfile } from "../hooks/useProfile";
 import { useTasteRanking } from "../hooks/useTasteRanking";
 import { useAchievements } from "../hooks/useAchievements";
@@ -28,6 +29,9 @@ const inList = (item: SavedRelease, list: string) =>
 
 export function ProfileScreen() {
   const router = useRouter();
+  const { accessToken } = useAuth();
+  const [isResettingCache, setIsResettingCache] = useState(false);
+  const [cacheResetStatus, setCacheResetStatus] = useState<string | null>(null);
   const {
     authLoading,
     blurTimeoutRef,
@@ -85,6 +89,39 @@ export function ProfileScreen() {
 
   const peoplePreview = people.slice(0, 8);
 
+  const handleCacheReset = async () => {
+    if (!user?.isSuperuser) {
+      return;
+    }
+    setIsResettingCache(true);
+    setCacheResetStatus(null);
+    try {
+      const response = await fetch("/api/dev/cache/reset", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+        },
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; cleared?: string[] }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.message || "Не вдалося скинути кеш.");
+      }
+      const cleared = payload?.cleared?.length
+        ? `Очищено: ${payload.cleared.join(", ")}.`
+        : "Кеш очищено.";
+      setCacheResetStatus(`${cleared} Онови сторінку через кілька секунд.`);
+    } catch (error) {
+      setCacheResetStatus(
+        error instanceof Error ? error.message : "Не вдалося скинути кеш."
+      );
+    } finally {
+      setIsResettingCache(false);
+    }
+  };
+
   return (
     <main className="page page--profile">
       <AppPageShell
@@ -129,6 +166,41 @@ export function ProfileScreen() {
             />
             {user ? <UsernameEditor /> : null}
           </div>
+
+          {user?.isSuperuser ? (
+            <Reveal>
+              <section className="profile-dev-card">
+                <div>
+                  <p className="trend-kicker">Dev Access</p>
+                  <h2>Твоя dev-зона</h2>
+                  <p>
+                    Тут можна одразу скинути кеш релізів і рекомендацій та
+                    примусово перевалідувати головну.
+                  </p>
+                </div>
+                <div className="profile-dev-card__actions">
+                  <button
+                    type="button"
+                    className="profile-people-manage"
+                    onClick={() => router.push("/profile/dev")}
+                  >
+                    Відкрити dev-сторінку →
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => void handleCacheReset()}
+                    disabled={isResettingCache}
+                  >
+                    {isResettingCache ? "Скидаю кеш..." : "Скинути кеш зараз"}
+                  </button>
+                </div>
+                {cacheResetStatus ? (
+                  <p className="profile-dev-card__status">{cacheResetStatus}</p>
+                ) : null}
+              </section>
+            </Reveal>
+          ) : null}
 
           <Reveal>
             <div className="profile-metrics">

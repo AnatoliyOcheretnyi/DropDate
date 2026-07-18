@@ -10,6 +10,7 @@ type AuthUser = {
   id: string;
   email: string;
   username: string;
+  isSuperuser: boolean;
 };
 
 type AuthResult = {
@@ -84,6 +85,7 @@ const toAuthResult = (payload: AuthPayload | null): AuthResult | null => {
       id: payload.user.id,
       email: payload.user.email,
       username: typeof payload.user.username === "string" ? payload.user.username : "",
+      isSuperuser: payload.user.isSuperuser === true,
     },
   };
 };

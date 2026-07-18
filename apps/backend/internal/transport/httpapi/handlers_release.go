@@ -228,17 +228,10 @@ func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	upcomingMovies, err := s.releases.Upcoming(r.Context(), "movie", limit)
+	upcomingMovies, upcomingSeries, err := s.releases.HomeUpcoming(r.Context(), limit)
 	if err != nil {
-		s.logger.Printf("home upcoming movies failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming movies")
-		return
-	}
-
-	upcomingSeries, err := s.releases.Upcoming(r.Context(), "tv", limit)
-	if err != nil {
-		s.logger.Printf("home upcoming series failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming series")
+		s.logger.Printf("home upcoming feed failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming feed")
 		return
 	}
 

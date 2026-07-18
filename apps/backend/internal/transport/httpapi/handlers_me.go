@@ -9,9 +9,10 @@ import (
 )
 
 type meResponse struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	Username    string `json:"username"`
+	IsSuperuser bool   `json:"isSuperuser"`
 }
 
 type updateUsernameRequest struct {
@@ -47,7 +48,12 @@ func (s *Server) handleMeGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, meResponse{ID: user.ID, Email: user.Email, Username: user.Username})
+	writeJSON(w, http.StatusOK, meResponse{
+		ID:          user.ID,
+		Email:       user.Email,
+		Username:    user.Username,
+		IsSuperuser: s.isSuperuserEmail(user.Email),
+	})
 }
 
 func (s *Server) handleMeUpdate(w http.ResponseWriter, r *http.Request) {
@@ -81,5 +87,10 @@ func (s *Server) handleMeUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, meResponse{ID: user.ID, Email: user.Email, Username: user.Username})
+	writeJSON(w, http.StatusOK, meResponse{
+		ID:          user.ID,
+		Email:       user.Email,
+		Username:    user.Username,
+		IsSuperuser: s.isSuperuserEmail(user.Email),
+	})
 }

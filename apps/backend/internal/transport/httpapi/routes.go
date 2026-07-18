@@ -61,6 +61,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/notifications", s.notificationsHandler)
 	mux.HandleFunc("/notifications/read", s.notificationsReadHandler)
 	mux.HandleFunc("/jobs/notifications", s.notificationsJobHandler)
+	mux.HandleFunc("/dev/cache/reset", s.devCacheResetHandler)
 	mux.HandleFunc("/auth/register", s.registerHandler)
 	mux.HandleFunc("/auth/login", s.loginHandler)
 	mux.HandleFunc("/auth/refresh", s.refreshHandler)

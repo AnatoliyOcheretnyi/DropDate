@@ -390,10 +390,46 @@ func (c *Client) Upcoming(ctx context.Context, mediaType string, limit int) ([]S
 	case "movie":
 		return c.listMovies(ctx, "/movie/upcoming", limit)
 	case "tv":
-		return c.listSeries(ctx, "/tv/on_the_air", limit)
+		return c.listUpcomingSeries(ctx, limit)
 	default:
 		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
 	}
+}
+
+func (c *Client) listUpcomingSeries(ctx context.Context, limit int) ([]Suggestion, error) {
+	if limit <= 0 {
+		limit = 18
+	}
+
+	now := time.Now().UTC()
+	items, err := c.Discover(ctx, DiscoverParams{
+		MediaType:      "tv",
+		ReleaseDateGTE: now.Format(time.DateOnly),
+		ReleaseDateLTE: now.AddDate(1, 0, 0).Format(time.DateOnly),
+		SortBy:         "popularity.desc",
+		Page:           1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Suggestion, 0, len(items))
+	for _, item := range items {
+		if item.Title == "" {
+			continue
+		}
+		out = append(out, Suggestion{
+			ID:        item.ID,
+			Title:     item.Title,
+			MediaType: "tv",
+			Year:      item.Year,
+			PosterURL: item.PosterURL,
+		})
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
 }
 
 func (c *Client) listMovies(ctx context.Context, path string, limit int) ([]Suggestion, error) {
