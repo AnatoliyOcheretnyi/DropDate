@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchMatchPicks,
   fetchMatchQuestions,
@@ -14,6 +14,7 @@ export type MatchStatus = "config" | "asking" | "loading" | "results" | "error";
 const COUNT = 6;
 // Both the movie and tv flows are exactly this many steps.
 const TOTAL = 10;
+const STORAGE_KEY = "dropdate:match-session";
 
 export function useMatchSession(accessToken?: string | null) {
   const [status, setStatus] = useState<MatchStatus>("config");
@@ -25,6 +26,38 @@ export function useMatchSession(accessToken?: string | null) {
 
   const answersRef = useRef<Record<string, string>>({});
   const shownRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const snapshot = JSON.parse(raw) as {
+        status?: MatchStatus; questions?: MatchQuestion[]; media?: string; index?: number;
+        answers?: Record<string, string>; picks?: MatchPick[]; shown?: string[];
+      };
+      if (snapshot.status !== "asking" && snapshot.status !== "results") return;
+      setStatus(snapshot.status);
+      setQuestions(snapshot.questions ?? []);
+      setMedia(snapshot.media ?? "");
+      setIndex(snapshot.index ?? 0);
+      setAnswers(snapshot.answers ?? {});
+      answersRef.current = snapshot.answers ?? {};
+      setPicks(snapshot.picks ?? []);
+      shownRef.current = new Set(snapshot.shown ?? []);
+    } catch {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status !== "asking" && status !== "results") {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      status, questions, media, index, answers, picks, shown: Array.from(shownRef.current),
+    }));
+  }, [status, questions, media, index, answers, picks]);
 
   // The active step sequence: just the media question until it's answered, then
   // the media question plus every step that applies to the chosen type.
@@ -105,6 +138,13 @@ export function useMatchSession(accessToken?: string | null) {
     void fetchBatch();
   }, [fetchBatch]);
 
+  const dismissPick = useCallback((pick: MatchPick) => {
+    shownRef.current.add(pickKey(pick));
+    setPicks((current) => current.filter((item) => pickKey(item) !== pickKey(pick)));
+    void fetchBatch();
+  }, [fetchBatch]);
+  const likePick = useCallback(async (pick: MatchPick) => { setStatus("loading");try{const response=await fetch(`/api/recommendations/similar?tmdbId=${pick.tmdbId}&mediaType=${pick.mediaType}`);const payload=await response.json();const next=(payload.items??[]).map((item:{id:number;mediaType:"movie"|"tv";title:string;year?:string;posterUrl?:string})=>({tmdbId:item.id,mediaType:item.mediaType,title:item.title,year:item.year,posterUrl:item.posterUrl}));setPicks([pick,...next].slice(0,COUNT));setStatus("results")}catch{setStatus("results")}},[]);
+
   const reset = useCallback(() => {
     setStatus("config");
     setQuestions([]);
@@ -128,6 +168,8 @@ export function useMatchSession(accessToken?: string | null) {
     answer,
     refine,
     more,
+    dismissPick,
+    likePick,
     reset,
   };
 }

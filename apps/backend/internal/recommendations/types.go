@@ -6,6 +6,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/taste"
 )
 
 // savedReader exposes the user's saved rows used to derive seeds and exclusions.
@@ -18,6 +19,12 @@ type savedReader interface {
 // release.Service satisfies this interface.
 type candidateReader interface {
 	Recommendations(ctx context.Context, id int, mediaType string, limit int) ([]release.Suggestion, error)
+}
+type tasteReader interface {
+	Rankings(ctx context.Context, userID, kind string) ([]taste.Item, error)
+}
+type discoverReader interface {
+	Discover(ctx context.Context, p release.DiscoverParams) ([]release.DiscoverItem, error)
 }
 
 // Item is a single ranked recommendation returned to the client.
@@ -49,6 +56,12 @@ type Meta struct {
 type Result struct {
 	Items []Item `json:"items"`
 	Meta  Meta   `json:"meta"`
+}
+
+// DailyResult is one stable personalized pick for a UTC calendar day.
+type DailyResult struct {
+	Date string `json:"date"`
+	Pick *Item  `json:"pick,omitempty"`
 }
 
 // seed is a single saved title selected as a recommendation source.

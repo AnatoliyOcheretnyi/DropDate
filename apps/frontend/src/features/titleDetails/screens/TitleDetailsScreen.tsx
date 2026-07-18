@@ -12,6 +12,10 @@ import { TitleDetailsInfoPanels } from "../components/TitleDetailsInfoPanels";
 import { CastSlider } from "../components/CastSlider";
 import { Reveal } from "../components/Reveal";
 import { useTitleDetails } from "../hooks/useTitleDetails";
+import { WatchProvidersPanel } from "../components/WatchProvidersPanel";
+import { RecommendToFriend } from "../components/RecommendToFriend";
+import { EpisodeTracker } from "../components/EpisodeTracker";
+import { AddToSharedList } from "../components/AddToSharedList";
 
 export function TitleDetailsScreen() {
   const router = useRouter();
@@ -160,6 +164,10 @@ export function TitleDetailsScreen() {
                   formatDate={formatDate}
                 />
               </Reveal>
+              <Reveal><WatchProvidersPanel providers={details.watchProviders} /></Reveal>
+              <Reveal><RecommendToFriend details={details} /></Reveal>
+              <AddToSharedList details={details} />
+              <Reveal><EpisodeTracker details={details} /></Reveal>
               {details.cast && details.cast.length > 0 ? (
                 <Reveal>
                   <CastSlider cast={details.cast} />

@@ -24,6 +24,7 @@ type StartOptions = {
   endless?: boolean;
   /** Deterministic daily set — same questions for every player. */
   daily?: boolean;
+  seed?: string;
 };
 
 type SessionState = {
@@ -92,6 +93,7 @@ export function useGameSession() {
       const questions = await fetchGameQuestions(mode, count, {
         signal: controller.signal,
         daily,
+        seed: options.seed,
       });
       if (controller.signal.aborted) {
         return;

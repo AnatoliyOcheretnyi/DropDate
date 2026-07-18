@@ -12,14 +12,18 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/episodes"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/friends"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/gamestats"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/people"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/social"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/taste"
 )
 
 type AuthService interface {
@@ -52,6 +56,10 @@ type ServerOptions struct {
 	Friends          *friends.Service
 	Akinator         *akinator.Service
 	AkinatorBuilder  *akinator.Builder
+	Taste            *taste.Service
+	Social           *social.Service
+	GameStats        *gamestats.Service
+	Episodes         *episodes.Service
 }
 
 type Server struct {
@@ -70,6 +78,10 @@ type Server struct {
 	friends          *friends.Service
 	akinator         *akinator.Service
 	akinatorBuilder  *akinator.Builder
+	taste            *taste.Service
+	social           *social.Service
+	gameStats        *gamestats.Service
+	episodes         *episodes.Service
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
@@ -110,6 +122,10 @@ func NewServer(
 		friends:          options.Friends,
 		akinator:         options.Akinator,
 		akinatorBuilder:  options.AkinatorBuilder,
+		taste:            options.Taste,
+		social:           options.Social,
+		gameStats:        options.GameStats,
+		episodes:         options.Episodes,
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,

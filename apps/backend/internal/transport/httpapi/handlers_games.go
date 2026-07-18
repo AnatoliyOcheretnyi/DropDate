@@ -34,7 +34,9 @@ func (s *Server) gamesQuestionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	var result games.Questions
 	var err error
-	if daily := strings.TrimSpace(r.URL.Query().Get("daily")); daily == "1" || daily == "true" {
+	if seedValue, parseErr := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("seed")), 10, 64); parseErr == nil && seedValue != 0 {
+		result, err = s.games.GenerateSeeded(r.Context(), mode, games.NormalizeCount(count), seedValue)
+	} else if daily := strings.TrimSpace(r.URL.Query().Get("daily")); daily == "1" || daily == "true" {
 		seed := games.DailySeed(mode, time.Now().UTC())
 		result, err = s.games.GenerateSeeded(r.Context(), mode, games.NormalizeCount(count), seed)
 	} else {

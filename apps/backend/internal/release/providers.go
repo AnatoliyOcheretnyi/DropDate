@@ -330,6 +330,7 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		LastEpisodeSeason: info.LastEpisodeSeason,
 		LastEpisodeNumber: info.LastEpisodeNumber,
 		SeasonCount:       info.SeasonCount,
+		Seasons:           mapSeasons(info.Seasons),
 		EpisodeCount:      info.EpisodeCount,
 		Runtime:           info.Runtime,
 		Genres:            info.Genres,
@@ -341,7 +342,33 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		OriginCountry:     info.OriginCountry,
 		Cast:              mapCast(info.Cast),
 		Directors:         mapDirectors(info.Directors),
+		WatchProviders:    mapWatchAvailability(info.WatchProviders),
 	}, nil
+}
+func mapSeasons(items []tmdb.SeasonInfo) []Season {
+	out := make([]Season, 0, len(items))
+	for _, item := range items {
+		out = append(out, Season{item.SeasonNumber, item.Name, item.EpisodeCount, item.AirDate})
+	}
+	return out
+}
+
+func mapWatchAvailability(items map[string]tmdb.WatchAvailability) map[string]WatchAvailability {
+	if len(items) == 0 {
+		return nil
+	}
+	mapProviders := func(values []tmdb.WatchProvider) []WatchProvider {
+		out := make([]WatchProvider, 0, len(values))
+		for _, value := range values {
+			out = append(out, WatchProvider{ID: value.ID, Name: value.Name, LogoURL: value.LogoURL})
+		}
+		return out
+	}
+	out := make(map[string]WatchAvailability, len(items))
+	for country, value := range items {
+		out[country] = WatchAvailability{Link: value.Link, Stream: mapProviders(value.Stream), Free: mapProviders(value.Free), Rent: mapProviders(value.Rent), Buy: mapProviders(value.Buy)}
+	}
+	return out
 }
 
 // mapCast converts tmdb cast members to the release-level shape.

@@ -39,6 +39,7 @@ export type Details = {
   lastEpisodeSeason?: number;
   lastEpisodeNumber?: number;
   seasonCount?: number;
+  seasons?: Array<{ seasonNumber: number; name: string; episodeCount: number; airDate?: string }>;
   episodeCount?: number;
   runtime?: number;
   genres?: string[];
@@ -50,6 +51,16 @@ export type Details = {
   originCountry?: string[];
   cast?: CastMember[];
   directors?: CrewMember[];
+  watchProviders?: Record<string, WatchAvailability>;
+};
+
+export type WatchProvider = { id: number; name: string; logoUrl?: string };
+export type WatchAvailability = {
+  link?: string;
+  stream?: WatchProvider[];
+  free?: WatchProvider[];
+  rent?: WatchProvider[];
+  buy?: WatchProvider[];
 };
 
 export type CastMember = {

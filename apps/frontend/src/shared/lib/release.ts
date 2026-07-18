@@ -10,4 +10,6 @@ export type {
   PersonRole,
   ReleaseInfo,
   Suggestion,
+  WatchAvailability,
+  WatchProvider,
 } from "../../../../../libs/shared/src/release";

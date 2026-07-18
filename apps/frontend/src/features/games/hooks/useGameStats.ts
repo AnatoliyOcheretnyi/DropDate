@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../../../shared/state/auth";
 
 const STORAGE_KEY = "dropdate.games.stats.v1";
 
@@ -45,6 +47,8 @@ const writeAll = (map: StatsMap) => {
  * best streak. Purely local — no backend involved.
  */
 export function useGameStats(gameId: string) {
+  const { user, accessToken } = useAuth();
+  const queryClient = useQueryClient();
   const [stats, setStats] = useState<GameStats>(emptyStats);
 
   useEffect(() => {
@@ -64,8 +68,15 @@ export function useGameStats(gameId: string) {
       map[gameId] = next;
       writeAll(map);
       setStats(next);
+      if (accessToken) {
+        void fetch("/api/games/results", {
+          method: "POST",
+          headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+          body: JSON.stringify({ gameId, score: result.score ?? 0, streak: result.streak ?? 0, daily: new URLSearchParams(window.location.search).get("daily") === "1" }),
+        }).then(() => queryClient.invalidateQueries({ queryKey: ["game-stats", user?.id] }));
+      }
     },
-    [gameId]
+    [accessToken, gameId, queryClient, user?.id]
   );
 
   return { stats, record };
@@ -73,9 +84,15 @@ export function useGameStats(gameId: string) {
 
 /** Read-only snapshot of every game's stats (hub cards). */
 export function useAllGameStats(): StatsMap {
+  const { user, accessToken } = useAuth();
   const [map, setMap] = useState<StatsMap>({});
   useEffect(() => {
     setMap(readAll());
   }, []);
-  return map;
+  const remote = useQuery({
+    queryKey: ["game-stats", user?.id], enabled: Boolean(user && accessToken),
+    queryFn: async () => { const response=await fetch("/api/games/stats",{headers:{authorization:`Bearer ${accessToken}`}});if(!response.ok)throw new Error("stats");return response.json() as Promise<{items:Array<{gameId:string;plays:number;bestScore:number;bestStreak:number;lastPlayedAt:string}>}>; },
+  });
+  if (!remote.data) return map;
+  return Object.fromEntries(remote.data.items.map(item => [item.gameId, { plays:item.plays,bestScore:item.bestScore,bestStreak:item.bestStreak,lastPlayedAt:item.lastPlayedAt }]));
 }

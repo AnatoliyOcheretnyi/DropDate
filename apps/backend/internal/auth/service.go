@@ -68,18 +68,18 @@ func (e VerificationResendCooldownError) Unwrap() error {
 }
 
 type Config struct {
-	JWTSecret                []byte
-	Issuer                   string
-	AccessTTL                time.Duration
-	RefreshTTL               time.Duration
-	CookieName               string
-	CookieSecure             bool
-	RequireEmailVerification bool
-	EmailVerificationTTL     time.Duration
+	JWTSecret                  []byte
+	Issuer                     string
+	AccessTTL                  time.Duration
+	RefreshTTL                 time.Duration
+	CookieName                 string
+	CookieSecure               bool
+	RequireEmailVerification   bool
+	EmailVerificationTTL       time.Duration
 	VerificationResendCooldown time.Duration
-	AppBaseURL               string
-	EmailSender              email.Sender
-	EmailFrom                string
+	AppBaseURL                 string
+	EmailSender                email.Sender
+	EmailFrom                  string
 }
 
 type Service struct {
@@ -304,6 +304,9 @@ func (s *Service) issueTokens(ctx context.Context, user User) (TokenPair, error)
 	}
 
 	refreshExpires := time.Now().Add(s.cfg.RefreshTTL)
+	if err := s.users.TouchLastSession(ctx, user.ID); err != nil {
+		return TokenPair{}, err
+	}
 	if err := s.tokens.Create(ctx, user.ID, hashToken(refreshToken), refreshExpires); err != nil {
 		return TokenPair{}, err
 	}

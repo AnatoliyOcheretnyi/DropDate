@@ -2,6 +2,8 @@ package recommendations
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"sort"
@@ -46,6 +48,7 @@ const (
 type Service struct {
 	saved      savedReader
 	candidates candidateReader
+	taste      tasteReader
 	logger     *log.Logger
 	now        func() time.Time
 
@@ -58,6 +61,8 @@ type Service struct {
 	// grace window elapses and the caches are purged.
 	dirty map[string]time.Time
 }
+
+func (s *Service) SetTasteReader(reader tasteReader) { s.taste = reader }
 
 type cacheEntry struct {
 	result  Result
@@ -153,13 +158,14 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 
 	exclusions := buildExclusions(rows)
 	seeds := selectSeeds(rows, s.now())
-	if len(seeds) == 0 {
+	if len(seeds) == 0 && s.taste == nil {
 		s.logf("recommendations no seeds user=%s rows=%d", userID, len(rows))
 		s.saveCache(userID, limit, "", empty)
 		return empty, nil
 	}
 
 	candidates, failed := s.collectCandidates(ctx, seeds)
+	s.addTasteCandidates(ctx, userID, candidates)
 
 	ranked := rankCandidates(candidates, exclusions, limit)
 	result := Result{
@@ -177,6 +183,87 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 
 	s.saveCache(userID, limit, "", result)
 	return result, nil
+}
+
+var tasteGenreIDs = map[string]int{"action": 28, "comedy": 35, "drama": 18, "science_fiction": 878, "thriller": 53, "adventure": 12, "horror": 27, "romance": 10749, "animation": 16, "fantasy": 14, "mystery": 9648, "documentary": 99}
+
+func (s *Service) addTasteCandidates(ctx context.Context, userID string, merged map[string]*mergedCandidate) {
+	discoverer, ok := s.candidates.(discoverReader)
+	if !ok || s.taste == nil {
+		return
+	}
+	genres, err := s.taste.Rankings(ctx, userID, "genre")
+	if err != nil {
+		return
+	}
+	countries, _ := s.taste.Rankings(ctx, userID, "country")
+	params := release.DiscoverParams{MediaType: "movie", SortBy: "vote_average.desc", VoteCountGTE: 100, VoteAverageGTE: 6.5}
+	for _, item := range genres {
+		if item.Comparisons >= 2 {
+			params.WithGenres = []int{tasteGenreIDs[item.ID]}
+			break
+		}
+	}
+	for _, item := range countries {
+		if item.Comparisons >= 2 {
+			params.WithOriginCountry = []string{item.ID}
+			break
+		}
+	}
+	items, err := discoverer.Discover(ctx, params)
+	if err != nil {
+		return
+	}
+	for i, item := range items {
+		if i >= 8 {
+			break
+		}
+		key := candidateKey(item.TMDBID, item.MediaType)
+		if _, exists := merged[key]; exists {
+			continue
+		}
+		merged[key] = &mergedCandidate{suggestion: release.Suggestion{ID: item.TMDBID, Title: item.Title, MediaType: item.MediaType, Year: item.Year, PosterURL: item.PosterURL}, weightSum: 2, seedCount: 1, primarySource: "taste", primaryWeight: 2}
+	}
+}
+
+// Daily returns one deterministic pick from the strongest personalized
+// candidates. The same user receives the same title throughout a UTC day.
+func (s *Service) Daily(ctx context.Context, userID string) (DailyResult, error) {
+	date := s.now().UTC().Format(time.DateOnly)
+	result, err := s.Generate(ctx, userID, 12)
+	if err != nil {
+		return DailyResult{}, err
+	}
+	if len(result.Items) == 0 {
+		return DailyResult{Date: date}, nil
+	}
+
+	poolSize := len(result.Items)
+	if poolSize > 8 {
+		poolSize = 8
+	}
+	digest := sha256.Sum256([]byte(userID + ":" + date))
+	index := int(binary.BigEndian.Uint64(digest[:8]) % uint64(poolSize))
+	pick := result.Items[index]
+	if pick.Reason.Text == "" {
+		pick.Reason.Text = dailyReason(pick.Reason)
+	}
+	return DailyResult{Date: date, Pick: &pick}, nil
+}
+
+func dailyReason(reason Reason) string {
+	switch reason.PrimarySource {
+	case "favorite":
+		return "Схоже на фільми з ваших улюблених, але залишає місце для нового відкриття."
+	case "watched":
+		return "Продовжує напрям переглянутих вами історій і пропонує новий крок убік."
+	case "watchlist":
+		return "Відібрано за мотивами сильних фільмів із вашого списку перегляду."
+	case "taste":
+		return "Враховує твій рейтинг жанрів і країн, але залишає простір для відкриття."
+	default:
+		return "Персональний вибір дня на основі вашого кінематографічного смаку."
+	}
 }
 
 // buildExclusions returns the set of titles the user already knows or rejected.

@@ -153,7 +153,7 @@ export function useCalendarReleases() {
     }
     const collected: CalendarEvent[] = [];
     historyItems.forEach((item) => {
-      if (!item.releaseDate) {
+      if (item.mediaType === "social" || !item.releaseDate) {
         return;
       }
       const parsed = new Date(item.releaseDate);

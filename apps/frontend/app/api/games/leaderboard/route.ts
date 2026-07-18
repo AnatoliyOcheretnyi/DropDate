@@ -1,0 +1,1 @@
+import{NextRequest,NextResponse}from"next/server";const B="http://localhost:8080";export async function GET(r:NextRequest){const x=await fetch(new URL("/games/leaderboard",process.env.BACKEND_URL||B),{headers:{authorization:r.headers.get("authorization")||""},cache:"no-store"});return NextResponse.json(await x.json(),{status:x.status})}

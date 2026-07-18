@@ -46,6 +46,8 @@ export function MatchScreen() {
     answer,
     refine,
     more,
+    dismissPick,
+    likePick,
     reset,
   } = useMatchSession(accessToken);
 
@@ -166,6 +168,15 @@ export function MatchScreen() {
                       </>
                     }
                     secondaryAction={
+                      <div className="mood-card-feedback">
+                      <button type="button" className="mood-card-feedback__like" onClick={() => void likePick(pick)}>Більше схожого</button>
+                      <button
+                        type="button"
+                        className="mood-card-feedback__dismiss"
+                        onClick={() => dismissPick(pick)}
+                      >
+                        Не моє
+                      </button>
                       <button
                         type="button"
                         className={`mood-card-action mood-card-action--save${
@@ -175,6 +186,7 @@ export function MatchScreen() {
                       >
                         {saved ? "У списку ✓" : "Зберегти"}
                       </button>
+                      </div>
                     }
                   />
                 );

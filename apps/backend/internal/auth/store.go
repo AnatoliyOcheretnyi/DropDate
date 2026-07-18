@@ -195,6 +195,11 @@ func (s *UserStore) MarkEmailVerified(ctx context.Context, id string) error {
 	return err
 }
 
+func (s *UserStore) TouchLastSession(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `update users set last_session_at = now() where id = $1`, id)
+	return err
+}
+
 type TokenStore struct {
 	db *sql.DB
 }

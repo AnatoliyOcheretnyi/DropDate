@@ -34,6 +34,14 @@ export function FeatureTiles({ savedCount }: Props) {
       variant: "match",
     },
     {
+      href: "/bridge",
+      icon: "🌍",
+      eyebrow: "Нове кіновідкриття",
+      title: "Культурний\nміст",
+      hint: "Від знайомого смаку до нового кіно",
+      variant: "bridge",
+    },
+    {
       href: "/games",
       icon: "🎮",
       eyebrow: "Міні-ігри",

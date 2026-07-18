@@ -18,6 +18,7 @@ const defaultBaseURL = "https://api.themoviedb.org/3"
 const posterBaseURL = "https://image.tmdb.org/t/p/w342"
 const backdropBaseURL = "https://image.tmdb.org/t/p/w780"
 const profileBaseURL = "https://image.tmdb.org/t/p/w185"
+const providerLogoBaseURL = "https://image.tmdb.org/t/p/w92"
 
 // maxCast caps how many billed cast members we surface on a title.
 const maxCast = 15
@@ -60,6 +61,7 @@ type DetailInfo struct {
 	LastEpisodeSeason int
 	LastEpisodeNumber int
 	SeasonCount       int
+	Seasons           []SeasonInfo
 	EpisodeCount      int
 	Runtime           int
 	Genres            []string
@@ -71,6 +73,27 @@ type DetailInfo struct {
 	OriginCountry     []string
 	Cast              []CastMember
 	Directors         []CrewMember
+	WatchProviders    map[string]WatchAvailability
+}
+type SeasonInfo struct {
+	SeasonNumber int
+	Name         string
+	EpisodeCount int
+	AirDate      string
+}
+
+type WatchProvider struct {
+	ID      int
+	Name    string
+	LogoURL string
+}
+
+type WatchAvailability struct {
+	Link   string
+	Stream []WatchProvider
+	Free   []WatchProvider
+	Rent   []WatchProvider
+	Buy    []WatchProvider
 }
 
 // CastMember is one billed actor on a title.
@@ -681,7 +704,7 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
-	q.Set("append_to_response", "credits")
+	q.Set("append_to_response", "credits,watch/providers")
 	req.URL.RawQuery = q.Encode()
 
 	var payload movieDetailsResponse
@@ -708,24 +731,25 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 	}
 
 	return DetailInfo{
-		ID:            id,
-		Title:         payload.Title,
-		MediaType:     "movie",
-		Overview:      payload.Overview,
-		Tagline:       payload.Tagline,
-		PosterURL:     poster,
-		BackdropURL:   backdrop,
-		Status:        payload.Status,
-		ReleaseDate:   payload.ReleaseDate,
-		Runtime:       payload.Runtime,
-		Genres:        genres,
-		VoteAverage:   payload.VoteAverage,
-		VoteCount:     payload.VoteCount,
-		Popularity:    payload.Popularity,
-		Homepage:      payload.Homepage,
-		OriginCountry: payload.OriginCountry,
-		Cast:          mapCast(payload.Credits),
-		Directors:     mapDirectors(payload.Credits),
+		ID:             id,
+		Title:          payload.Title,
+		MediaType:      "movie",
+		Overview:       payload.Overview,
+		Tagline:        payload.Tagline,
+		PosterURL:      poster,
+		BackdropURL:    backdrop,
+		Status:         payload.Status,
+		ReleaseDate:    payload.ReleaseDate,
+		Runtime:        payload.Runtime,
+		Genres:         genres,
+		VoteAverage:    payload.VoteAverage,
+		VoteCount:      payload.VoteCount,
+		Popularity:     payload.Popularity,
+		Homepage:       payload.Homepage,
+		OriginCountry:  payload.OriginCountry,
+		Cast:           mapCast(payload.Credits),
+		Directors:      mapDirectors(payload.Credits),
+		WatchProviders: mapWatchProviders(payload.WatchProviders.Results),
 	}, nil
 }
 
@@ -737,7 +761,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
-	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air,credits")
+	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air,credits,watch/providers")
 	req.URL.RawQuery = q.Encode()
 
 	var payload tvDetailsResponse
@@ -814,6 +838,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		LastEpisodeSeason: lastEpisodeSeason,
 		LastEpisodeNumber: lastEpisodeNumber,
 		SeasonCount:       payload.NumberSeasons,
+		Seasons:           mapSeasons(payload.Seasons),
 		EpisodeCount:      payload.NumberEpisodes,
 		Runtime:           runtime,
 		Genres:            genres,
@@ -825,6 +850,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		OriginCountry:     payload.OriginCountry,
 		Cast:              mapCast(payload.Credits),
 		Directors:         tvDirectors(payload),
+		WatchProviders:    mapWatchProviders(payload.WatchProviders.Results),
 	}, nil
 }
 
@@ -980,46 +1006,105 @@ type tvListEntry struct {
 }
 
 type movieDetailsResponse struct {
-	Title         string       `json:"title"`
-	Overview      string       `json:"overview"`
-	Tagline       string       `json:"tagline"`
-	Status        string       `json:"status"`
-	ReleaseDate   string       `json:"release_date"`
-	Runtime       int          `json:"runtime"`
-	Genres        []tmdbGenre  `json:"genres"`
-	PosterPath    string       `json:"poster_path"`
-	BackdropPath  string       `json:"backdrop_path"`
-	VoteAverage   float64      `json:"vote_average"`
-	VoteCount     int          `json:"vote_count"`
-	Popularity    float64      `json:"popularity"`
-	Homepage      string       `json:"homepage"`
-	OriginCountry []string     `json:"origin_country"`
-	Credits       *tmdbCredits `json:"credits"`
+	Title          string                 `json:"title"`
+	Overview       string                 `json:"overview"`
+	Tagline        string                 `json:"tagline"`
+	Status         string                 `json:"status"`
+	ReleaseDate    string                 `json:"release_date"`
+	Runtime        int                    `json:"runtime"`
+	Genres         []tmdbGenre            `json:"genres"`
+	PosterPath     string                 `json:"poster_path"`
+	BackdropPath   string                 `json:"backdrop_path"`
+	VoteAverage    float64                `json:"vote_average"`
+	VoteCount      int                    `json:"vote_count"`
+	Popularity     float64                `json:"popularity"`
+	Homepage       string                 `json:"homepage"`
+	OriginCountry  []string               `json:"origin_country"`
+	Credits        *tmdbCredits           `json:"credits"`
+	WatchProviders watchProvidersResponse `json:"watch/providers"`
 }
 
 type tvDetailsResponse struct {
-	Name           string          `json:"name"`
-	Overview       string          `json:"overview"`
-	Tagline        string          `json:"tagline"`
-	Status         string          `json:"status"`
-	FirstAirDate   string          `json:"first_air_date"`
-	LastAirDate    string          `json:"last_air_date"`
-	NextEpisode    *tvEpisodeEntry `json:"next_episode_to_air"`
-	LastEpisode    *tvEpisodeEntry `json:"last_episode_to_air"`
-	NumberSeasons  int             `json:"number_of_seasons"`
-	NumberEpisodes int             `json:"number_of_episodes"`
-	EpisodeRunTime []int           `json:"episode_run_time"`
-	Genres         []tmdbGenre     `json:"genres"`
-	Networks       []tmdbNetwork   `json:"networks"`
-	PosterPath     string          `json:"poster_path"`
-	BackdropPath   string          `json:"backdrop_path"`
-	VoteAverage    float64         `json:"vote_average"`
-	VoteCount      int             `json:"vote_count"`
-	Popularity     float64         `json:"popularity"`
-	Homepage       string          `json:"homepage"`
-	OriginCountry  []string        `json:"origin_country"`
-	Credits        *tmdbCredits    `json:"credits"`
-	CreatedBy      []tmdbCreatedBy `json:"created_by"`
+	Name           string                 `json:"name"`
+	Overview       string                 `json:"overview"`
+	Tagline        string                 `json:"tagline"`
+	Status         string                 `json:"status"`
+	FirstAirDate   string                 `json:"first_air_date"`
+	LastAirDate    string                 `json:"last_air_date"`
+	NextEpisode    *tvEpisodeEntry        `json:"next_episode_to_air"`
+	LastEpisode    *tvEpisodeEntry        `json:"last_episode_to_air"`
+	NumberSeasons  int                    `json:"number_of_seasons"`
+	NumberEpisodes int                    `json:"number_of_episodes"`
+	Seasons        []tvSeasonEntry        `json:"seasons"`
+	EpisodeRunTime []int                  `json:"episode_run_time"`
+	Genres         []tmdbGenre            `json:"genres"`
+	Networks       []tmdbNetwork          `json:"networks"`
+	PosterPath     string                 `json:"poster_path"`
+	BackdropPath   string                 `json:"backdrop_path"`
+	VoteAverage    float64                `json:"vote_average"`
+	VoteCount      int                    `json:"vote_count"`
+	Popularity     float64                `json:"popularity"`
+	Homepage       string                 `json:"homepage"`
+	OriginCountry  []string               `json:"origin_country"`
+	Credits        *tmdbCredits           `json:"credits"`
+	CreatedBy      []tmdbCreatedBy        `json:"created_by"`
+	WatchProviders watchProvidersResponse `json:"watch/providers"`
+}
+type tvSeasonEntry struct {
+	SeasonNumber int    `json:"season_number"`
+	Name         string `json:"name"`
+	EpisodeCount int    `json:"episode_count"`
+	AirDate      string `json:"air_date"`
+}
+
+func mapSeasons(items []tvSeasonEntry) []SeasonInfo {
+	out := make([]SeasonInfo, 0, len(items))
+	for _, item := range items {
+		if item.SeasonNumber > 0 && item.EpisodeCount > 0 {
+			out = append(out, SeasonInfo{item.SeasonNumber, item.Name, item.EpisodeCount, item.AirDate})
+		}
+	}
+	return out
+}
+
+type watchProvidersResponse struct {
+	Results map[string]watchAvailabilityEntry `json:"results"`
+}
+
+type watchAvailabilityEntry struct {
+	Link     string               `json:"link"`
+	Flatrate []watchProviderEntry `json:"flatrate"`
+	Free     []watchProviderEntry `json:"free"`
+	Rent     []watchProviderEntry `json:"rent"`
+	Buy      []watchProviderEntry `json:"buy"`
+}
+
+type watchProviderEntry struct {
+	ID       int    `json:"provider_id"`
+	Name     string `json:"provider_name"`
+	LogoPath string `json:"logo_path"`
+}
+
+func mapWatchProviders(results map[string]watchAvailabilityEntry) map[string]WatchAvailability {
+	if len(results) == 0 {
+		return nil
+	}
+	mapItems := func(items []watchProviderEntry) []WatchProvider {
+		out := make([]WatchProvider, 0, len(items))
+		for _, item := range items {
+			logo := ""
+			if item.LogoPath != "" {
+				logo = providerLogoBaseURL + item.LogoPath
+			}
+			out = append(out, WatchProvider{ID: item.ID, Name: item.Name, LogoURL: logo})
+		}
+		return out
+	}
+	out := make(map[string]WatchAvailability, len(results))
+	for country, item := range results {
+		out[country] = WatchAvailability{Link: item.Link, Stream: mapItems(item.Flatrate), Free: mapItems(item.Free), Rent: mapItems(item.Rent), Buy: mapItems(item.Buy)}
+	}
+	return out
 }
 
 type tmdbGenre struct {

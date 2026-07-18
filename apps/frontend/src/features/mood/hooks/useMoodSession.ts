@@ -214,6 +214,18 @@ export function useMoodSession(accessToken?: string | null) {
     void submit(answersRef.current, true);
   }, [submit]);
 
+  const dismissPick = useCallback(
+    (tmdbId: number) => {
+      setPicks((currentPicks) => currentPicks.filter((pick) => pick.tmdbId !== tmdbId));
+      void submit(answersRef.current, true);
+    },
+    [submit]
+  );
+  const likePick = useCallback(async (pick: MoodPick) => {
+    setStatus("loading");
+    try { const response=await fetch(`/api/recommendations/similar?tmdbId=${pick.tmdbId}&mediaType=${pick.mediaType}`);const payload=await response.json();const next=(payload.items??[]).map((item:{id:number;mediaType:"movie"|"tv";title:string;year?:string;posterUrl?:string})=>({tmdbId:item.id,mediaType:item.mediaType,title:item.title,year:item.year,posterUrl:item.posterUrl,reason:`Схоже на «${pick.title}»`}));setPicks([pick,...next].slice(0,DEFAULT_COUNT));setStatus("results"); } catch { setStatus("results"); }
+  }, []);
+
   const reset = useCallback(() => {
     setStatus("config");
     setCurrent(undefined);
@@ -240,6 +252,8 @@ export function useMoodSession(accessToken?: string | null) {
     answer,
     back,
     showMore,
+    dismissPick,
+    likePick,
     reset,
   };
 }

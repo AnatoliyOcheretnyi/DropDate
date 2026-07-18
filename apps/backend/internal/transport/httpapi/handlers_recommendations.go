@@ -66,6 +66,48 @@ func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, result)
 }
 
+func (s *Server) dailyRecommendationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	userID, err := s.requireUserID(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.recommendations == nil {
+		writeError(w, http.StatusServiceUnavailable, "recommendations unavailable")
+		return
+	}
+	result, err := s.recommendations.Daily(r.Context(), userID)
+	if err != nil {
+		s.logger.Printf("daily recommendation failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "daily recommendation failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) similarRecommendationsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	id, e := strconv.Atoi(r.URL.Query().Get("tmdbId"))
+	media := strings.TrimSpace(r.URL.Query().Get("mediaType"))
+	if id <= 0 || (media != "movie" && media != "tv") {
+		writeError(w, 400, "invalid title")
+		return
+	}
+	items, e := s.releases.Recommendations(r.Context(), id, media, 8)
+	if e != nil {
+		writeError(w, 500, "similar failed")
+		return
+	}
+	writeJSON(w, 200, map[string]any{"items": items})
+}
+
 // aiRecommendations builds a candidate pool with the deterministic engine, then
 // asks Gemini to select and explain the best picks. Returns ok=false on any
 // failure so the caller can fall back to the deterministic feed.
@@ -83,6 +125,7 @@ func (s *Server) aiRecommendations(ctx context.Context, userID string, limit int
 
 	candidates := candidatesFromItems(pool.Items)
 	profile := tasteSignals(rows)
+	profile = append(profile, s.rankedTasteSignals(ctx, userID)...)
 
 	selections, err := s.ai.Rerank(ctx, profile, candidates, limit)
 	if err != nil {
@@ -114,6 +157,34 @@ func (s *Server) aiRecommendations(ctx context.Context, userID string, limit int
 	result := pool
 	result.Items = ordered
 	return result, true
+}
+
+func (s *Server) rankedTasteSignals(ctx context.Context, userID string) []airecs.TasteSignal {
+	if s.taste == nil {
+		return nil
+	}
+	var signals []airecs.TasteSignal
+	for _, kind := range []string{"genre", "country"} {
+		items, err := s.taste.Rankings(ctx, userID, kind)
+		if err != nil {
+			s.logger.Printf("ai recommendations: load %s taste failed: %v", kind, err)
+			continue
+		}
+		for _, item := range items {
+			if item.Comparisons < 2 || item.Confidence < 0.25 {
+				continue
+			}
+			signals = append(signals, airecs.TasteSignal{
+				Title:     "Preferred " + kind + ": " + item.ID,
+				MediaType: "preference",
+				Sentiment: "favorite",
+			})
+			if len(signals) >= 6 {
+				return signals
+			}
+		}
+	}
+	return signals
 }
 
 func candidatesFromItems(items []recommendations.Item) []airecs.Candidate {

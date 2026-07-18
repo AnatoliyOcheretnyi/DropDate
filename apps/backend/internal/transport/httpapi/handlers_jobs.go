@@ -36,7 +36,7 @@ func (s *Server) notificationsJobHandler(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
 
-	notifier := notifications.NewReleaseNotifier(s.releases, s.saved, s.notifications, s.logger)
+	notifier := notifications.NewReleaseNotifier(s.releases, s.saved, s.notifications, s.people, s.logger)
 	notifier.RunOnce(ctx)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

@@ -17,6 +17,10 @@ import { TasteChips } from "../components/TasteChips";
 import { RankedRail } from "../components/RankedRail";
 import { MoodTeaser } from "../components/MoodTeaser";
 import { Reveal } from "../../../shared/ui/Reveal";
+import { DailyPickCard } from "../components/DailyPickCard";
+import { useDailyPick } from "../hooks/useDailyPick";
+import { TasteOnboarding } from "../components/TasteOnboarding";
+import { ContinueWatching } from "../components/ContinueWatching";
 
 type Props = {
   sections: {
@@ -87,6 +91,7 @@ function HomeScreenContent({ sections }: Props) {
     items: recommendations,
     isLoading: isRecommendationsLoading,
   } = useRecommendations();
+  const { pick: dailyPick } = useDailyPick();
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
@@ -200,6 +205,23 @@ function HomeScreenContent({ sections }: Props) {
         getListTypes={getListTypes}
         onChangeLists={handleChangeLists}
       />
+
+      <TasteOnboarding />
+      <ContinueWatching />
+
+      {dailyPick ? (
+        <Reveal>
+          <DailyPickCard
+            pick={dailyPick}
+            saved={getListTypes({ id: dailyPick.tmdbId, mediaType: dailyPick.mediaType, title: dailyPick.title, year: dailyPick.year, posterUrl: dailyPick.posterUrl }).includes("watchlist")}
+            onSelect={handleGallerySelect}
+            onToggleSave={(suggestion) => {
+              const current = getListTypes(suggestion);
+              handleChangeLists(suggestion, current.includes("watchlist") ? current.filter((item) => item !== "watchlist") : [...current, "watchlist"]);
+            }}
+          />
+        </Reveal>
+      ) : null}
 
       <Reveal>
         <FeatureTiles savedCount={saved.length} />

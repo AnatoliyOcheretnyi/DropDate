@@ -56,6 +56,7 @@ export function FriendsScreen() {
             </div>
             {user ? (
               <div className="friends-hero__search">
+                <button type="button" className="profile-people-manage" onClick={() => router.push("/friends/activity")}>Активність і списки →</button>
                 <FriendSearchBar
                   query={query}
                   onQueryChange={setQuery}

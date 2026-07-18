@@ -214,3 +214,42 @@ func TestGenerateCachesResult(t *testing.T) {
 		t.Fatalf("expected cached second call (no extra TMDB calls), got %d then %d", firstCalls, candidates.calls)
 	}
 }
+
+func TestDailyIsStableForUserAndDate(t *testing.T) {
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	saved := stubSaved{rows: []saved.Title{{TMDBID: 1, MediaType: "movie", ListTypes: []string{"favorite"}, UpdatedAt: now}}}
+	candidates := &stubCandidates{bySeed: map[int][]release.Suggestion{1: {
+		{ID: 10, MediaType: "movie", Title: "One"},
+		{ID: 20, MediaType: "movie", Title: "Two"},
+		{ID: 30, MediaType: "movie", Title: "Three"},
+	}}}
+	svc := newTestService(saved, candidates)
+	first, err := svc.Daily(context.Background(), "user-daily")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.Daily(context.Background(), "user-daily")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Pick == nil || second.Pick == nil {
+		t.Fatal("expected daily pick")
+	}
+	if first.Date != "2026-06-27" || first.Pick.TMDBID != second.Pick.TMDBID {
+		t.Fatalf("daily pick is not stable: %+v %+v", first, second)
+	}
+	if first.Pick.Reason.Text == "" {
+		t.Fatal("expected human-readable reason")
+	}
+}
+
+func TestDailyReturnsEmptyForColdStart(t *testing.T) {
+	svc := newTestService(stubSaved{}, &stubCandidates{})
+	result, err := svc.Daily(context.Background(), "cold-user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Pick != nil {
+		t.Fatalf("expected no pick, got %+v", result.Pick)
+	}
+}

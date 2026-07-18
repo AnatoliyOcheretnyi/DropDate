@@ -13,6 +13,8 @@ type Props = {
   onDetails: (pick: MoodPick) => void;
   getListTypes: (pick: MoodPick) => ListType[];
   onListChange: (pick: MoodPick, listTypes: ListType[]) => void;
+  onDismiss: (pick: MoodPick) => void;
+  onLike: (pick: MoodPick) => void;
 };
 
 export function MoodResults({
@@ -22,6 +24,8 @@ export function MoodResults({
   onDetails,
   getListTypes,
   onListChange,
+  onDismiss,
+  onLike,
 }: Props) {
   const [openPickerId, setOpenPickerId] = useState<number | null>(null);
 
@@ -49,6 +53,15 @@ export function MoodResults({
                 </>
               }
               secondaryAction={
+                <div className="mood-card-feedback">
+                  <button type="button" className="mood-card-feedback__like" onClick={()=>onLike(pick)}>Більше схожого</button>
+                  <button
+                    type="button"
+                    className="mood-card-feedback__dismiss"
+                    onClick={() => onDismiss(pick)}
+                  >
+                    Не моє
+                  </button>
                 <div className="list-picker mood-card-picker">
                   <button
                     type="button"
@@ -76,6 +89,7 @@ export function MoodResults({
                     onClose={() => setOpenPickerId(null)}
                     onChange={(next) => onListChange(pick, next)}
                   />
+                </div>
                 </div>
               }
             />

@@ -15,14 +15,18 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/email"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/episodes"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/friends"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/games"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/gamestats"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/moodpicker"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/people"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/social"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/taste"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/transport/httpapi"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -72,6 +76,10 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		peopleService        *people.Service
 		achievementsService  *achievements.Service
 		friendsService       *friends.Service
+		tasteService         *taste.Service
+		socialService        *social.Service
+		gameStatsService     *gamestats.Service
+		episodeService       *episodes.Service
 		closeDB              func() error
 		db                   *sql.DB
 	)
@@ -96,11 +104,16 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		peopleService = people.NewService(people.NewStore(openedDB))
 		achievementsService = achievements.NewService(achievements.NewStore(openedDB), logger)
 		friendsService = friends.NewService(friends.NewStore(openedDB))
+		tasteService = taste.NewService(openedDB)
+		socialService = social.NewService(openedDB)
+		gameStatsService = gamestats.NewService(openedDB)
+		episodeService = episodes.NewService(openedDB)
 	}
 
 	var recommendationsService *recommendations.Service
 	if savedService != nil {
 		recommendationsService = recommendations.NewService(savedService, releaseService, logger)
+		recommendationsService.SetTasteReader(tasteService)
 		recommendationsService.SetRefreshDebounce(cfg.Recommendations.RefreshDebounce)
 	}
 
@@ -182,6 +195,10 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			Friends:          friendsService,
 			Akinator:         akinatorService,
 			AkinatorBuilder:  akinatorBuilder,
+			Taste:            tasteService,
+			Social:           socialService,
+			GameStats:        gameStatsService,
+			Episodes:         episodeService,
 		},
 	)
 
@@ -196,7 +213,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 
 	var notifier *notifications.ReleaseNotifier
 	if notificationsService != nil && savedService != nil {
-		notifier = notifications.NewReleaseNotifier(releaseService, savedService, notificationsService, logger)
+		notifier = notifications.NewReleaseNotifier(releaseService, savedService, notificationsService, peopleService, logger)
 	}
 
 	return &App{

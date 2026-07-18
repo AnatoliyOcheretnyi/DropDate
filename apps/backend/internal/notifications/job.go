@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/people"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
@@ -14,6 +15,7 @@ type ReleaseNotifier struct {
 	releases *release.Service
 	saved    *saved.Service
 	events   *Service
+	people   *people.Service
 	logger   *log.Logger
 }
 
@@ -21,6 +23,7 @@ func NewReleaseNotifier(
 	releases *release.Service,
 	savedSvc *saved.Service,
 	events *Service,
+	peopleSvc *people.Service,
 	logger *log.Logger,
 ) *ReleaseNotifier {
 	if logger == nil {
@@ -30,6 +33,7 @@ func NewReleaseNotifier(
 		releases: releases,
 		saved:    savedSvc,
 		events:   events,
+		people:   peopleSvc,
 		logger:   logger,
 	}
 }
@@ -62,18 +66,18 @@ func (n *ReleaseNotifier) RunOnce(ctx context.Context) {
 }
 
 func (n *ReleaseNotifier) runOnce(ctx context.Context) {
-	if n.releases == nil || n.saved == nil || n.events == nil {
+	if n.releases == nil || n.events == nil {
 		n.logger.Printf("notifications job skipped: missing dependencies")
 		return
 	}
 
-	items, err := n.saved.ListFollowSubscriptions(ctx)
+	items := []saved.FollowItem{}
+	var err error
+	if n.saved != nil {
+		items, err = n.saved.ListFollowSubscriptions(ctx)
+	}
 	if err != nil {
 		n.logger.Printf("notifications: follow list failed: %v", err)
-		return
-	}
-	if len(items) == 0 {
-		n.logger.Printf("notifications job: no follow items")
 		return
 	}
 
@@ -98,7 +102,48 @@ func (n *ReleaseNotifier) runOnce(ctx context.Context) {
 			n.logger.Printf("notifications: insert failed for %s: %v", key, err)
 		}
 	}
+	n.runPeople(ctx, now)
 	n.logger.Printf("notifications job finished: checked=%d", len(items))
+}
+
+func (n *ReleaseNotifier) runPeople(ctx context.Context, now time.Time) {
+	if n.people == nil {
+		return
+	}
+	follows, err := n.people.Subscriptions(ctx)
+	if err != nil {
+		n.logger.Printf("notifications: people subscriptions failed: %v", err)
+		return
+	}
+	profiles := make(map[int]release.Person)
+	for _, follow := range follows {
+		person, ok := profiles[follow.PersonID]
+		if !ok {
+			person, err = n.releases.Person(ctx, follow.PersonID)
+			if err != nil {
+				continue
+			}
+			profiles[follow.PersonID] = person
+		}
+		for _, credit := range person.Credits {
+			if credit.Role != follow.Role || credit.ReleaseDate == "" {
+				continue
+			}
+			releaseDate, err := time.Parse(time.DateOnly, credit.ReleaseDate)
+			if err != nil || releaseDate.After(now) || releaseDate.Before(now.AddDate(0, 0, -7)) {
+				continue
+			}
+			_, err = n.events.CreateIfMissing(ctx, CreateInput{
+				UserID: follow.UserID, TMDBID: credit.TMDBID, MediaType: credit.MediaType,
+				Title: credit.Title, EventType: "person_release",
+				EventKey:    fmt.Sprintf("person:%d:%s:%s", follow.PersonID, follow.Role, releaseDate.Format(time.DateOnly)),
+				ReleaseDate: &releaseDate, PosterURL: credit.PosterURL,
+			})
+			if err != nil {
+				n.logger.Printf("notifications: person release insert failed: %v", err)
+			}
+		}
+	}
 }
 
 func buildNotificationInput(

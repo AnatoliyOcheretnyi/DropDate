@@ -11,6 +11,7 @@ import { useAchievements } from "../hooks/useAchievements";
 import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
 import { ProfileCard } from "../components/ProfileCard";
 import { TasteRanker } from "../components/TasteRanker";
+import { TasteTournament } from "../components/TasteTournament";
 import { AchievementsSection } from "../components/AchievementsSection";
 import { UsernameEditor } from "../../friends/components/UsernameEditor";
 import type { SavedRelease } from "../../../shared/types/releases";
@@ -164,12 +165,19 @@ export function ProfileScreen() {
                 <h2>Смаки</h2>
               </div>
               <p className="profile-section-hint">
-                Розстав жанри й країни за пріоритетом — далі це живитиме
-                рекомендації.
+                Обирай між парами — рейтинг ставатиме точнішим і впливатиме
+                на рекомендації без жорстких фільтрів.
               </p>
             </div>
             <div className="taste-grid">
-              <TasteRanker
+              {user ? (
+                <>
+                  <TasteTournament kind="genre" title="Жанри" />
+                  <TasteTournament kind="country" title="Країни" />
+                </>
+              ) : (
+                <>
+                  <TasteRanker
                 kind="genre"
                 title="Жанри"
                 kicker="Перетягни, щоб ранжувати"
@@ -177,14 +185,16 @@ export function ProfileScreen() {
                 onReorder={reorder}
                 onReset={reset}
               />
-              <TasteRanker
+                  <TasteRanker
                 kind="country"
                 title="Країни"
                 kicker="Перетягни, щоб ранжувати"
                 items={countries}
                 onReorder={reorder}
                 onReset={reset}
-              />
+                  />
+                </>
+              )}
             </div>
           </Reveal>
 

@@ -44,6 +44,7 @@ type FetchOptions = {
   signal?: AbortSignal;
   /** Request the deterministic daily set (same for every player). */
   daily?: boolean;
+  seed?: string;
 };
 
 /**
@@ -59,7 +60,7 @@ export async function fetchGameQuestions(
   const response = await requestApi<GameQuestionsResponse>({
     url: "/api/games/questions",
     method: "GET",
-    params: { mode, count, ...(options.daily ? { daily: 1 } : {}) },
+    params: { mode, count, ...(options.daily ? { daily: 1 } : {}), ...(options.seed ? { seed: options.seed } : {}) },
     signal: options.signal,
   });
 

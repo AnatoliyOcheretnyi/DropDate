@@ -55,6 +55,8 @@ export function BattleScreen() {
   const mode: GameMode = modeParam === "rating" ? "rating" : "release_date";
   const endless = searchParams.get("endless") === "1";
   const daily = searchParams.get("daily") === "1";
+  const seed = searchParams.get("seed") ?? undefined;
+  const challengeId = searchParams.get("challenge");
   const statsKey = endless ? "streak" : `battle_${mode}`;
   const { record } = useGameStats(statsKey);
 
@@ -80,9 +82,9 @@ export function BattleScreen() {
   useEffect(() => {
     recordedRef.current = false;
     setResults([]);
-    void start(mode, { count: SESSION_LENGTH, endless, daily });
+    void start(mode, { count: SESSION_LENGTH, endless, daily, seed });
     return reset;
-  }, [mode, endless, daily, start, reset]);
+  }, [mode, endless, daily, seed, start, reset]);
 
   // Track the per-question outcome for the shareable square row.
   const lastTrackedRef = useRef<string | null>(null);
@@ -98,8 +100,9 @@ export function BattleScreen() {
     if (status === "finished" && !recordedRef.current) {
       recordedRef.current = true;
       record(endless ? { streak: bestStreak } : { score, streak: bestStreak });
+      if (challengeId && accessToken) void fetch("/api/games/challenges",{method:"POST",headers:{authorization:`Bearer ${accessToken}`,"content-type":"application/json"},body:JSON.stringify({challengeId,score})});
     }
-  }, [status, record, endless, bestStreak, score]);
+  }, [accessToken, challengeId, status, record, endless, bestStreak, score]);
 
   const isAuthed = Boolean(user && accessToken);
 

@@ -1,0 +1,2 @@
+import { NextRequest,NextResponse } from "next/server";const B="http://localhost:8080";
+export async function POST(r:NextRequest){try{const x=await fetch(new URL("/games/results",process.env.BACKEND_URL||B),{method:"POST",headers:{authorization:r.headers.get("authorization")||"","content-type":"application/json"},body:await r.text()});return NextResponse.json(await x.json(),{status:x.status})}catch(e){return NextResponse.json({message:e instanceof Error?e.message:"offline"},{status:502})}}

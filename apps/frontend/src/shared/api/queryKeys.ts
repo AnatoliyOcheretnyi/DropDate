@@ -6,6 +6,8 @@ export const webQueryKeys = {
   details: (mediaType: string, id: number) =>
     ["details", mediaType, id] as const,
   recommendations: (userId: string) => ["recommendations", userId] as const,
+  dailyPick: (userId: string) => ["daily-pick", userId] as const,
+  taste: (userId: string, kind: string) => ["taste", userId, kind] as const,
   notifications: (userId: string) => ["notifications", userId] as const,
   releaseHistory: (userId: string) => ["release-history", userId] as const,
   saved: (userId: string) => ["saved", userId] as const,

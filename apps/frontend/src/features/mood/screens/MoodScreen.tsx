@@ -58,6 +58,8 @@ export function MoodScreen() {
     answer,
     back,
     showMore,
+    dismissPick,
+    likePick,
     reset,
   } = useMoodSession(accessToken);
 
@@ -142,6 +144,8 @@ export function MoodScreen() {
             onDetails={handleDetails}
             getListTypes={getPickLists}
             onListChange={handleListChange}
+            onDismiss={(pick) => dismissPick(pick.tmdbId)}
+            onLike={likePick}
           />
         )}
 

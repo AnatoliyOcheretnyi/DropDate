@@ -1,0 +1,15 @@
+.bridge-shell { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 3.5rem 0 5rem; }
+.bridge-hero { padding: clamp(1rem, 4vw, 3rem) 0; background: radial-gradient(circle at 70% 20%, rgba(255,184,86,.12), transparent 24%); }
+.bridge-hero h1 { margin: .3rem 0 1rem; font-family: var(--font-display); font-size: clamp(2.7rem, 7vw, 6.5rem); line-height: .9; letter-spacing: -.06em; }
+.bridge-hero > p:last-child { max-width: 680px; color: var(--text-muted); font-size: 1.05rem; line-height: 1.6; }
+.bridge-controls { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; gap: 1rem; align-items: end; margin: 1rem 0 2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 1.2rem; background: var(--surface-2); }
+.bridge-controls label { display: grid; gap: .45rem; color: var(--text-muted); font-size: .8rem; }
+.bridge-controls label strong { color: #ffc368; }
+.bridge-controls div { display: flex; gap: .4rem; }
+.bridge-controls button, .bridge-controls select { padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.bridge-controls button.is-active { border-color: #ffc368; color: #ffc368; background: rgba(255,184,86,.08); }
+.bridge-controls select { border-radius: .7rem; }
+.bridge-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.bridge-reason { color: #ffc368 !important; line-height: 1.35; }
+.bridge-empty { padding: 3rem; border: 1px dashed var(--border-strong); border-radius: 1.3rem; text-align: center; color: var(--text-muted); }
+@media (max-width: 900px) { .bridge-controls { grid-template-columns: 1fr; } .bridge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

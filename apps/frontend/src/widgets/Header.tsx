@@ -106,6 +106,11 @@ export function Header({
   };
 
   const formatNotificationTitle = (item: NotificationItem) => {
+    if (item.eventType === "friend_request") return `${item.title} запрошує вас у друзі`;
+    if (item.eventType === "friend_accepted") return `${item.title} прийняв ваше запрошення`;
+    if (item.eventType === "friend_recommendation") return `Друг радить: ${item.title}`;
+    if (item.eventType === "game_challenge") return "Друг викликає тебе на кінодуель";
+    if (item.eventType === "person_release") return `Новий реліз: ${item.title}`;
     if (item.eventType === "episode_release") {
       const episodeLabel = formatEpisodeLabel(item);
       return episodeLabel
@@ -143,6 +148,11 @@ export function Header({
 
   const handleNotificationClick = useCallback(
     (item: NotificationItem) => {
+      if (item.mediaType === "social") {
+        setIsNotificationsOpen(false);
+        router.push("/friends");
+        return;
+      }
       if (!item.tmdbId) {
         return;
       }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/friends"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/notifications"
 )
 
 type friendUserResponse struct {
@@ -173,6 +174,7 @@ func (s *Server) friendRequestsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	s.createSocialNotification(r, target.ID, fs.ID, "friend_request", userID)
 
 	writeJSON(w, http.StatusOK, mapFriendshipResponse(fs, friendUserResponse{
 		ID: target.ID, Username: target.Username, Email: target.Email,
@@ -224,8 +226,33 @@ func (s *Server) friendRequestRespondHandler(w http.ResponseWriter, r *http.Requ
 		}
 		return
 	}
+	if payload.Accept {
+		s.createSocialNotification(r, fs.RequesterID, fs.ID, "friend_accepted", userID)
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": string(fs.Status)})
+}
+
+func (s *Server) createSocialNotification(r *http.Request, recipientID, friendshipID, eventType, actorID string) {
+	if s.notifications == nil || s.auth == nil {
+		return
+	}
+	actor, err := s.auth.GetByID(r.Context(), actorID)
+	if err != nil {
+		s.logger.Printf("social notification actor lookup failed: %v", err)
+		return
+	}
+	name := actor.Username
+	if name == "" {
+		name = actor.Email
+	}
+	_, err = s.notifications.CreateIfMissing(r.Context(), notifications.CreateInput{
+		UserID: recipientID, TMDBID: 0, MediaType: "social", Title: name,
+		EventType: eventType, EventKey: eventType + ":" + friendshipID,
+	})
+	if err != nil {
+		s.logger.Printf("social notification create failed: %v", err)
+	}
 }
 
 // friendsHandler lists friends/requests (GET) or removes a friendship

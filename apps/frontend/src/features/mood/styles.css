@@ -322,6 +322,11 @@
   min-width: 0;
 }
 
+.mood-card-feedback { display: flex; align-items: center; gap: .45rem; }
+.mood-card-feedback__dismiss { border: 0; background: transparent; color: var(--text-dim); font-size: .72rem; cursor: pointer; }
+.mood-card-feedback__dismiss:hover { color: #ffaaa4; }
+.mood-card-feedback__like{border:0;background:transparent;color:var(--accent-strong);font-size:.72rem;cursor:pointer}
+
 .mood-card-picker .list-picker__button--compact {
   width: 100%;
   display: inline-flex;
