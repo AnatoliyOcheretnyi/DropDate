@@ -412,6 +412,16 @@ export function Header({
                   </button>
                   <button
                     type="button"
+                    className="profile-popover-action"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push("/changelog");
+                    }}
+                  >
+                    Що нового
+                  </button>
+                  <button
+                    type="button"
                     className="profile-popover-action profile-popover-action--danger"
                     onClick={async () => {
                       setIsProfileOpen(false);
