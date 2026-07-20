@@ -21,6 +21,8 @@ import { DailyPickCard } from "../components/DailyPickCard";
 import { useDailyPick } from "../hooks/useDailyPick";
 import { TasteOnboarding } from "../components/TasteOnboarding";
 import { ContinueWatching } from "../components/ContinueWatching";
+import { useToasts } from "../../../shared/hooks/useToasts";
+import { ToastStack } from "../../../shared/ui/ToastStack";
 
 type Props = {
   sections: {
@@ -65,6 +67,7 @@ function HomeScreenContent({ sections }: Props) {
   const [, setIsInputFocused] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { toasts, pushToast, dismissToast } = useToasts();
   const router = useRouter();
   const searchParams = useSearchParams();
   const handleClearSelection = useCallback(() => {
@@ -91,7 +94,7 @@ function HomeScreenContent({ sections }: Props) {
     items: recommendations,
     isLoading: isRecommendationsLoading,
   } = useRecommendations();
-  const { pick: dailyPick } = useDailyPick();
+  const { pick: dailyPick, state: dailyPickState, isUpdating: isUpdatingDailyPick, reveal: revealDailyPick, setAction: setDailyPickAction } = useDailyPick();
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
@@ -213,10 +216,34 @@ function HomeScreenContent({ sections }: Props) {
           <DailyPickCard
             pick={dailyPick}
             saved={getListTypes({ id: dailyPick.tmdbId, mediaType: dailyPick.mediaType, title: dailyPick.title, year: dailyPick.year, posterUrl: dailyPick.posterUrl }).includes("watchlist")}
+            action={dailyPickState?.action ?? "none"}
+            revealed={dailyPickState?.revealed === true}
+            busy={isUpdatingDailyPick}
+            onReveal={() => {
+              void revealDailyPick().then((result) => {
+                if (!result.ok) {
+                  pushToast(result.message, "warning");
+                }
+              });
+            }}
             onSelect={handleGallerySelect}
             onToggleSave={(suggestion) => {
               const current = getListTypes(suggestion);
-              handleChangeLists(suggestion, current.includes("watchlist") ? current.filter((item) => item !== "watchlist") : [...current, "watchlist"]);
+              if (!current.includes("watchlist")) {
+                handleChangeLists(suggestion, [...current, "watchlist"]);
+              }
+              void setDailyPickAction("saved").then((result) => {
+                if (!result.ok) {
+                  pushToast(result.message, "warning");
+                }
+              });
+            }}
+            onDislike={() => {
+              void setDailyPickAction("disliked").then((result) => {
+                if (!result.ok) {
+                  pushToast(result.message, "warning");
+                }
+              });
             }}
           />
         </Reveal>
@@ -295,6 +322,7 @@ function HomeScreenContent({ sections }: Props) {
           </Reveal>
         </>
       )}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </AppPageShell>
     </main>
   );

@@ -6,7 +6,7 @@ import (
 )
 
 func TestAICacheDebounceInvalidation(t *testing.T) {
-	svc := NewService(nil, nil, nil)
+	svc := NewService(nil, nil, nil, nil)
 
 	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return clock }
@@ -40,7 +40,7 @@ func TestAICacheDebounceInvalidation(t *testing.T) {
 }
 
 func TestMarkDirtyPurgesBothVariants(t *testing.T) {
-	svc := NewService(nil, nil, nil)
+	svc := NewService(nil, nil, nil, nil)
 	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return clock }
 	svc.SetRefreshDebounce(0) // no debounce -> immediate invalidation
@@ -62,7 +62,7 @@ func TestMarkDirtyPurgesBothVariants(t *testing.T) {
 }
 
 func TestMarkDirtyDoesNotExtendWindow(t *testing.T) {
-	svc := NewService(nil, nil, nil)
+	svc := NewService(nil, nil, nil, nil)
 	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return clock }
 	svc.SetRefreshDebounce(5 * time.Minute)
@@ -71,9 +71,9 @@ func TestMarkDirtyDoesNotExtendWindow(t *testing.T) {
 	const limit = 12
 	svc.StoreAI(user, limit, Result{Meta: Meta{SeedCount: 3}})
 
-	svc.MarkDirty(user)           // deadline = 12:05
+	svc.MarkDirty(user)                // deadline = 12:05
 	clock = clock.Add(3 * time.Minute) // 12:03
-	svc.MarkDirty(user)           // must NOT push the deadline to 12:08
+	svc.MarkDirty(user)                // must NOT push the deadline to 12:08
 	clock = clock.Add(3 * time.Minute) // 12:06 -> past original deadline
 
 	if _, ok := svc.CachedAI(user, limit); ok {

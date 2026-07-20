@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -67,10 +68,23 @@ func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) dailyRecommendationHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		s.handleDailyRecommendationGet(w, r)
+	case http.MethodPost:
+		s.handleDailyRecommendationPost(w, r)
+	default:
 		methodNotAllowed(w)
-		return
 	}
+}
+
+type dailyRecommendationUpdateRequest struct {
+	Date     string `json:"date"`
+	Revealed bool   `json:"revealed"`
+	Action   string `json:"action"`
+}
+
+func (s *Server) handleDailyRecommendationGet(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.requireUserID(r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
@@ -80,10 +94,38 @@ func (s *Server) dailyRecommendationHandler(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusServiceUnavailable, "recommendations unavailable")
 		return
 	}
-	result, err := s.recommendations.Daily(r.Context(), userID)
+	result, err := s.recommendations.DailyState(r.Context(), userID)
 	if err != nil {
 		s.logger.Printf("daily recommendation failed: %v", err)
 		writeError(w, http.StatusInternalServerError, "daily recommendation failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleDailyRecommendationPost(w http.ResponseWriter, r *http.Request) {
+	userID, err := s.requireUserID(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.recommendations == nil {
+		writeError(w, http.StatusServiceUnavailable, "recommendations unavailable")
+		return
+	}
+	var payload dailyRecommendationUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	result, err := s.recommendations.SetDailyAction(r.Context(), userID, payload.Date, payload.Action, payload.Revealed)
+	if err != nil {
+		if err == recommendations.ErrInvalidDailyAction {
+			writeError(w, http.StatusBadRequest, "invalid daily action")
+			return
+		}
+		s.logger.Printf("daily recommendation update failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "daily recommendation update failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, result)

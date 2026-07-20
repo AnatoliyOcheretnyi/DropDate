@@ -3,7 +3,9 @@ package recommendations
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -51,6 +53,7 @@ type Service struct {
 	taste      tasteReader
 	logger     *log.Logger
 	now        func() time.Time
+	db         *sql.DB
 
 	cacheTTL        time.Duration
 	refreshDebounce time.Duration
@@ -72,13 +75,14 @@ type cacheEntry struct {
 // NewService wires the recommendations service to its saved and candidate
 // sources. Either source may be nil, in which case Generate returns an empty
 // result rather than erroring.
-func NewService(savedSvc savedReader, candidateSvc candidateReader, logger *log.Logger) *Service {
+func NewService(savedSvc savedReader, candidateSvc candidateReader, db *sql.DB, logger *log.Logger) *Service {
 	if logger == nil {
 		logger = log.Default()
 	}
 	return &Service{
 		saved:           savedSvc,
 		candidates:      candidateSvc,
+		db:              db,
 		logger:          logger,
 		now:             time.Now,
 		cacheTTL:        defaultCacheTTL,
@@ -158,6 +162,7 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 
 	exclusions := buildExclusions(rows)
 	seeds := selectSeeds(rows, s.now())
+	s.applyDailyFeedback(ctx, userID, &exclusions, &seeds)
 	if len(seeds) == 0 && s.taste == nil {
 		s.logf("recommendations no seeds user=%s rows=%d", userID, len(rows))
 		s.saveCache(userID, limit, "", empty)
@@ -229,15 +234,28 @@ func (s *Service) addTasteCandidates(ctx context.Context, userID string, merged 
 // Daily returns one deterministic pick from the strongest personalized
 // candidates. The same user receives the same title throughout a UTC day.
 func (s *Service) Daily(ctx context.Context, userID string) (DailyResult, error) {
-	date := s.now().UTC().Format(time.DateOnly)
-	result, err := s.Generate(ctx, userID, 12)
+	state, err := s.DailyState(ctx, userID)
 	if err != nil {
 		return DailyResult{}, err
 	}
-	if len(result.Items) == 0 {
-		return DailyResult{Date: date}, nil
+	return DailyResult{Date: state.Date, Pick: state.Pick}, nil
+}
+
+func (s *Service) DailyState(ctx context.Context, userID string) (DailyState, error) {
+	date := todayUTC(s.now())
+	if record, err := s.loadDailyRecord(ctx, userID, date); err == nil {
+		return dailyStateFromRecord(record), nil
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) {
+		return DailyState{}, err
 	}
 
+	result, err := s.Generate(ctx, userID, 12)
+	if err != nil {
+		return DailyState{}, err
+	}
+	if len(result.Items) == 0 {
+		return DailyState{Date: date, Action: "none"}, nil
+	}
 	poolSize := len(result.Items)
 	if poolSize > 8 {
 		poolSize = 8
@@ -248,7 +266,76 @@ func (s *Service) Daily(ctx context.Context, userID string) (DailyResult, error)
 	if pick.Reason.Text == "" {
 		pick.Reason.Text = dailyReason(pick.Reason)
 	}
-	return DailyResult{Date: date, Pick: &pick}, nil
+	if err := s.saveDailyRecord(ctx, userID, date, pick); err != nil {
+		return DailyState{}, err
+	}
+	return DailyState{
+		Date:     date,
+		Pick:     &pick,
+		Revealed: false,
+		Action:   "none",
+	}, nil
+}
+
+func (s *Service) SetDailyAction(ctx context.Context, userID, date, action string, revealed bool) (DailyState, error) {
+	state, err := s.DailyState(ctx, userID)
+	if err != nil {
+		return DailyState{}, err
+	}
+	if state.Date == "" && date == "" {
+		date = todayUTC(s.now())
+	}
+	if state.Date == "" {
+		state.Date = date
+	}
+	if date == "" || state.Date != date {
+		date = state.Date
+	}
+	normalized, err := normalizeDailyAction(action)
+	if err != nil {
+		return DailyState{}, err
+	}
+	if state.Pick == nil {
+		return DailyState{Date: date, Revealed: revealed, Action: normalized}, nil
+	}
+	if err := s.updateDailyState(ctx, userID, date, normalized, revealed); err != nil {
+		return DailyState{}, err
+	}
+	state.Revealed = revealed
+	state.Action = normalized
+	return state, nil
+}
+
+func (s *Service) applyDailyFeedback(ctx context.Context, userID string, exclusions *map[string]bool, seeds *[]seed) {
+	feedback, err := s.dailyFeedback(ctx, userID, 24)
+	if err != nil || len(feedback) == 0 {
+		return
+	}
+	seedIndex := make(map[string]int, len(*seeds))
+	for i, existing := range *seeds {
+		seedIndex[existing.key()] = i
+	}
+	for _, item := range feedback {
+		key := candidateKey(item.TMDBID, item.MediaType)
+		if item.Action == "disliked" {
+			(*exclusions)[key] = true
+			continue
+		}
+		if item.Action != "saved" {
+			continue
+		}
+		if _, exists := seedIndex[key]; exists {
+			continue
+		}
+		*seeds = append(*seeds, seed{
+			tmdbID:    item.TMDBID,
+			mediaType: item.MediaType,
+			weight:    weightWatchlistHigh,
+			source:    "daily_saved",
+			recent:    true,
+		})
+		seedIndex[key] = len(*seeds) - 1
+	}
 }
 
 func dailyReason(reason Reason) string {

@@ -41,7 +41,7 @@ func ratingPtr(v int) *int             { return &v }
 func tmdbRatingPtr(v float64) *float64 { return &v }
 
 func newTestService(saved stubSaved, candidates *stubCandidates) *Service {
-	svc := NewService(saved, candidates, log.New(io.Discard, "", 0))
+	svc := NewService(saved, candidates, nil, log.New(io.Discard, "", 0))
 	svc.now = func() time.Time { return time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC) }
 	return svc
 }
