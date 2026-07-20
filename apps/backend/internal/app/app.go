@@ -112,7 +112,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 
 	var recommendationsService *recommendations.Service
 	if savedService != nil {
-		recommendationsService = recommendations.NewService(savedService, releaseService, openedDB, logger)
+		recommendationsService = recommendations.NewService(savedService, releaseService, db, logger)
 		recommendationsService.SetTasteReader(tasteService)
 		recommendationsService.SetRefreshDebounce(cfg.Recommendations.RefreshDebounce)
 	}
