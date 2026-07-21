@@ -47,8 +47,8 @@ Games parity and incorrectly treated episode tracking as future scope.
 ### 1. Foundation and social vertical slice
 
 - [x] Make the shared feature screen theme-aware; safe-area and typography audit continues.
-- [ ] Add Friends: search, incoming/outgoing requests and list are complete; native friend profile remains.
-- [ ] Add Achievements: own accessible progress view is complete; friend view and unlock celebration remain.
+- [x] Add Friends: search, requests, list and native friend profile with shared titles.
+- [ ] Add Achievements: own and friend progress views are complete; unlock celebration remains.
 - [ ] Connect profile shortcuts and notification deep links.
 
 ### 2. Title-detail parity
@@ -57,13 +57,13 @@ Games parity and incorrectly treated episode tracking as future scope.
 - [x] Replace the large recommend block with a compact action and friend sheet.
 - [x] Add seasons collapsed by default, lazy episode metadata, responsive poster
   cards, watched state and per-episode rating.
-- [ ] Add shared-list actions without crowding the primary title controls.
+- [x] Add shared-list actions without crowding the primary title controls.
 
 ### 3. Games parity
 
 - [ ] Build a native games hub and focused routes for comparison, people,
   director/movie, timeline, year, blitz, wheel, friend taste and Akinator.
-- [ ] Support `10 rounds` and `until defeat` in games with lives; remove the
+- [x] Support `10 rounds` and `until defeat` in comparison/people games; remove the
   separate endless duplicate.
 - [ ] Increase pool diversity and apply progressive difficulty appropriate to
   each mode (closer years/ratings and less obvious people links).
@@ -71,7 +71,7 @@ Games parity and incorrectly treated episode tracking as future scope.
 
 ### 4. Social depth and data ownership
 
-- [ ] Add activity feed, shared/public lists and collaboration controls.
+- [x] Add activity feed, shared/public list creation and friend collaboration controls.
 - [ ] Move saved remote data to Query with optimistic updates and rollback.
 - [ ] Expand notifications for recommendations, friendships, activity and games.
 

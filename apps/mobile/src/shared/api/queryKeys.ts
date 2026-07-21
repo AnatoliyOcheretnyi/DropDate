@@ -13,8 +13,11 @@ export const queryKeys = {
   gameQuestions: (mode: string, count: number) => ['games', mode, count] as const,
   friends: ['friends'] as const,
   friendSearch: (query: string) => ['friends', 'search', query] as const,
+  friendSaved: (friendId: string) => ['friends', friendId, 'saved'] as const,
   achievements: ['achievements', 'me'] as const,
   friendAchievements: (friendId: string) => ['achievements', 'friend', friendId] as const,
   episodeProgress: (tmdbId: number) => ['episodes', tmdbId] as const,
   episodeMetadata: (tmdbId: number, season: number) => ['episodes', 'metadata', tmdbId, season] as const,
+  socialActivity: ['social', 'activity'] as const,
+  sharedLists: ['social', 'lists'] as const,
 } as const;

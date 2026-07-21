@@ -12,6 +12,7 @@ import { DetailsPersonalControls } from './components/DetailsPersonalControls';
 import { WatchProviders } from './components/WatchProviders';
 import { RecommendFriend } from './components/RecommendFriend';
 import { EpisodeTracker } from './components/EpisodeTracker';
+import { AddToSharedList } from './components/AddToSharedList';
 
 export default function DetailsScreen() {
   const { details, release, recommendations, isLoading, error, handleAdd, isSuggestionSaved } =
@@ -40,6 +41,7 @@ export default function DetailsScreen() {
         {details && <DetailsMetaCard details={details} />}
         {details ? <DetailsPersonalControls details={details} /> : null}
         {details ? <RecommendFriend details={details} /> : null}
+        {details ? <AddToSharedList details={details} /> : null}
 
         {details ? <MotionPressable
           style={styles.shareButton}
