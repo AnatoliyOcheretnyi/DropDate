@@ -1,63 +1,62 @@
 # Releasing
 
-This repo uses per-app versions and tag-based deploys.
+DropDate versions frontend, backend and mobile independently. A version becomes official only after checks and deployment succeed.
 
-## Versions
-Each app has its own version file:
-- apps/frontend/VERSION
-- apps/backend/VERSION
-- apps/mobile/VERSION
+## Normal release
 
-Update only the app you are releasing.
+Run releases from a clean, up-to-date `main` branch:
 
-## Tags
-Deploys are triggered by tags:
-- frontend/vX.Y.Z
-- backend/vX.Y.Z
-- mobile/vX.Y.Z
-
-## Automatic version bump (optional)
-If you merge a commit into `main` with one of these tags in the commit message,
-the workflow will bump the VERSION file, create the tag, and deploy:
-
-- `#release:front:major|minor|patch`
-- `#release:backend:major|minor|patch`
-- `#release:mobile:major|minor|patch`
-
-You can include multiple tags in one merge commit.
-
-## Steps
-1. Update the VERSION file for the app.
-2. Commit the change.
-3. Create the tag and push it.
-
-Example (frontend):
-```
+```bash
 git checkout main
-git pull
-echo "0.2.0" > apps/frontend/VERSION
-git add apps/frontend/VERSION
-git commit -m "chore(frontend): bump version to 0.2.0"
-git tag frontend/v0.2.0
-git push origin main --tags
+git pull --ff-only
+yarn release:front:minor
+yarn release:backend:minor
 ```
 
-If you want to use the helper script:
-```
-chmod +x scripts/release-tag.sh
-scripts/release-tag.sh frontend 0.2.0
+Available commands:
+
+- `yarn release:front:major|minor|patch`
+- `yarn release:backend:major|minor|patch`
+- `yarn release:mobile:major|minor|patch`
+
+The local command does not modify VERSION or create a tag. It:
+
+1. refuses to run with uncommitted changes or outside `main`;
+2. runs the full app-specific preflight suite;
+3. creates and pushes a release-request commit.
+
+CI then runs:
+
+1. lint, typecheck, tests and build;
+2. backend race detector or frontend Playwright smoke tests when applicable;
+3. deployment;
+4. VERSION bump;
+5. release commit and app tag;
+6. GitHub Release publication.
+
+If checks or deployment fail, VERSION and tags remain unchanged.
+
+## Local checks
+
+```bash
+yarn check:staged   # affected checks for staged files
+yarn check:all      # complete workspace suite
+yarn check:frontend # frontend lint, typecheck, tests and build
+yarn check:backend  # backend lint, tests, build and race detector
 ```
 
-For local bump + tag + push in one command:
-```
-chmod +x scripts/release-local.sh
-scripts/release-local.sh frontend minor
-```
+`yarn install` configures `.githooks/pre-commit`. Every commit runs `yarn check:staged`; a failed check blocks the commit. Use `git commit --no-verify` only for an explicit emergency because CI still enforces the full suite.
 
-## Deploy hooks
-The tag workflows expect deploy hooks:
-- VERCEL_DEPLOY_HOOK_URL (frontend)
-- RENDER_DEPLOY_HOOK_URL (backend)
-- MOBILE_DEPLOY_HOOK_URL (mobile, optional)
+## Version files and tags
 
-Set these as GitHub Actions secrets.
+- `apps/frontend/VERSION` → `frontend/vX.Y.Z`
+- `apps/backend/VERSION` → `backend/vX.Y.Z`
+- `apps/mobile/VERSION` → `mobile/vX.Y.Z`
+
+Do not edit these files or push release tags manually during a normal release.
+
+## Required GitHub secrets
+
+- `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+- `RENDER_DEPLOY_HOOK_URL`
+- `MOBILE_DEPLOY_HOOK_URL` for mobile releases

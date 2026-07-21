@@ -34,21 +34,29 @@ All commands execute from repo root and delegate to Nx targets.
 | `yarn build` | Build every project respecting Nx cache. |
 | `yarn lint` | Run `go vet` + `next lint` (ESLint auto-fix on save is configured via `.vscode/settings.json`). |
 | `yarn test` | Execute backend `go test` (extend when frontend tests arrive). |
+| `yarn check:staged` | Run affected lint, typecheck and tests for staged files (also runs automatically before commit). |
+| `yarn check:all` | Run lint, typecheck, tests and builds for the whole workspace. |
+| `yarn check:frontend` | Run the complete frontend check suite. |
+| `yarn check:backend` | Run backend lint, tests, build and race detector. |
 | `yarn nx graph` | Visualize project dependency graph. |
 
-## Releases (Tag-based)
+## Releases
 
 Each app has its own version file:
 - `apps/frontend/VERSION`
 - `apps/backend/VERSION`
 - `apps/mobile/VERSION`
 
-Deploys are triggered by tags:
-- `frontend/vX.Y.Z`
-- `backend/vX.Y.Z`
-- `mobile/vX.Y.Z`
+Start a release from a clean `main` branch. Do not edit VERSION files or create tags manually:
 
-Optional auto-bump on merge uses commit tags:
+```bash
+yarn release:front:minor
+yarn release:backend:minor
+```
+
+The command runs local preflight checks and pushes a release request. CI repeats the checks, deploys the selected app and only then bumps VERSION, creates the tag and publishes the GitHub Release. A failed check or deploy leaves the version unchanged.
+
+Release requests use commit markers internally:
 - `#release:front:major|minor|patch`
 - `#release:backend:major|minor|patch`
 - `#release:mobile:major|minor|patch`
