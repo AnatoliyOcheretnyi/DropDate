@@ -19,12 +19,15 @@
     "release:front:major": "bash scripts/release-local.sh frontend major",
     "release:front:minor": "bash scripts/release-local.sh frontend minor",
     "release:front:patch": "bash scripts/release-local.sh frontend patch",
+    "release:front:current": "bash scripts/release-local.sh frontend current",
     "release:backend:major": "bash scripts/release-local.sh backend major",
     "release:backend:minor": "bash scripts/release-local.sh backend minor",
     "release:backend:patch": "bash scripts/release-local.sh backend patch",
+    "release:backend:current": "bash scripts/release-local.sh backend current",
     "release:mobile:major": "bash scripts/release-local.sh mobile major",
     "release:mobile:minor": "bash scripts/release-local.sh mobile minor",
-    "release:mobile:patch": "bash scripts/release-local.sh mobile patch"
+    "release:mobile:patch": "bash scripts/release-local.sh mobile patch",
+    "release:mobile:current": "bash scripts/release-local.sh mobile current"
   },
   "devDependencies": {
     "nx": "22.2.3"

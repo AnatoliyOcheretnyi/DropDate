@@ -19,6 +19,8 @@ Available commands:
 - `yarn release:backend:major|minor|patch`
 - `yarn release:mobile:major|minor|patch`
 
+Use `yarn release:<app>:current` only to deploy and publish the VERSION already present in the repository after a failed release. It does not increment the version.
+
 The local command does not modify VERSION or create a tag. It:
 
 1. refuses to run with uncommitted changes or outside `main`;

@@ -24,9 +24,9 @@ jobs:
         shell: bash
         run: |
           message="$(git log -1 --pretty=%B)"
-          front="$(echo "$message" | grep -Eo '#release:front:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
-          back="$(echo "$message" | grep -Eo '#release:backend:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
-          mobile="$(echo "$message" | grep -Eo '#release:mobile:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          front="$(echo "$message" | grep -Eo '#release:front:(current|major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          back="$(echo "$message" | grep -Eo '#release:backend:(current|major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          mobile="$(echo "$message" | grep -Eo '#release:mobile:(current|major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
           requested=false
           if [ -n "$front$back$mobile" ]; then requested=true; fi
           echo "front_bump=$front" >> "$GITHUB_OUTPUT"
@@ -137,26 +137,30 @@ jobs:
         run: |
           chmod +x scripts/bump-version.sh
           if [ -n "${{ needs.plan.outputs.front_bump }}" ]; then
-            next="$(scripts/bump-version.sh frontend '${{ needs.plan.outputs.front_bump }}')"
+            if [ "${{ needs.plan.outputs.front_bump }}" = current ]; then next="$(tr -d '[:space:]' < apps/frontend/VERSION)"; else next="$(scripts/bump-version.sh frontend '${{ needs.plan.outputs.front_bump }}')"; fi
             git add apps/frontend/VERSION
             echo "frontend=$next" >> "$GITHUB_OUTPUT"
           fi
           if [ -n "${{ needs.plan.outputs.backend_bump }}" ]; then
-            next="$(scripts/bump-version.sh backend '${{ needs.plan.outputs.backend_bump }}')"
+            if [ "${{ needs.plan.outputs.backend_bump }}" = current ]; then next="$(tr -d '[:space:]' < apps/backend/VERSION)"; else next="$(scripts/bump-version.sh backend '${{ needs.plan.outputs.backend_bump }}')"; fi
             git add apps/backend/VERSION
             echo "backend=$next" >> "$GITHUB_OUTPUT"
           fi
           if [ -n "${{ needs.plan.outputs.mobile_bump }}" ]; then
-            next="$(scripts/bump-version.sh mobile '${{ needs.plan.outputs.mobile_bump }}')"
+            if [ "${{ needs.plan.outputs.mobile_bump }}" = current ]; then next="$(tr -d '[:space:]' < apps/mobile/VERSION)"; else next="$(scripts/bump-version.sh mobile '${{ needs.plan.outputs.mobile_bump }}')"; fi
             git add apps/mobile/VERSION
             echo "mobile=$next" >> "$GITHUB_OUTPUT"
           fi
       - name: Commit version bump
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(release): bump verified app versions [skip ci]"
-          git push origin HEAD:main
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(release): bump verified app versions [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "Current-version release: no VERSION commit required."
+          fi
       - name: Create and push verified tags
         run: |
           [ -z "${{ steps.versions.outputs.frontend }}" ] || git tag "frontend/v${{ steps.versions.outputs.frontend }}"

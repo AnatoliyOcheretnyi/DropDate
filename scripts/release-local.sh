@@ -2,12 +2,17 @@
 set -euo pipefail
 
 if [ $# -ne 2 ]; then
-  echo "Usage: $0 <frontend|backend|mobile> <major|minor|patch>"
+  echo "Usage: $0 <frontend|backend|mobile> <current|major|minor|patch>"
   exit 1
 fi
 
 app="$1"
 bump="$2"
+
+case "$bump" in
+  current|major|minor|patch) ;;
+  *) echo "Unknown release kind: $bump"; exit 1 ;;
+esac
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Working tree is not clean. Commit or stash changes first."
