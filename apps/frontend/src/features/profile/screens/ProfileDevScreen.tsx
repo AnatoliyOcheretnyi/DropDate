@@ -106,8 +106,8 @@ export function ProfileDevScreen() {
                 <p className="eyebrow">Dev Zone</p>
                 <h1>Інструменти профілю</h1>
                 <p>
-                  Доступно лише для `svito014@gmail.com`. Тут можна примусово
-                  очистити серверні кеші та перевалідувати домашню сторінку.
+                  Доступно лише для superuser. Тут можна примусово очистити
+                  серверні кеші та перевалідувати домашню сторінку.
                 </p>
               </div>
               <Link href="/profile" className="profile-people-manage">

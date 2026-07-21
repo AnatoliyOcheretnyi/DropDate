@@ -3,6 +3,7 @@
 import type { PersonCredit } from "../../../shared/lib/release";
 import { Reveal } from "../../titleDetails/components/Reveal";
 import type { TimelineEntry } from "../hooks/usePersonDetails";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   entries: TimelineEntry[];
@@ -41,11 +42,7 @@ export function PersonTimeline({ entries, onSelect }: Props) {
               >
                 <span className="ptl__poster">
                   {entry.posterUrl ? (
-                    <img
-                      src={entry.posterUrl}
-                      alt={entry.title}
-                      loading="lazy"
-                    />
+                    <CoverImage src={entry.posterUrl} alt={entry.title} sizes="140px" />
                   ) : (
                     <span className="ptl__poster-fallback" aria-hidden="true">
                       {entry.title.slice(0, 1)}

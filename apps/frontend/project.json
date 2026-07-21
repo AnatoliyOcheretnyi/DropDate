@@ -26,6 +26,29 @@
         "cwd": "apps/frontend"
       }
     },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn typecheck",
+        "cwd": "apps/frontend"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/coverage"],
+      "options": {
+        "command": "yarn test",
+        "cwd": "apps/frontend"
+      }
+    },
+    "e2e": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/playwright-report", "{projectRoot}/test-results"],
+      "options": {
+        "command": "yarn e2e",
+        "cwd": "apps/frontend"
+      }
+    },
     "start": {
       "executor": "nx:run-commands",
       "options": {

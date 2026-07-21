@@ -7,6 +7,7 @@ import { copy } from "../../../shared/lib/strings";
 import { useCountUp } from "../hooks/useCountUp";
 import { ListStatusBar } from "../../../shared/ui/ListStatusBar";
 import { TitleDetailsPoster } from "./TitleDetailsPoster";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   details: Details;
@@ -189,11 +190,7 @@ export function TitleDetailsHero({
                     >
                       <div className="details-director__photo">
                         {person.profileUrl ? (
-                          <img
-                            src={person.profileUrl}
-                            alt={person.name}
-                            loading="lazy"
-                          />
+                          <CoverImage src={person.profileUrl} alt={person.name} sizes="72px" />
                         ) : (
                           <span aria-hidden="true">
                             {person.name.slice(0, 1)}

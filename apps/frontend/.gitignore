@@ -6,3 +6,6 @@ out
 .env.*.local
 .DS_Store
 *.tsbuildinfo
+coverage
+playwright-report
+test-results

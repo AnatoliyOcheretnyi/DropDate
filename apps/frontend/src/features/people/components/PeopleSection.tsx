@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFollowedPeople } from "../hooks/useFollowedPeople";
 import type { PersonRole } from "../store/followedPeopleStore";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 const ROLE_LABEL: Record<PersonRole, string> = {
   actor: "Актор",
@@ -61,11 +62,7 @@ export function PeopleSection() {
             <article key={person.tmdbId} className="person-card">
               <div className="person-card__photo">
                 {person.profileUrl ? (
-                  <img
-                    src={person.profileUrl}
-                    alt={person.name}
-                    loading="lazy"
-                  />
+                  <CoverImage src={person.profileUrl} alt={person.name} sizes="160px" />
                 ) : (
                   <span aria-hidden="true">{person.name.slice(0, 1)}</span>
                 )}

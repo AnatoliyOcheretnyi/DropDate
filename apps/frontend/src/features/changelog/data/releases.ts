@@ -11,6 +11,25 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: "1.12.x",
+    releasedAt: "20 липня 2026",
+    frontendVersion: "1.12.0",
+    backendVersion: "1.11.1",
+    title: "Персональний пік дня і стабільніші рекомендації",
+    summary:
+      "Додали щоденну персональну рекомендацію та зробили її стан стабільним між відкриттями й пристроями.",
+    frontend: [
+      "На головній з’явився персональний пік дня зі spoiler-відкриттям.",
+      "Рекомендацію можна одразу зберегти або позначити як невдалу.",
+      "Стан піка синхронізується з сервером і кешем React Query.",
+    ],
+    backend: [
+      "Додано постійне збереження щоденних рекомендацій користувача.",
+      "Посилено кешування та стабільність recommendation service.",
+      "Оновлено API стану daily recommendation.",
+    ],
+  },
+  {
     version: "1.11.x",
     releasedAt: "18 липня 2026",
     frontendVersion: "1.11.0",

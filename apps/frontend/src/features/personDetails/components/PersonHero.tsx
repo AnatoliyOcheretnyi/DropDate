@@ -5,6 +5,7 @@ import type { Person, PersonRole } from "../../../shared/lib/release";
 import type { ToastTone } from "../../../shared/hooks/useToasts";
 import { PersonFollowControls } from "./PersonFollowControls";
 import type { RoleFollow } from "../hooks/usePersonDetails";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   person: Person;
@@ -96,7 +97,7 @@ export function PersonHero({
         <div className="person-hero__layout">
           <div className="person-hero__photo">
             {person.profileUrl ? (
-              <img src={person.profileUrl} alt={person.name} />
+              <CoverImage src={person.profileUrl} alt={person.name} sizes="(max-width: 700px) 45vw, 320px" priority />
             ) : (
               <span aria-hidden="true">{person.name.slice(0, 1)}</span>
             )}

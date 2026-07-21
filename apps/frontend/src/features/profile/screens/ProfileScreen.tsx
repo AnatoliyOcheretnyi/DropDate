@@ -16,6 +16,7 @@ import { TasteTournament } from "../components/TasteTournament";
 import { TasteCalibrationCard } from "../components/TasteCalibrationCard";
 import { AchievementsSection } from "../components/AchievementsSection";
 import { UsernameEditor } from "../../friends/components/UsernameEditor";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 import type { SavedRelease } from "../../../shared/types/releases";
 
 const isSeries = (item: SavedRelease) =>
@@ -297,11 +298,7 @@ export function ProfileScreen() {
                   <div key={person.tmdbId} className="profile-people-chip">
                     <div className="profile-people-avatar">
                       {person.profileUrl ? (
-                        <img
-                          src={person.profileUrl}
-                          alt={person.name}
-                          loading="lazy"
-                        />
+                        <CoverImage src={person.profileUrl} alt={person.name} sizes="64px" />
                       ) : (
                         <span aria-hidden="true">{person.name.slice(0, 1)}</span>
                       )}

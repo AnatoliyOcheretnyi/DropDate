@@ -18,13 +18,19 @@
     },
     "test": {
       "inputs": ["default", "^default"]
+    },
+    "typecheck": {
+      "inputs": ["default", "^default"]
+    },
+    "e2e": {
+      "inputs": ["default", "^default"]
     }
   },
   "tasksRunnerOptions": {
     "default": {
       "runner": "nx/tasks-runners/default",
       "options": {
-        "cacheableOperations": ["build", "lint", "test"]
+        "cacheableOperations": ["build", "lint", "test", "typecheck", "e2e"]
       }
     }
   },

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getApiErrorMessage, requestApi } from "../../../shared/api/http";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
+import { track } from "../../../shared/lib/analytics";
 
 export type DailyPick = {
   date: string;
@@ -99,6 +100,7 @@ export function useDailyPick() {
           revealed: true,
           action: state?.action ?? "none",
         });
+        track("daily_pick_revealed", { mediaType: state?.pick?.mediaType ?? "unknown" });
         return { ok: true as const, message: "" };
       } catch (error) {
         return {
@@ -113,6 +115,9 @@ export function useDailyPick() {
           date: state?.date,
           revealed: true,
           action,
+        });
+        track(action === "saved" ? "daily_pick_saved" : "daily_pick_disliked", {
+          mediaType: state?.pick?.mediaType ?? "unknown",
         });
         return { ok: true as const, message: "" };
       } catch (error) {

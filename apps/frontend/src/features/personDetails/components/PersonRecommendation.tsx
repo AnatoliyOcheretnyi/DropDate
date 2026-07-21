@@ -1,6 +1,7 @@
 "use client";
 
 import type { PersonPick } from "../../../shared/lib/release";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   pick: PersonPick;
@@ -19,7 +20,7 @@ export function PersonRecommendation({ pick, personName, onSelect }: Props) {
       >
         <div className="person-pick__poster">
           {pick.posterUrl ? (
-            <img src={pick.posterUrl} alt={pick.title} loading="lazy" />
+            <CoverImage src={pick.posterUrl} alt={pick.title} sizes="180px" />
           ) : (
             <span aria-hidden="true">{pick.title.slice(0, 1)}</span>
           )}

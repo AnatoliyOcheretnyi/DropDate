@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { CastMember } from "../../../shared/lib/release";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   cast: CastMember[];
@@ -65,7 +66,7 @@ export function CastSlider({ cast }: Props) {
             >
               <div className="cast-card-photo">
                 {member.profileUrl ? (
-                  <img src={member.profileUrl} alt={member.name} loading="lazy" />
+                  <CoverImage src={member.profileUrl} alt={member.name} sizes="150px" />
                 ) : (
                   <span className="cast-card-fallback" aria-hidden="true">
                     {member.name.slice(0, 1)}

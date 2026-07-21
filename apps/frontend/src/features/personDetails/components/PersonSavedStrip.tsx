@@ -5,6 +5,7 @@ import type { PersonCredit } from "../../../shared/lib/release";
 import { LIST_META } from "../../../shared/lib/listMeta";
 import type { ListType } from "../../../shared/types/releases";
 import type { SavedCreditEntry } from "../hooks/usePersonDetails";
+import { CoverImage } from "../../../shared/ui/CoverImage";
 
 type Props = {
   entries: SavedCreditEntry[];
@@ -60,7 +61,7 @@ export function PersonSavedStrip({ entries, onSelect }: Props) {
             >
               <div className="person-saved__poster">
                 {credit.posterUrl ? (
-                  <img src={credit.posterUrl} alt={credit.title} loading="lazy" />
+                  <CoverImage src={credit.posterUrl} alt={credit.title} sizes="150px" />
                 ) : (
                   <span aria-hidden="true">{credit.title.slice(0, 1)}</span>
                 )}

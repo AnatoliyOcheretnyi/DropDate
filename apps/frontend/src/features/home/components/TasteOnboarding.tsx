@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useTasteTournament } from "../../profile/hooks/useTasteTournament";
 import { useTasteOnboardingStatus } from "../hooks/useTasteOnboardingStatus";
 import type { TasteKind } from "../../profile/store/tasteStore";
+import { CoverImage } from "../../../shared/ui/CoverImage";
+import { track } from "../../../shared/lib/analytics";
 
 const labels: Record<TasteKind, Record<string, string>> = {
   genre: {
@@ -46,9 +48,10 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
   const forced = forceOpen || forcedByQuery;
   const genre = useTasteTournament("genre");
   const country = useTasteTournament("country");
-  const { status, isLoading, snooze, sendFeedback, complete, isSaving } =
+  const { status, isLoading, error, refetch, snooze, sendFeedback, complete, isSaving } =
     useTasteOnboardingStatus();
   const previousStageRef = useRef<string | null>(null);
+  const trackedStartRef = useRef(false);
   const [celebration, setCelebration] = useState<Celebration>(null);
   const [visibleTitles, setVisibleTitles] = useState(8);
 
@@ -57,12 +60,17 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
       return;
     }
     const previous = previousStageRef.current;
+    if (!trackedStartRef.current && status.stage !== "completed") {
+      track("taste_onboarding_started", { stage: status.stage });
+      trackedStartRef.current = true;
+    }
     if (previous === "genre" && status.stage === "country") {
       setCelebration("genre");
     } else if (previous === "country" && status.stage === "titles") {
       setCelebration("country");
     } else if (previous !== "completed" && status.stage === "completed") {
       setCelebration("completed");
+      track("taste_onboarding_completed");
     }
     previousStageRef.current = status.stage;
   }, [status?.stage]);
@@ -108,9 +116,23 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
     }
   }, [status?.stage]);
 
-  if (isLoading || !status || (status.completed && !celebration) || isSnoozed) {
+  if (isLoading) {
     return null;
   }
+
+  if (error) {
+    return (
+      <section className="taste-onboarding taste-onboarding--error" role="alert">
+        <p className="eyebrow">Калібрування недоступне</p>
+        <h2>Не вдалося завантажити налаштування смаку</h2>
+        <button type="button" className="secondary" onClick={() => void refetch()}>
+          Спробувати ще раз
+        </button>
+      </section>
+    );
+  }
+
+  if (!status || (status.completed && !celebration) || isSnoozed) return null;
 
   if (celebration) {
     const copy =
@@ -200,7 +222,7 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
             <article key={`${item.mediaType}-${item.tmdbId}`} className="taste-onboarding__title-card">
               <div className="taste-onboarding__title-poster">
                 {item.posterUrl ? (
-                  <img src={item.posterUrl} alt={item.title} loading="lazy" />
+                  <CoverImage src={item.posterUrl} alt={item.title} sizes="120px" />
                 ) : (
                   <span aria-hidden="true">{item.title.slice(0, 1)}</span>
                 )}

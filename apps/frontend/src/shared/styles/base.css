@@ -134,6 +134,55 @@ a {
   outline-offset: 3px;
 }
 
+.route-state {
+  min-height: 60vh;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.route-state > p {
+  max-width: 38rem;
+  color: var(--text-muted);
+}
+
+.route-state__spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: route-state-spin 0.8s linear infinite;
+}
+
+.offline-notice {
+  position: fixed;
+  z-index: 10000;
+  inset: auto 1rem 1rem;
+  width: fit-content;
+  max-width: min(34rem, calc(100vw - 2rem));
+  margin-inline: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 199, 106, 0.45);
+  border-radius: 0.8rem;
+  background: rgba(20, 15, 8, 0.96);
+  color: var(--warning);
+  box-shadow: var(--shadow-soft);
+}
+
+@keyframes route-state-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 900px) {
   main.page {
     width: min(var(--page-max), calc(100vw - (var(--page-padding) * 2)));

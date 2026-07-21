@@ -8,6 +8,10 @@ import { copy } from "../shared/lib/strings";
 import { useAuth } from "../shared/state/auth";
 import { useNotifications } from "../features/notifications/hooks/useNotifications";
 import type { NotificationItem } from "../features/notifications/types/notifications";
+import {
+  formatNotificationDate,
+  formatNotificationTitle,
+} from "../features/notifications/lib/presentation";
 import { CoverImage } from "../shared/ui/CoverImage";
 import { AuthModal } from "./AuthModal";
 
@@ -83,42 +87,6 @@ export function Header({
       document.removeEventListener("mousedown", handleClick);
     };
   }, [isProfileOpen]);
-
-  const formatNotificationDate = (value?: string) => {
-    if (!value) {
-      return "";
-    }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return value;
-    }
-    return new Intl.DateTimeFormat("uk-UA", {
-      day: "numeric",
-      month: "long",
-    }).format(parsed);
-  };
-
-  const formatEpisodeLabel = (item: NotificationItem) => {
-    if (item.seasonNumber && item.episodeNumber) {
-      return `S${item.seasonNumber}E${item.episodeNumber}`;
-    }
-    return "";
-  };
-
-  const formatNotificationTitle = (item: NotificationItem) => {
-    if (item.eventType === "friend_request") return `${item.title} запрошує вас у друзі`;
-    if (item.eventType === "friend_accepted") return `${item.title} прийняв ваше запрошення`;
-    if (item.eventType === "friend_recommendation") return `Друг радить: ${item.title}`;
-    if (item.eventType === "game_challenge") return "Друг викликає тебе на кінодуель";
-    if (item.eventType === "person_release") return `Новий реліз: ${item.title}`;
-    if (item.eventType === "episode_release") {
-      const episodeLabel = formatEpisodeLabel(item);
-      return episodeLabel
-        ? `Вийшла серія ${episodeLabel}`
-        : "Вийшла нова серія";
-    }
-    return "Вийшов фільм";
-  };
 
   const handleNotificationsToggle = useCallback(async () => {
     if (!user) {
