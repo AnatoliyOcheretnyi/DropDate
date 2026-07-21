@@ -42,6 +42,8 @@ function RootNavigator() {
         <Stack.Screen name="match" options={{ headerShown: false }} />
         <Stack.Screen name="games" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="friends" options={{ headerShown: false }} />
+        <Stack.Screen name="achievements" options={{ headerShown: false }} />
         <Stack.Screen name="calendar" options={{ headerShown: false }} />
         <Stack.Screen name="people" options={{ headerShown: false }} />
         <Stack.Screen name="person/[id]" options={{ headerShown: false }} />

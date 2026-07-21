@@ -41,6 +41,8 @@ export default function ProfileScreen() {
       <ThemeToggle />
       {user ? <View style={styles.menu}>
         <MotionPressable style={styles.menuItem} onPress={() => router.push('/notifications' as Href)}><Ionicons name="notifications-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Сповіщення</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
+        <MotionPressable style={styles.menuItem} onPress={() => router.push('/friends' as Href)}><Ionicons name="people-circle-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Друзі</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
+        <MotionPressable style={styles.menuItem} onPress={() => router.push('/achievements' as Href)}><Ionicons name="trophy-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Досягнення</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
         <MotionPressable style={styles.menuItem} onPress={() => router.push('/people' as Href)}><Ionicons name="people-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Улюблені люди</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
         <MotionPressable style={styles.menuItem} onPress={() => router.push('/calendar' as Href)}><Ionicons name="calendar-outline" color={colors.accent} size={23}/><Text style={styles.menuText}>Календар релізів</Text><Ionicons name="chevron-forward" color={colors.textMuted} size={20}/></MotionPressable>
       </View> : null}

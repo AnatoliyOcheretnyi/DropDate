@@ -1,149 +1,98 @@
-# Mobile Feature-Parity Migration Plan
+# Mobile parity audit and delivery plan
 
-Status: In progress
+Status: in progress
 
-Scope: migrate the currently implemented DropDate web experience to the Expo
-mobile client with native UX, shared backend contracts, feature-based
-decomposition, and production-safe state boundaries.
+Last audited: 2026-07-22
 
-## Principles
+Goal: bring the Expo app to functional parity with the web product while using
+native navigation, interaction, accessibility and performance patterns.
 
-- Mobile calls the Go API directly; it does not reproduce Next.js proxy routes.
-- TanStack Query owns server state. Zustand owns session and short-lived client
-  state. MMKV stores only small persisted client/session values.
-- Expo Router route files remain thin and render feature screens.
-- Shared UI is extracted only when it is genuinely reusable.
-- Every feature includes loading, empty, error, authentication, retry, and
-  logout/login isolation behavior.
-- Web layouts are adapted to native navigation, gestures, bottom sheets,
-  haptics, accessibility, app lifecycle, and constrained screens.
+## Current assessment
 
-## Current gap (updated 2026-07)
+The mobile app is about **50–55% functionally aligned** with the current web
+product. Core discovery is mature enough to extend, but recent social, game and
+title-detail work has widened the gap. The previous audit overstated Details and
+Games parity and incorrectly treated episode tracking as future scope.
 
-| Area | Web | Mobile | Remaining work |
-| --- | --- | --- | --- |
-| Auth | Complete | Done | — |
-| Home | Complete | Done | — |
-| Search | Complete | Done | Still on its isolated query implementation |
-| Details | Complete | Done | — |
-| Saved | Complete | Partial | Move remote data from Zustand to Query, optimistic mutations |
-| Profile | Complete | Done | Automated user-boundary tests |
-| Recommendations | Complete | Done | — |
-| Mood | Complete | Done | — |
-| Cinematch | Complete | Done | — |
-| Games | Complete | Partial | Web shipped a games expansion (Jul 2026): hub, wheel, poster blitz, timeline, year, endless streak, friend taste, daily challenge — mobile has only the original pair battle |
-| Calendar | Complete | Done | — |
-| People | Complete | Done | — |
-| Notifications | Complete | Baseline done | Push notifications remain future work |
-| Cold start | Complete | Done | — |
-| Friends | Complete (Jul 2026) | Missing | Username, search, requests, friend profile with saved/achievements |
-| Achievements | Complete (Jul 2026) | Missing | List-size tiers, unlock flow, profile display |
+| Product area | Parity | What already works | Gap to close |
+| --- | ---: | --- | --- |
+| Auth/session | 85% | login, registration, verification link, refresh, guest mode | username/profile editing, recovery flow and boundary tests |
+| Home/discovery | 75% | feed, recommendations, mood, Cinematch, people | social activity, daily/game entry points and continuity blocks |
+| Search | 75% | search, suggestions, title navigation | consolidate query/cache behavior, richer native filters |
+| Title details | 55% | hero, metadata, cast, list actions, rating, sharing | watch providers, recommend-to-friend sheet, shared lists, collapsible episode tracker and episode ratings |
+| Saved library | 60% | lists, filters and list actions | move remote state from Zustand to Query, optimistic rollback, shared lists |
+| Profile | 55% | account, theme, stats, taste order, people/calendar links | friends, achievements, username and social shortcuts |
+| Friends/social | 5% | backend/web contracts exist | friends/search/requests/profile, activity feed, shared/public lists |
+| Games | 15% | original comparison game with two modes | native hub, all web modes, difficulty curve, daily/endless/10-round choice, stats and challenges |
+| Calendar/people | 80% | calendar, follows, person details and filmography | richer media presentation, social context and polish |
+| Notifications | 45% | in-app list, unread badge, mark read | social/game event rendering, deep links and push delivery |
+| Mobile quality | 35% | theme, Reanimated foundation, haptics, API refresh | Dynamic Type audit, reduced-motion coverage, offline cache, screen-reader QA, tests and production builds |
 
-## Target structure
+## Native product rules
 
-```text
-apps/mobile/
-  app/                         # thin Expo Router entries
-  src/
-    app/                       # providers, bootstrap, navigation policy
-    entities/                  # reusable domain UI and models
-    features/                  # complete user-facing vertical slices
-      auth/
-      home/
-      search/
-      saved/
-      details/
-      recommendations/
-      mood/
-      match/
-      games/
-      calendar/
-      notifications/
-      people/
-      profile/
-    shared/
-      api/                     # client, errors, query keys/contracts
-      hooks/
-      storage/
-      theme/
-      ui/
-      utils/
-```
+- Expo Router files stay thin; features own data, state and UI.
+- TanStack Query owns server state. Zustand is limited to session and temporary
+  client state; MMKV stores small preferences and resumable sessions.
+- Web pages are not copied literally. Dense panels become progressive disclosure,
+  bottom sheets, segmented controls, native lists and focused detail routes.
+- Tap targets are at least 44×44, controls have accessibility roles/labels, text
+  supports Dynamic Type, and motion respects the operating-system setting.
+- Motion communicates hierarchy and state: short spring press feedback, staggered
+  list entrances, layout transitions and restrained success feedback. It must not
+  block input or be required to understand state.
+- Every remote surface has loading, empty, error, retry and session-isolation states.
 
-## Delivery phases
+## Delivery order
 
-### Phase 0 - inventory and contracts
+### 1. Foundation and social vertical slice
 
-- [x] Compare current web routes, backend routes, and mobile routes.
-- [x] Confirm that Query, Zustand, MMKV, FlashList, Reanimated, gestures and
-  Expo Image are already installed.
-- [x] Consolidate shared mobile API contracts and query keys.
+- [x] Make the shared feature screen theme-aware; safe-area and typography audit continues.
+- [ ] Add Friends: search, incoming/outgoing requests and list are complete; native friend profile remains.
+- [ ] Add Achievements: own accessible progress view is complete; friend view and unlock celebration remain.
+- [ ] Connect profile shortcuts and notification deep links.
 
-### Phase 1 - application foundation
+### 2. Title-detail parity
 
-- [x] Typed API client with normalized errors, timeouts and cancellation.
-- [x] Authorization injection and one-flight refresh/retry after `401`.
-- [x] Central session cleanup for logout, expiry and user changes.
-- [x] Query defaults for retry/reconnect policy. App lifecycle wiring remains.
-- [x] Shared loading, empty, error and retry primitives. Toast/undo remains.
-- [x] Shared spring-press, staggered entrance and screen-transition primitives.
-- [x] Backend cold-start readiness experience.
+- [x] Add regional watch providers with a compact native country picker.
+- [x] Replace the large recommend block with a compact action and friend sheet.
+- [x] Add seasons collapsed by default, lazy episode metadata, responsive poster
+  cards, watched state and per-episode rating.
+- [ ] Add shared-list actions without crowding the primary title controls.
 
-### Phase 2 - stabilize existing slices
+### 3. Games parity
 
-- [x] Refactor auth onto the shared client.
-- [x] Refactor home and details onto shared query factories. Search remains on
-  its existing isolated query implementation.
-- [ ] Move authenticated saved server state from Zustand to Query.
-- [ ] Add optimistic saved/rating/watch mutations with rollback.
-- [x] Complete profile navigation baseline. Automated user-boundary tests remain.
+- [ ] Build a native games hub and focused routes for comparison, people,
+  director/movie, timeline, year, blitz, wheel, friend taste and Akinator.
+- [ ] Support `10 rounds` and `until defeat` in games with lives; remove the
+  separate endless duplicate.
+- [ ] Increase pool diversity and apply progressive difficulty appropriate to
+  each mode (closer years/ratings and less obvious people links).
+- [ ] Add daily state, streaks, results, stats and challenge feedback.
 
-### Phase 3 - title and personalized discovery parity
+### 4. Social depth and data ownership
 
-- [x] Cast carousel and person navigation.
-- [x] Details metadata, cast, native share and existing list actions integrated.
-- [x] Personalized home recommendations with AI reason text.
-- [x] Followed-people profile entry, stats and persisted taste ranking.
+- [ ] Add activity feed, shared/public lists and collaboration controls.
+- [ ] Move saved remote data to Query with optimistic updates and rollback.
+- [ ] Expand notifications for recommendations, friendships, activity and games.
 
-### Phase 4 - interactive discovery
+### 5. Hardening and release readiness
 
-- [x] Adaptive Mood Picker using `/mood/next`, persisted session and result cards.
-- [x] Iterative Cinematch with additional questions and shown-title exclusion.
-- [x] Movie Games with posters, lives, streaks, reveal, details and haptics.
-- [x] Preserve Mood/Match session state across details navigation and app backgrounding.
+- [ ] Selectively persist read-only query data and define offline behavior.
+- [ ] Audit VoiceOver/TalkBack, Dynamic Type, contrast and reduced motion.
+- [ ] Add unit tests for domain hooks, integration tests for auth/cache boundaries,
+  and E2E for auth → discovery → save → episode/social flows.
+- [ ] Validate lifecycle/back navigation and create production iOS/Android builds.
 
-### Phase 5 - retention surfaces
+## Definition of parity
 
-- [x] Week/month calendar with period navigation, subscriptions and release history.
-- [x] Person details, filmography, AI pick and follow/subscription controls.
-- [x] Notification center baseline with unread state and mark-read mutations.
-  Navigation badge and foreground polling included; push remains future work.
+A feature is complete only when its native flow exposes the same user capability
+as web, uses the backend as source of truth, handles loading/empty/error/offline
+states, isolates authenticated data between users, is usable with assistive
+technology, respects reduced motion, and has been checked on both iOS and Android.
 
-### Phase 6 - social parity (new web features from Jul 2026)
+## Intentionally not a literal web copy
 
-- [ ] Friends: search, requests, friends list, friend profile with saved lists
-  and achievements.
-- [ ] Achievements: unlock tiers, unlock feedback, profile display.
-
-### Phase 7 - hardening
-
-- [ ] Offline/read-only behavior and selective persisted query cache.
-- [x] Expo-scheme email verification deep link and native title sharing.
-- [ ] Accessibility, Dynamic Type and reduced motion.
-- [ ] iOS/Android lifecycle and back-navigation checks.
-- [ ] Unit/integration tests and critical-flow E2E coverage.
-- [ ] Production iOS and Android builds.
-
-## Definition of feature parity
-
-A migrated feature is complete only when it has an equivalent native user flow,
-uses the backend as its source of truth, handles loading/empty/error/offline
-states, respects guest and authenticated behavior, cannot leak cached user data
-across sessions, is accessible, and has been checked on both iOS and Android.
-
-## Explicitly outside current web parity
-
-The migration does not invent backend capabilities that the web product does
-not have. Push notifications, multiplayer, Movie Akinator, Stripe billing,
-episode-level tracking, and natural-language AI search remain separate future
-product work unless implemented on web/backend during this migration.
+Desktop multi-column dashboards, hover-only affordances and permanently expanded
+forms are adapted to mobile hierarchy. Bottom sheets, collapsible sections,
+gestures and focused routes are preferred when they reduce cognitive load without
+hiding a core action.

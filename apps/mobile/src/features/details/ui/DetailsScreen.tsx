@@ -9,6 +9,9 @@ import { useDetailsScreen } from '../hooks/useDetailsScreen';
 import { DetailsCast } from './components/DetailsCast';
 import { MotionPressable } from '../../../shared/ui/MotionPressable';
 import { DetailsPersonalControls } from './components/DetailsPersonalControls';
+import { WatchProviders } from './components/WatchProviders';
+import { RecommendFriend } from './components/RecommendFriend';
+import { EpisodeTracker } from './components/EpisodeTracker';
 
 export default function DetailsScreen() {
   const { details, release, recommendations, isLoading, error, handleAdd, isSuggestionSaved } =
@@ -36,6 +39,7 @@ export default function DetailsScreen() {
 
         {details && <DetailsMetaCard details={details} />}
         {details ? <DetailsPersonalControls details={details} /> : null}
+        {details ? <RecommendFriend details={details} /> : null}
 
         {details ? <MotionPressable
           style={styles.shareButton}
@@ -43,6 +47,8 @@ export default function DetailsScreen() {
         ><Text style={styles.shareText}>Поділитися</Text></MotionPressable> : null}
 
         {release ? <DetailsReleaseCard release={release} /> : null}
+        {details ? <WatchProviders providers={details.watchProviders} /> : null}
+        {details ? <EpisodeTracker details={details} /> : null}
 
         {details ? <DetailsCast cast={details.cast} directors={details.directors} /> : null}
 

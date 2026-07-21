@@ -11,4 +11,10 @@ export const queryKeys = {
   moodQuestions: ['mood', 'questions'] as const,
   matchQuestions: ['match', 'questions'] as const,
   gameQuestions: (mode: string, count: number) => ['games', mode, count] as const,
+  friends: ['friends'] as const,
+  friendSearch: (query: string) => ['friends', 'search', query] as const,
+  achievements: ['achievements', 'me'] as const,
+  friendAchievements: (friendId: string) => ['achievements', 'friend', friendId] as const,
+  episodeProgress: (tmdbId: number) => ['episodes', tmdbId] as const,
+  episodeMetadata: (tmdbId: number, season: number) => ['episodes', 'metadata', tmdbId, season] as const,
 } as const;
