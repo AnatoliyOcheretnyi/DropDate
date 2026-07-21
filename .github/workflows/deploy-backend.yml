@@ -29,7 +29,7 @@ jobs:
         run: yarn nx run-many -t lint,test,build -p backend --nxBail
 
       - name: Race detector
-        run: yarn nx exec -p backend --skipNxCache -- go test -race ./...
+        run: yarn nx run backend:race --skipNxCache
 
   deploy:
     needs: checks
@@ -44,3 +44,11 @@ jobs:
             exit 1
           fi
           curl --fail-with-body --show-error --silent -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+  release:
+    needs: deploy
+    permissions:
+      contents: write
+    uses: ./.github/workflows/create-release.yml
+    with:
+      tag: ${{ github.ref_name }}

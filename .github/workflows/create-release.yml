@@ -1,41 +1,32 @@
 name: Create GitHub Release
 
 on:
-  push:
-    tags:
-      - "frontend/v*"
-      - "backend/v*"
-      - "mobile/v*"
-
-permissions:
-  contents: write
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Build release metadata
-        id: meta
+      - name: Create release after successful deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
-          tag="${GITHUB_REF_NAME}"
-          app="${tag%%/*}"
-          version="${tag#*/}"
+          app="${TAG%%/*}"
+          version="${TAG#*/}"
           case "$app" in
             frontend) label="Frontend" ;;
             backend) label="Backend" ;;
             mobile) label="Mobile" ;;
             *) label="Release" ;;
           esac
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "name=${label} ${version}" >> "$GITHUB_OUTPUT"
-          echo "body=Release for ${label} ${version}" >> "$GITHUB_OUTPUT"
-
-      - name: Create release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          release_name: ${{ steps.meta.outputs.name }}
-          body: ${{ steps.meta.outputs.body }}
+          gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$REPOSITORY" --title "$label $version" --notes "Release for $label $version"

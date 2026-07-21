@@ -2,66 +2,113 @@ name: Auto Release on Merge
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      front_bump: ${{ steps.release.outputs.front_bump }}
+      backend_bump: ${{ steps.release.outputs.backend_bump }}
+      mobile_bump: ${{ steps.release.outputs.mobile_bump }}
+      requested: ${{ steps.release.outputs.requested }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Parse release markers
+        id: release
+        shell: bash
+        run: |
+          message="$(git log -1 --pretty=%B)"
+          front="$(echo "$message" | grep -Eo '#release:front:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          back="$(echo "$message" | grep -Eo '#release:backend:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          mobile="$(echo "$message" | grep -Eo '#release:mobile:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
+          requested=false
+          if [ -n "$front$back$mobile" ]; then requested=true; fi
+          echo "front_bump=$front" >> "$GITHUB_OUTPUT"
+          echo "backend_bump=$back" >> "$GITHUB_OUTPUT"
+          echo "mobile_bump=$mobile" >> "$GITHUB_OUTPUT"
+          echo "requested=$requested" >> "$GITHUB_OUTPUT"
+
+  checks:
+    needs: plan
+    if: needs.plan.outputs.requested == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: |
+            yarn.lock
+            apps/frontend/yarn.lock
+      - name: Set up Go
+        if: needs.plan.outputs.backend_bump != ''
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache-dependency-path: apps/backend/go.sum
+      - name: Install workspace dependencies
+        run: yarn install --frozen-lockfile
+      - name: Install frontend dependencies
+        if: needs.plan.outputs.front_bump != ''
+        working-directory: apps/frontend
+        run: yarn install --frozen-lockfile
+      - name: Check frontend
+        if: needs.plan.outputs.front_bump != ''
+        run: yarn nx run-many -t lint,typecheck,test,build -p frontend --nxBail --skipNxCache
+      - name: Check backend
+        if: needs.plan.outputs.backend_bump != ''
+        run: yarn nx run-many -t lint,test,build -p backend --nxBail --skipNxCache
+      - name: Backend race detector
+        if: needs.plan.outputs.backend_bump != ''
+        run: yarn nx run backend:race --skipNxCache
+      - name: Check mobile
+        if: needs.plan.outputs.mobile_bump != ''
+        run: yarn nx run mobile:lint --skipNxCache
+
   release:
+    needs: [plan, checks]
+    if: needs.plan.outputs.requested == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Parse release tags
-        id: release
-        shell: bash
-        run: |
-          message="$(git log -1 --pretty=%B)"
-          echo "commit_message<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$message" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-          front="$(echo "$message" | grep -Eo '#release:front:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
-          back="$(echo "$message" | grep -Eo '#release:backend:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
-          mobile="$(echo "$message" | grep -Eo '#release:mobile:(major|minor|patch)' | tail -n1 | cut -d: -f3 || true)"
-
-          echo "front_bump=$front" >> "$GITHUB_OUTPUT"
-          echo "backend_bump=$back" >> "$GITHUB_OUTPUT"
-          echo "mobile_bump=$mobile" >> "$GITHUB_OUTPUT"
-
-      - name: Stop if no release tags
-        if: ${{ steps.release.outputs.front_bump == '' && steps.release.outputs.backend_bump == '' && steps.release.outputs.mobile_bump == '' }}
-        run: echo "No release tags found, skipping."
-
-      - name: Bump versions
-        if: ${{ steps.release.outputs.front_bump != '' || steps.release.outputs.backend_bump != '' || steps.release.outputs.mobile_bump != '' }}
+      - name: Bump versions after successful checks
+        id: versions
         shell: bash
         run: |
           chmod +x scripts/bump-version.sh
-          if [ -n "${{ steps.release.outputs.front_bump }}" ]; then
-            next="$(scripts/bump-version.sh frontend ${{ steps.release.outputs.front_bump }})"
+          if [ -n "${{ needs.plan.outputs.front_bump }}" ]; then
+            next="$(scripts/bump-version.sh frontend '${{ needs.plan.outputs.front_bump }}')"
             git add apps/frontend/VERSION
-            git tag "frontend/v${next}"
+            echo "frontend=$next" >> "$GITHUB_OUTPUT"
           fi
-          if [ -n "${{ steps.release.outputs.backend_bump }}" ]; then
-            next="$(scripts/bump-version.sh backend ${{ steps.release.outputs.backend_bump }})"
+          if [ -n "${{ needs.plan.outputs.backend_bump }}" ]; then
+            next="$(scripts/bump-version.sh backend '${{ needs.plan.outputs.backend_bump }}')"
             git add apps/backend/VERSION
-            git tag "backend/v${next}"
+            echo "backend=$next" >> "$GITHUB_OUTPUT"
           fi
-          if [ -n "${{ steps.release.outputs.mobile_bump }}" ]; then
-            next="$(scripts/bump-version.sh mobile ${{ steps.release.outputs.mobile_bump }})"
+          if [ -n "${{ needs.plan.outputs.mobile_bump }}" ]; then
+            next="$(scripts/bump-version.sh mobile '${{ needs.plan.outputs.mobile_bump }}')"
             git add apps/mobile/VERSION
-            git tag "mobile/v${next}"
+            echo "mobile=$next" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Commit and push tags
-        if: ${{ steps.release.outputs.front_bump != '' || steps.release.outputs.backend_bump != '' || steps.release.outputs.mobile_bump != '' }}
+      - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(release): bump app versions [skip ci]"
-          git push origin main --tags
+          git commit -m "chore(release): bump verified app versions [skip ci]"
+          git push origin HEAD:main
+      - name: Create and push verified tags
+        run: |
+          [ -z "${{ steps.versions.outputs.frontend }}" ] || git tag "frontend/v${{ steps.versions.outputs.frontend }}"
+          [ -z "${{ steps.versions.outputs.backend }}" ] || git tag "backend/v${{ steps.versions.outputs.backend }}"
+          [ -z "${{ steps.versions.outputs.mobile }}" ] || git tag "mobile/v${{ steps.versions.outputs.mobile }}"
+          git push origin --tags

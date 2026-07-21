@@ -32,6 +32,13 @@
         "command": "go test ./...",
         "cwd": "apps/backend"
       }
+    },
+    "race": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test -race ./...",
+        "cwd": "apps/backend"
+      }
     }
   },
   "tags": []

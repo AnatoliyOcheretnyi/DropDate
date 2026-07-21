@@ -14,6 +14,23 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
+echo "Running release checks for ${app} before changing its version..."
+case "$app" in
+  frontend)
+    yarn nx run-many -t lint,typecheck,test,build -p frontend --nxBail --skipNxCache
+    yarn nx run frontend:e2e --nxBail --skipNxCache
+    ;;
+  backend)
+    yarn nx run-many -t lint,test,build -p backend --nxBail --skipNxCache
+    yarn nx run backend:race --skipNxCache
+    ;;
+  mobile)
+    yarn nx run mobile:lint --skipNxCache
+    ;;
+esac
+
+echo "Checks passed. Bumping ${app} version..."
+
 chmod +x scripts/bump-version.sh
 next="$(scripts/bump-version.sh "$app" "$bump")"
 
