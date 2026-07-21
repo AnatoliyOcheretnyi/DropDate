@@ -29,16 +29,16 @@ case "$app" in
     ;;
 esac
 
-echo "Checks passed. Bumping ${app} version..."
-
-chmod +x scripts/bump-version.sh
-next="$(scripts/bump-version.sh "$app" "$bump")"
-
-git add "apps/${app}/VERSION"
-git commit -m "chore(${app}): bump version to ${next}"
-git tag "${app}/v${next}"
-
+echo "Checks passed. Requesting verified release; CI will deploy before bumping the version..."
 branch="$(git rev-parse --abbrev-ref HEAD)"
-git push origin "$branch" --tags
+if [ "$branch" != "main" ]; then
+  echo "Verified releases must be requested from main (current: ${branch})."
+  exit 1
+fi
 
-echo "Released ${app}/v${next}"
+marker_app="$app"
+if [ "$app" = "frontend" ]; then marker_app="front"; fi
+git commit --allow-empty -m "chore(release): request ${app} ${bump}" -m "#release:${marker_app}:${bump}"
+git push origin "$branch"
+
+echo "Release requested. CI will publish the version and tag only after deployment succeeds."

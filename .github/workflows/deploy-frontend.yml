@@ -1,9 +1,7 @@
 name: Deploy Frontend
 
 on:
-  push:
-    tags:
-      - "frontend/v*"
+  workflow_dispatch: {}
 
 jobs:
   checks:
@@ -59,11 +57,3 @@ jobs:
             exit 1
           fi
           vercel deploy --prod --token "$VERCEL_TOKEN"
-
-  release:
-    needs: deploy
-    permissions:
-      contents: write
-    uses: ./.github/workflows/create-release.yml
-    with:
-      tag: ${{ github.ref_name }}

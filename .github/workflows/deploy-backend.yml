@@ -1,9 +1,7 @@
 name: Deploy Backend
 
 on:
-  push:
-    tags:
-      - "backend/v*"
+  workflow_dispatch: {}
 
 jobs:
   checks:
@@ -44,11 +42,3 @@ jobs:
             exit 1
           fi
           curl --fail-with-body --show-error --silent -X POST "$RENDER_DEPLOY_HOOK_URL"
-
-  release:
-    needs: deploy
-    permissions:
-      contents: write
-    uses: ./.github/workflows/create-release.yml
-    with:
-      tag: ${{ github.ref_name }}

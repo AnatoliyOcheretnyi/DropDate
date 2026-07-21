@@ -62,6 +62,13 @@ jobs:
       - name: Check frontend
         if: needs.plan.outputs.front_bump != ''
         run: yarn nx run-many -t lint,typecheck,test,build -p frontend --nxBail --skipNxCache
+      - name: Install Playwright browser
+        if: needs.plan.outputs.front_bump != ''
+        working-directory: apps/frontend
+        run: yarn playwright install --with-deps chromium
+      - name: Run frontend smoke tests
+        if: needs.plan.outputs.front_bump != ''
+        run: yarn nx run frontend:e2e --nxBail --skipNxCache
       - name: Check backend
         if: needs.plan.outputs.backend_bump != ''
         run: yarn nx run-many -t lint,test,build -p backend --nxBail --skipNxCache
@@ -72,7 +79,7 @@ jobs:
         if: needs.plan.outputs.mobile_bump != ''
         run: yarn nx run mobile:lint --skipNxCache
 
-  release:
+  deploy:
     needs: [plan, checks]
     if: needs.plan.outputs.requested == 'true'
     runs-on: ubuntu-latest
@@ -80,7 +87,51 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Bump versions after successful checks
+      - name: Install Vercel CLI
+        if: needs.plan.outputs.front_bump != ''
+        run: npm install --global vercel
+      - name: Deploy frontend
+        if: needs.plan.outputs.front_bump != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "Missing Vercel deployment secrets."
+            exit 1
+          fi
+          vercel deploy --prod --token "$VERCEL_TOKEN"
+      - name: Deploy backend
+        if: needs.plan.outputs.backend_bump != ''
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "Missing RENDER_DEPLOY_HOOK_URL secret."
+            exit 1
+          fi
+          curl --fail-with-body --show-error --silent -X POST "$RENDER_DEPLOY_HOOK_URL"
+      - name: Deploy mobile
+        if: needs.plan.outputs.mobile_bump != ''
+        env:
+          MOBILE_DEPLOY_HOOK_URL: ${{ secrets.MOBILE_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$MOBILE_DEPLOY_HOOK_URL" ]; then
+            echo "Missing MOBILE_DEPLOY_HOOK_URL secret."
+            exit 1
+          fi
+          curl --fail-with-body --show-error --silent -X POST "$MOBILE_DEPLOY_HOOK_URL"
+
+  release:
+    needs: [plan, checks, deploy]
+    if: needs.plan.outputs.requested == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bump versions after successful deployment
         id: versions
         shell: bash
         run: |
@@ -112,3 +163,19 @@ jobs:
           [ -z "${{ steps.versions.outputs.backend }}" ] || git tag "backend/v${{ steps.versions.outputs.backend }}"
           [ -z "${{ steps.versions.outputs.mobile }}" ] || git tag "mobile/v${{ steps.versions.outputs.mobile }}"
           git push origin --tags
+      - name: Publish GitHub releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ steps.versions.outputs.frontend }}" ]; then
+            tag="frontend/v${{ steps.versions.outputs.frontend }}"
+            gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Frontend v${{ steps.versions.outputs.frontend }}" --notes "Verified frontend deployment."
+          fi
+          if [ -n "${{ steps.versions.outputs.backend }}" ]; then
+            tag="backend/v${{ steps.versions.outputs.backend }}"
+            gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Backend v${{ steps.versions.outputs.backend }}" --notes "Verified backend deployment."
+          fi
+          if [ -n "${{ steps.versions.outputs.mobile }}" ]; then
+            tag="mobile/v${{ steps.versions.outputs.mobile }}"
+            gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Mobile v${{ steps.versions.outputs.mobile }}" --notes "Verified mobile deployment."
+          fi
