@@ -353,6 +353,18 @@ func mapSeasons(items []tmdb.SeasonInfo) []Season {
 	return out
 }
 
+func (p *tmdbSuggestionProvider) SeasonEpisodes(ctx context.Context, tvID, seasonNumber int) ([]Episode, error) {
+	items, err := p.client.SeasonEpisodes(ctx, tvID, seasonNumber)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Episode, 0, len(items))
+	for _, item := range items {
+		out = append(out, Episode{item.EpisodeNumber, item.Name, item.Overview, item.AirDate, item.Runtime, item.StillURL, item.VoteAverage})
+	}
+	return out, nil
+}
+
 func mapWatchAvailability(items map[string]tmdb.WatchAvailability) map[string]WatchAvailability {
 	if len(items) == 0 {
 		return nil

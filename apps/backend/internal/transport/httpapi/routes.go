@@ -49,6 +49,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/games/challenges", s.gameChallengesHandler)
 	mux.HandleFunc("/episodes", s.episodesHandler)
 	mux.HandleFunc("/episodes/continue", s.episodesContinueHandler)
+	mux.HandleFunc("/episodes/metadata", s.episodesMetadataHandler)
 	mux.HandleFunc("/akinator/start", s.akinatorStartHandler)
 	mux.HandleFunc("/akinator/next", s.akinatorNextHandler)
 	mux.HandleFunc("/akinator/result", s.akinatorResultHandler)

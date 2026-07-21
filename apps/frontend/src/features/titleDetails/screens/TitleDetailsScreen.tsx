@@ -165,7 +165,7 @@ export function TitleDetailsScreen() {
                 />
               </Reveal>
               <Reveal><WatchProvidersPanel providers={details.watchProviders} /></Reveal>
-              <Reveal><RecommendToFriend details={details} /></Reveal>
+              <Reveal className="details-recommend-row"><RecommendToFriend details={details} /></Reveal>
               <AddToSharedList details={details} />
               <Reveal><EpisodeTracker details={details} /></Reveal>
               {details.cast && details.cast.length > 0 ? (

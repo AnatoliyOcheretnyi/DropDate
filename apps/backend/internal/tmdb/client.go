@@ -82,6 +82,50 @@ type SeasonInfo struct {
 	AirDate      string
 }
 
+type EpisodeInfo struct {
+	EpisodeNumber int
+	Name          string
+	Overview      string
+	AirDate       string
+	Runtime       int
+	StillURL      string
+	VoteAverage   float64
+}
+
+// SeasonEpisodes fetches episode metadata lazily for the opened TV season.
+func (c *Client) SeasonEpisodes(ctx context.Context, tvID, seasonNumber int) ([]EpisodeInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/tv/%d/season/%d", c.baseURL, tvID, seasonNumber), nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("language", "uk-UA")
+	req.URL.RawQuery = q.Encode()
+	var payload struct {
+		Episodes []struct {
+			EpisodeNumber int     `json:"episode_number"`
+			Name          string  `json:"name"`
+			Overview      string  `json:"overview"`
+			AirDate       string  `json:"air_date"`
+			Runtime       int     `json:"runtime"`
+			StillPath     string  `json:"still_path"`
+			VoteAverage   float64 `json:"vote_average"`
+		} `json:"episodes"`
+	}
+	if err := c.do(req, &payload); err != nil {
+		return nil, err
+	}
+	out := make([]EpisodeInfo, 0, len(payload.Episodes))
+	for _, item := range payload.Episodes {
+		still := ""
+		if item.StillPath != "" {
+			still = backdropBaseURL + item.StillPath
+		}
+		out = append(out, EpisodeInfo{item.EpisodeNumber, item.Name, item.Overview, item.AirDate, item.Runtime, still, item.VoteAverage})
+	}
+	return out, nil
+}
+
 type WatchProvider struct {
 	ID      int
 	Name    string

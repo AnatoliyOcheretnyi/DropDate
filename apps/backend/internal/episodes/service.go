@@ -3,6 +3,7 @@ package episodes
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -15,10 +16,11 @@ type Progress struct {
 	EpisodeNumber int        `json:"episodeNumber"`
 	Watched       bool       `json:"watched"`
 	WatchedAt     *time.Time `json:"watchedAt,omitempty"`
+	Rating        *int       `json:"rating,omitempty"`
 }
 
 func (s *Service) List(ctx context.Context, userID string, tmdbID int) ([]Progress, error) {
-	rows, e := s.db.QueryContext(ctx, `select season_number,episode_number,watched,watched_at from episode_progress where user_id=$1 and tmdb_id=$2 order by season_number,episode_number`, userID, tmdbID)
+	rows, e := s.db.QueryContext(ctx, `select season_number,episode_number,watched,watched_at,rating from episode_progress where user_id=$1 and tmdb_id=$2 order by season_number,episode_number`, userID, tmdbID)
 	if e != nil {
 		return nil, e
 	}
@@ -27,15 +29,27 @@ func (s *Service) List(ctx context.Context, userID string, tmdbID int) ([]Progre
 	for rows.Next() {
 		var v Progress
 		var t sql.NullTime
-		if e := rows.Scan(&v.SeasonNumber, &v.EpisodeNumber, &v.Watched, &t); e != nil {
+		var rating sql.NullInt32
+		if e := rows.Scan(&v.SeasonNumber, &v.EpisodeNumber, &v.Watched, &t, &rating); e != nil {
 			return nil, e
 		}
 		if t.Valid {
 			v.WatchedAt = &t.Time
 		}
+		if rating.Valid {
+			value := int(rating.Int32)
+			v.Rating = &value
+		}
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+func (s *Service) Rate(ctx context.Context, userID string, tmdbID, season, episode int, rating *int) error {
+	if rating != nil && (*rating < 1 || *rating > 10) {
+		return errors.New("rating must be between 1 and 10")
+	}
+	_, e := s.db.ExecContext(ctx, `insert into episode_progress(user_id,tmdb_id,season_number,episode_number,watched,rating)values($1,$2,$3,$4,false,$5)on conflict(user_id,tmdb_id,season_number,episode_number)do update set rating=excluded.rating,updated_at=now()`, userID, tmdbID, season, episode, rating)
+	return e
 }
 func (s *Service) Set(ctx context.Context, userID string, tmdbID, season, episode int, watched bool) error {
 	_, e := s.db.ExecContext(ctx, `insert into episode_progress(user_id,tmdb_id,season_number,episode_number,watched,watched_at)values($1,$2,$3,$4,$5,case when $5 then now() else null end)on conflict(user_id,tmdb_id,season_number,episode_number)do update set watched=excluded.watched,watched_at=excluded.watched_at,updated_at=now()`, userID, tmdbID, season, episode, watched)

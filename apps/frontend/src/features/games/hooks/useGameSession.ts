@@ -8,8 +8,7 @@ import {
 } from "../api/games";
 
 const DEFAULT_COUNT = 10;
-const STARTING_LIVES = 3;
-const ENDLESS_LIVES = 1;
+const SURVIVAL_LIVES = 3;
 const ENDLESS_BATCH = 15;
 // Refill the endless queue when this few unanswered questions remain.
 const ENDLESS_LOW_WATER = 4;
@@ -20,7 +19,7 @@ type Side = "left" | "right";
 
 type StartOptions = {
   count?: number;
-  /** One life, unlimited questions, batches refilled on the fly. */
+  /** Three lives, unlimited questions, batches refilled on the fly. */
   endless?: boolean;
   /** Deterministic daily set — same questions for every player. */
   daily?: boolean;
@@ -51,8 +50,8 @@ const initialState: SessionState = {
   score: 0,
   streak: 0,
   bestStreak: 0,
-  lives: STARTING_LIVES,
-  maxLives: STARTING_LIVES,
+  lives: 0,
+  maxLives: 0,
   endless: false,
   daily: false,
 };
@@ -62,7 +61,7 @@ const pairKey = (q: GameQuestion) =>
 
 /**
  * useGameSession owns the pair-battle state: current question, selected
- * answer, reveal, score, streak and lives. Endless mode plays with one life
+ * answer, reveal, score, streak and lives. Survival mode plays with three lives
  * and keeps appending fresh (deduplicated) batches as the queue runs low.
  */
 export function useGameSession() {
@@ -77,7 +76,7 @@ export function useGameSession() {
 
     const endless = Boolean(options.endless);
     const daily = Boolean(options.daily);
-    const lives = endless ? ENDLESS_LIVES : STARTING_LIVES;
+    const lives = endless ? SURVIVAL_LIVES : 0;
     const count = endless ? ENDLESS_BATCH : options.count ?? DEFAULT_COUNT;
 
     setState({
@@ -161,7 +160,7 @@ export function useGameSession() {
         score: correct ? prev.score + 1 : prev.score,
         streak,
         bestStreak: Math.max(prev.bestStreak, streak),
-        lives: correct ? prev.lives : prev.lives - 1,
+        lives: correct || !prev.endless ? prev.lives : prev.lives - 1,
       };
     });
   }, []);
@@ -172,7 +171,7 @@ export function useGameSession() {
         return prev;
       }
       const nextIndex = prev.index + 1;
-      if (prev.lives <= 0 || nextIndex >= prev.questions.length) {
+      if ((prev.endless && prev.lives <= 0) || nextIndex >= prev.questions.length) {
         return { ...prev, status: "finished" };
       }
       return { ...prev, index: nextIndex, selected: null };
@@ -200,7 +199,7 @@ export function useGameSession() {
     bestStreak: state.bestStreak,
     lives: state.lives,
     maxLives: state.maxLives,
-    isOutOfLives: state.lives <= 0,
+    isOutOfLives: state.endless && state.lives <= 0,
     isEndless: state.endless,
     isDaily: state.daily,
     start,

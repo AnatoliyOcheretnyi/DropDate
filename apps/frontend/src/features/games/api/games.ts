@@ -1,6 +1,8 @@
 import { requestApi } from "../../../shared/api/http";
 
-export type GameMode = "release_date" | "rating" | "poster" | "timeline" | "year";
+export type GameMode = "release_date" | "rating" | "poster" | "timeline" | "year" | "movie_director" | "director_movie" | "movie_actor" | "actor_movie";
+
+export type GamePersonCard = { tmdbId: number; name: string; profileUrl?: string; role?: string };
 
 export type GameTitleCard = {
   tmdbId: number;
@@ -29,6 +31,8 @@ export type GameQuestion = {
   options?: GameTitleCard[];
   answerId?: number;
   items?: GameTitleCard[];
+  person?: GamePersonCard;
+  people?: GamePersonCard[];
 };
 
 export type GameQuestionsResponse = {

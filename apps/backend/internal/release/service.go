@@ -131,6 +131,7 @@ type Service struct {
 	details        DetailsProvider
 	person         PersonProvider
 	discover       DiscoverProvider
+	seasons        SeasonProvider
 	logger         *log.Logger
 
 	cache    map[string]cacheEntry
@@ -177,6 +178,20 @@ type SearchProvider interface {
 type DetailsProvider interface {
 	Details(ctx context.Context, id int, mediaType string) (Details, error)
 	Recommendations(ctx context.Context, id int, mediaType string, limit int) ([]Suggestion, error)
+}
+
+type Episode struct {
+	EpisodeNumber int     `json:"episodeNumber"`
+	Name          string  `json:"name"`
+	Overview      string  `json:"overview,omitempty"`
+	AirDate       string  `json:"airDate,omitempty"`
+	Runtime       int     `json:"runtime,omitempty"`
+	StillURL      string  `json:"stillUrl,omitempty"`
+	VoteAverage   float64 `json:"voteAverage,omitempty"`
+}
+
+type SeasonProvider interface {
+	SeasonEpisodes(context.Context, int, int) ([]Episode, error)
 }
 
 // DiscoverParams mirrors tmdb.DiscoverParams so callers depend on release, not tmdb.
@@ -289,10 +304,23 @@ func NewService(providers []ReleaseProvider, suggester SuggestionProvider, logge
 			}
 			return nil
 		}(),
+		seasons: func() SeasonProvider {
+			if p, ok := suggester.(SeasonProvider); ok {
+				return p
+			}
+			return nil
+		}(),
 		logger:   logger,
 		cache:    make(map[string]cacheEntry),
 		cacheTTL: defaultCacheTTL,
 	}
+}
+
+func (s *Service) SeasonEpisodes(ctx context.Context, tvID, seasonNumber int) ([]Episode, error) {
+	if s.seasons == nil {
+		return nil, errors.New("season metadata unavailable")
+	}
+	return s.seasons.SeasonEpisodes(ctx, tvID, seasonNumber)
 }
 
 // NextRelease витягує дані з TVMaze і мапить у нашу структуру.

@@ -48,7 +48,19 @@ func (s *Server) socialRecommendationsHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if s.notifications != nil {
-		_, _ = s.notifications.CreateIfMissing(r.Context(), notifications.CreateInput{UserID: in.RecipientID, TMDBID: in.TMDBID, MediaType: in.MediaType, Title: in.Title, EventType: "friend_recommendation", EventKey: "friend-recommendation:" + item.ID, PosterURL: in.PosterURL, EpisodeName: strings.TrimSpace(in.Message)})
+		senderName := "Друг"
+		if s.auth != nil {
+			if sender, userErr := s.auth.GetByID(r.Context(), userID); userErr == nil {
+				senderName = strings.TrimSpace(sender.Username)
+				if senderName == "" {
+					senderName = sender.Email
+				}
+			}
+		}
+		note := senderName + "\n" + strings.TrimSpace(in.Message)
+		if _, notificationErr := s.notifications.CreateIfMissing(r.Context(), notifications.CreateInput{UserID: in.RecipientID, TMDBID: in.TMDBID, MediaType: in.MediaType, Title: in.Title, EventType: "friend_recommendation", EventKey: "friend-recommendation:" + item.ID, PosterURL: in.PosterURL, EpisodeName: note}); notificationErr != nil {
+			s.logger.Printf("friend recommendation notification failed recommendation=%s: %v", item.ID, notificationErr)
+		}
 	}
 	writeJSON(w, http.StatusCreated, item)
 }

@@ -20,7 +20,11 @@ const (
 	// ModeTimeline asks the player to order several titles by release date.
 	ModeTimeline Mode = "timeline"
 	// ModeYear asks the player to guess a single title's release year.
-	ModeYear Mode = "year"
+	ModeYear          Mode = "year"
+	ModeMovieDirector Mode = "movie_director"
+	ModeDirectorMovie Mode = "director_movie"
+	ModeMovieActor    Mode = "movie_actor"
+	ModeActorMovie    Mode = "actor_movie"
 )
 
 // catalogSource exposes the TMDB-backed catalog used to build candidate pools
@@ -44,6 +48,13 @@ type TitleCard struct {
 	Rating      float64 `json:"rating,omitempty"`
 }
 
+type PersonCard struct {
+	TMDBID     int    `json:"tmdbId"`
+	Name       string `json:"name"`
+	ProfileURL string `json:"profileUrl,omitempty"`
+	Role       string `json:"role,omitempty"`
+}
+
 // Question is a single round. Pair modes fill Left/Right/Answer ("left" or
 // "right"); poster fills Card/Options/AnswerID; timeline fills Items (shuffled,
 // each carrying its release date for the reveal); year fills Card only. The
@@ -64,7 +75,9 @@ type Question struct {
 	// AnswerID is the tmdbId of the correct poster-round option.
 	AnswerID int `json:"answerId,omitempty"`
 	// Items are the timeline-round titles in shuffled order.
-	Items []TitleCard `json:"items,omitempty"`
+	Items  []TitleCard  `json:"items,omitempty"`
+	Person *PersonCard  `json:"person,omitempty"`
+	People []PersonCard `json:"people,omitempty"`
 }
 
 // Meta describes a generated question set.
@@ -86,4 +99,6 @@ type candidate struct {
 	card        TitleCard
 	releaseDate time.Time
 	hasDate     bool
+	cast        []release.CastMember
+	directors   []release.CrewMember
 }

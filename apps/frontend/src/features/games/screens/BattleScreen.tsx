@@ -53,11 +53,13 @@ export function BattleScreen() {
 
   const modeParam = searchParams.get("mode");
   const mode: GameMode = modeParam === "rating" ? "rating" : "release_date";
-  const endless = searchParams.get("endless") === "1";
+  const format = searchParams.get("format");
+  const endless = format === "survival" || searchParams.get("endless") === "1";
   const daily = searchParams.get("daily") === "1";
   const seed = searchParams.get("seed") ?? undefined;
   const challengeId = searchParams.get("challenge");
-  const statsKey = endless ? "streak" : `battle_${mode}`;
+  const needsSetup = !daily && !challengeId && format !== "rounds" && format !== "survival" && searchParams.get("endless") !== "1";
+  const statsKey = endless ? `survival_${mode}` : `battle_${mode}`;
   const { record } = useGameStats(statsKey);
 
   const {
@@ -80,11 +82,12 @@ export function BattleScreen() {
   } = useGameSession();
 
   useEffect(() => {
+    if (needsSetup) return reset;
     recordedRef.current = false;
     setResults([]);
     void start(mode, { count: SESSION_LENGTH, endless, daily, seed });
     return reset;
-  }, [mode, endless, daily, seed, start, reset]);
+  }, [mode, endless, daily, seed, start, reset, needsSetup]);
 
   // Track the per-question outcome for the shareable square row.
   const lastTrackedRef = useRef<string | null>(null);
@@ -143,19 +146,31 @@ export function BattleScreen() {
   };
 
   const heading = endless
-    ? "Стрік"
+    ? `Виживання · ${MODE_TITLES[mode]}`
     : daily
       ? `Щоденний виклик · ${MODE_TITLES[mode]}`
       : MODE_TITLES[mode];
 
   const shareText = endless
-    ? `DropDate · Стрік: ${bestStreak} 🔥`
+    ? `DropDate · Виживання: ${score} правильних · серія ${bestStreak} 🔥`
     : `DropDate · ${MODE_TITLES[mode]}${daily ? ` · ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(new Date())}` : ""}\n${score}/${results.length} ${squares(results)}`;
 
   const won = endless ? bestStreak >= 10 : results.length > 0 && score / results.length >= 0.7;
 
   return (
     <GameShell playing={status === "playing"}>
+      {needsSetup ? (
+        <section className="games-setup">
+          <p className="eyebrow">Налаштування гри</p>
+          <h1>{MODE_TITLES[mode]}</h1>
+          <p>Обери темп. Тип гри можна змінити перед кожним новим запуском.</p>
+          <div className="games-setup__modes">
+            <button type="button" onClick={() => router.push(`/games/battle?mode=${mode}&format=rounds`)}><span aria-hidden="true">⑩</span><strong>10 раундів</strong><small>Рівно 10 запитань. Помилки не завершують гру.</small><b>Почати →</b></button>
+            <button type="button" onClick={() => router.push(`/games/battle?mode=${mode}&format=survival`)}><span aria-hidden="true">♥</span><strong>Виживання</strong><small>Три життя. Грай, доки вони не закінчаться.</small><b>Почати →</b></button>
+          </div>
+          <button type="button" className="games-setup__switch" onClick={() => router.push(`/games/battle?mode=${mode === "rating" ? "release_date" : "rating"}`)}>Змінити на «{MODE_TITLES[mode === "rating" ? "release_date" : "rating"]}»</button>
+        </section>
+      ) : null}
       {status === "loading" && (
         <div className="games-loading">
           <span className="games-loading__reel" aria-hidden="true" />
@@ -190,7 +205,7 @@ export function BattleScreen() {
                   </span>
                 </>
               )}
-              <span className="games-lives" aria-label={`Життя: ${lives} з ${maxLives}`}>
+              {endless ? <span className="games-lives" aria-label={`Життя: ${lives} з ${maxLives}`}>
                 {Array.from({ length: maxLives }).map((_, i) => (
                   <span
                     key={i}
@@ -200,7 +215,7 @@ export function BattleScreen() {
                     ♥
                   </span>
                 ))}
-              </span>
+              </span> : null}
             </div>
             {!endless ? (
               <div className="games-progress" aria-hidden="true">
@@ -251,7 +266,7 @@ export function BattleScreen() {
           {isRevealed && (
             <GameRevealPanel
               isCorrect={selected === question.answer}
-              isLast={isOutOfLives || (!endless && questionNumber >= totalQuestions)}
+                isLast={isOutOfLives || (!endless && questionNumber >= totalQuestions)}
               onNext={next}
             />
           )}

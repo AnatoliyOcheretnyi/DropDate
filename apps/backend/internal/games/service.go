@@ -19,7 +19,7 @@ const (
 	maxCount     = 20
 
 	// poolSize caps how many distinct titles we enrich/consider per request.
-	poolSize        = 30
+	poolSize        = 48
 	perListFetch    = 20
 	maxConcurrency  = 6
 	ratingMinGap    = 0.4
@@ -27,11 +27,15 @@ const (
 )
 
 var prompts = map[Mode]string{
-	ModeReleaseDate: "Який фільм вийшов раніше?",
-	ModeRating:      "У якого фільму вищий рейтинг TMDB?",
-	ModePoster:      "Що це за фільм?",
-	ModeTimeline:    "Розстав фільми від найстарішого до найновішого",
-	ModeYear:        "Якого року вийшов цей фільм?",
+	ModeReleaseDate:   "Який фільм вийшов раніше?",
+	ModeRating:        "У якого фільму вищий рейтинг TMDB?",
+	ModePoster:        "Що це за фільм?",
+	ModeTimeline:      "Розстав фільми від найстарішого до найновішого",
+	ModeYear:          "Якого року вийшов цей фільм?",
+	ModeMovieDirector: "Хто режисер цього фільму?",
+	ModeDirectorMovie: "Який фільм зняв цей режисер?",
+	ModeMovieActor:    "Хто з цих акторів грав у фільмі?",
+	ModeActorMovie:    "У якому фільмі грав цей актор?",
 }
 
 const (
@@ -64,7 +68,7 @@ func NewService(catalog catalogSource, logger *log.Logger) *Service {
 // SupportedMode reports whether a mode string maps to a known game mode.
 func SupportedMode(value string) (Mode, bool) {
 	switch mode := Mode(strings.TrimSpace(strings.ToLower(value))); mode {
-	case ModeReleaseDate, ModeRating, ModePoster, ModeTimeline, ModeYear:
+	case ModeReleaseDate, ModeRating, ModePoster, ModeTimeline, ModeYear, ModeMovieDirector, ModeDirectorMovie, ModeMovieActor, ModeActorMovie:
 		return mode, true
 	default:
 		return "", false
@@ -123,6 +127,8 @@ func (s *Service) generate(ctx context.Context, mode Mode, count int, intn func(
 		questions = buildTimelineQuestions(pool, count, intn)
 	case ModeYear:
 		questions = buildYearQuestions(pool, count, intn)
+	case ModeMovieDirector, ModeDirectorMovie, ModeMovieActor, ModeActorMovie:
+		questions = buildPeopleQuestions(mode, pool, count, intn)
 	default:
 		questions = buildPairQuestions(mode, pool, count, intn)
 	}
@@ -166,6 +172,18 @@ func (s *Service) buildPool(ctx context.Context, mode Mode) ([]candidate, error)
 				pool = append(pool, c)
 			}
 		}
+	case ModeMovieDirector, ModeDirectorMovie:
+		for _, c := range enriched {
+			if len(c.directors) > 0 {
+				pool = append(pool, c)
+			}
+		}
+	case ModeMovieActor, ModeActorMovie:
+		for _, c := range enriched {
+			if len(c.cast) > 0 {
+				pool = append(pool, c)
+			}
+		}
 	default:
 		return nil, fmt.Errorf("unsupported mode: %s", mode)
 	}
@@ -175,7 +193,7 @@ func (s *Service) buildPool(ctx context.Context, mode Mode) ([]candidate, error)
 // gatherSuggestions pulls popular, top-rated and trending movies and dedups
 // them by tmdbId, preserving discovery order.
 func (s *Service) gatherSuggestions(ctx context.Context) []release.Suggestion {
-	lists := make([][]release.Suggestion, 0, 3)
+	lists := make([][]release.Suggestion, 0, 4)
 	if popular, err := s.catalog.Popular(ctx, "movie", perListFetch); err == nil {
 		lists = append(lists, popular)
 	} else {
@@ -190,6 +208,11 @@ func (s *Service) gatherSuggestions(ctx context.Context) []release.Suggestion {
 		lists = append(lists, trending)
 	} else {
 		s.logf("games trending fetch failed: %v", err)
+	}
+	if trending, err := s.catalog.TrendingByType(ctx, "movie", "day", perListFetch); err == nil {
+		lists = append(lists, trending)
+	} else {
+		s.logf("games daily trending fetch failed: %v", err)
 	}
 
 	seen := make(map[int]bool)
@@ -247,7 +270,7 @@ func (s *Service) enrichPool(ctx context.Context, suggestions []release.Suggesti
 				ReleaseDate: details.ReleaseDate,
 				Rating:      details.VoteAverage,
 			}
-			cand := candidate{card: card}
+			cand := candidate{card: card, cast: details.Cast, directors: details.Directors}
 			if parsed, err := time.Parse("2006-01-02", strings.TrimSpace(details.ReleaseDate)); err == nil {
 				cand.releaseDate = parsed
 				cand.hasDate = true
@@ -266,9 +289,90 @@ func (s *Service) enrichPool(ctx context.Context, suggestions []release.Suggesti
 	return pool
 }
 
-// buildPairQuestions greedily forms valid, varied pairs from the pool. A first
-// pass caps each title to two appearances; a second pass relaxes that cap if
-// the pool is too small to reach the requested count.
+func buildPeopleQuestions(mode Mode, pool []candidate, count int, intn func(int) int) []Question {
+	questions := make([]Question, 0, count)
+	order := permute(len(pool), intn)
+	for _, index := range order {
+		if len(questions) >= count {
+			break
+		}
+		subject := pool[index]
+		var correct PersonCard
+		if mode == ModeMovieDirector || mode == ModeDirectorMovie {
+			member := subject.directors[0]
+			correct = PersonCard{member.TMDBID, member.Name, member.ProfileURL, member.Job}
+		} else {
+			member := subject.cast[0]
+			correct = PersonCard{member.TMDBID, member.Name, member.ProfileURL, member.Character}
+		}
+		if correct.TMDBID <= 0 {
+			continue
+		}
+		people := []PersonCard{correct}
+		seen := map[int]bool{correct.TMDBID: true}
+		credited := make(map[int]bool)
+		if mode == ModeMovieDirector {
+			for _, member := range subject.directors {
+				credited[member.TMDBID] = true
+			}
+		}
+		if mode == ModeMovieActor {
+			for _, member := range subject.cast {
+				credited[member.TMDBID] = true
+			}
+		}
+		options := []TitleCard{subject.card}
+		seenTitles := map[int]bool{subject.card.TMDBID: true}
+		for attempts := 0; attempts < maxPairAttempts && (len(people) < 4 || len(options) < 4); attempts++ {
+			decoy := pool[intn(len(pool))]
+			if len(options) < 4 && !seenTitles[decoy.card.TMDBID] {
+				seenTitles[decoy.card.TMDBID] = true
+				options = append(options, decoy.card)
+			}
+			if len(people) < 4 {
+				var person PersonCard
+				if mode == ModeMovieDirector || mode == ModeDirectorMovie {
+					m := decoy.directors[0]
+					person = PersonCard{m.TMDBID, m.Name, m.ProfileURL, m.Job}
+				} else {
+					m := decoy.cast[0]
+					person = PersonCard{m.TMDBID, m.Name, m.ProfileURL, m.Character}
+				}
+				if person.TMDBID > 0 && !seen[person.TMDBID] && !credited[person.TMDBID] {
+					seen[person.TMDBID] = true
+					people = append(people, person)
+				}
+			}
+		}
+		if len(people) < 4 || len(options) < 4 {
+			continue
+		}
+		shufflePeople(people, intn)
+		shuffleCards(options, intn)
+		card := subject.card
+		question := Question{ID: fmt.Sprintf("q_%02d", len(questions)+1), Mode: mode, Prompt: prompts[mode], AnswerID: correct.TMDBID}
+		if mode == ModeMovieDirector || mode == ModeMovieActor {
+			question.Card = &card
+			question.People = people
+		} else {
+			question.Person = &correct
+			question.Options = options
+			question.AnswerID = subject.card.TMDBID
+		}
+		questions = append(questions, question)
+	}
+	return questions
+}
+
+func shufflePeople(items []PersonCard, intn func(int) int) {
+	for i := len(items) - 1; i > 0; i-- {
+		j := intn(i + 1)
+		items[i], items[j] = items[j], items[i]
+	}
+}
+
+// buildPairQuestions forms unique-title pairs and progressively narrows the
+// metric gap, so later rounds are harder without recycling the same movies.
 func buildPairQuestions(mode Mode, pool []candidate, count int, intn func(int) int) []Question {
 	questions := make([]Question, 0, count)
 	if len(pool) < 2 {
@@ -277,41 +381,60 @@ func buildPairQuestions(mode Mode, pool []candidate, count int, intn func(int) i
 
 	usage := make(map[int]int)
 	usedPairs := make(map[string]bool)
-
-	fill := func(capUsage bool) {
-		attempts := 0
-		limit := count * maxPairAttempts
-		for len(questions) < count && attempts < limit {
-			attempts++
-			i := intn(len(pool))
-			j := intn(len(pool))
-			if i == j {
-				continue
-			}
-			a, b := pool[i], pool[j]
-			pairKey := pairKey(a.card.TMDBID, b.card.TMDBID)
-			if usedPairs[pairKey] {
-				continue
-			}
-			if capUsage && (usage[a.card.TMDBID] >= 2 || usage[b.card.TMDBID] >= 2) {
-				continue
-			}
-			question, ok := makeQuestion(mode, a, b, len(questions))
-			if !ok {
-				continue
-			}
-			questions = append(questions, question)
-			usedPairs[pairKey] = true
-			usage[a.card.TMDBID]++
-			usage[b.card.TMDBID]++
-		}
+	attempts := 0
+	limit := count * maxPairAttempts
+	maxUsage := 1
+	if len(pool) < count*2 {
+		maxUsage = 2
 	}
-
-	fill(true)
-	if len(questions) < count {
-		fill(false)
+	for len(questions) < count && attempts < limit {
+		attempts++
+		i := intn(len(pool))
+		j := intn(len(pool))
+		if i == j {
+			continue
+		}
+		a, b := pool[i], pool[j]
+		pairKey := pairKey(a.card.TMDBID, b.card.TMDBID)
+		if usedPairs[pairKey] {
+			continue
+		}
+		if usage[a.card.TMDBID] >= maxUsage || usage[b.card.TMDBID] >= maxUsage {
+			continue
+		}
+		if len(pool) >= count*3 && !fitsDifficulty(mode, a, b, len(questions), count) {
+			continue
+		}
+		question, ok := makeQuestion(mode, a, b, len(questions))
+		if !ok {
+			continue
+		}
+		questions = append(questions, question)
+		usedPairs[pairKey] = true
+		usage[a.card.TMDBID]++
+		usage[b.card.TMDBID]++
 	}
 	return questions
+}
+
+func fitsDifficulty(mode Mode, a, b candidate, index, count int) bool {
+	progress := float64(index) / float64(max(1, count-1))
+	switch mode {
+	case ModeReleaseDate:
+		days := a.releaseDate.Sub(b.releaseDate).Hours() / 24
+		if days < 0 {
+			days = -days
+		}
+		return days <= (35.0-progress*31.0)*365.25
+	case ModeRating:
+		diff := a.card.Rating - b.card.Rating
+		if diff < 0 {
+			diff = -diff
+		}
+		return diff <= 3.0-progress*2.4
+	default:
+		return true
+	}
 }
 
 // makeQuestion validates a pair for the mode and builds the question with the

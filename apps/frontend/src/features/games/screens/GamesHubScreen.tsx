@@ -25,6 +25,15 @@ type HubCard = {
 
 const CARDS: HubCard[] = [
   {
+    id: "people",
+    href: "/games/people",
+    emoji: "🎭",
+    title: "Люди кіно",
+    description: "Поєднуй акторів і режисерів з фільмами та змінюй напрям гри",
+    accentA: "rgba(204, 154, 255, 0.35)",
+    accentB: "rgba(62, 34, 86, 0.5)",
+  },
+  {
     id: "akinator",
     href: "/games/akinator",
     emoji: "🔮",
@@ -54,16 +63,6 @@ const CARDS: HubCard[] = [
     accentB: "rgba(24, 44, 84, 0.5)",
     statsKey: "battle_rating",
     statUnit: "/10",
-  },
-  {
-    id: "streak",
-    href: "/games/battle?mode=release_date&endless=1",
-    emoji: "🔥",
-    title: "Стрік",
-    description: "Одне життя. Грай, поки не помилишся",
-    accentA: "rgba(240, 150, 115, 0.35)",
-    accentB: "rgba(84, 40, 24, 0.5)",
-    statsKey: "streak",
   },
   {
     id: "blitz",
