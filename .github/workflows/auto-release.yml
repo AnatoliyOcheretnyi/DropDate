@@ -7,6 +7,14 @@ on:
 permissions:
   contents: write
 
+# A release deploys before it records the verified VERSION commit. Serialize
+# runs for the same branch so two successful deploys cannot race their final
+# commit/tag push. Do not cancel an active deployment when a newer request is
+# queued; the newer run will start after the current release is fully recorded.
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -131,6 +139,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Sync release commit base
+        shell: bash
+        run: |
+          # A run may have waited in the concurrency queue while an earlier
+          # release recorded its VERSION commit. Calculate this bump from the
+          # current main tip, not from the event SHA captured before the wait.
+          git fetch origin main
+          git checkout -B release-work origin/main
       - name: Bump versions after successful deployment
         id: versions
         shell: bash
@@ -152,11 +168,18 @@ jobs:
             echo "mobile=$next" >> "$GITHUB_OUTPUT"
           fi
       - name: Commit version bump
+        shell: bash
         run: |
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "chore(release): bump verified app versions [skip ci]"
+
+            # Concurrency prevents another auto-release from writing main, but
+            # a maintainer may still push while deployment is finishing. Rebase
+            # the small VERSION-only commit once onto that newer tip.
+            git fetch origin main
+            git rebase origin/main
             git push origin HEAD:main
           else
             echo "Current-version release: no VERSION commit required."
