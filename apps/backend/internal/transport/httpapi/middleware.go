@@ -3,6 +3,8 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/observability"
@@ -32,7 +34,20 @@ func (w *statusWriter) Write(p []byte) (int, error) {
 
 func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.requestTimeout > 0 {
+		if s.maxBodyBytes > 0 && (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch) {
+			r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes)
+		}
+
+		if r.URL.Path != "/health" && r.URL.Path != "/ready" {
+			class, limit := s.rateLimiter.policy(r.URL.Path)
+			key := class + ":" + clientAddress(r)
+			if !s.rateLimiter.allow(key, limit, time.Now()) {
+				w.Header().Set("Retry-After", strconv.Itoa(60))
+				writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+				return
+			}
+		}
+		if s.requestTimeout > 0 && !strings.HasPrefix(r.URL.Path, "/jobs/") {
 			ctx, cancel := context.WithTimeout(r.Context(), s.requestTimeout)
 			defer cancel()
 			r = r.WithContext(ctx)

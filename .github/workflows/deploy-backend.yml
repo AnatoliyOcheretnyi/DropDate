@@ -6,7 +6,33 @@ on:
       - "backend/v*"
 
 jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache-dependency-path: apps/backend/go.sum
+
+      - name: Install workspace dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Vet, test and build
+        run: yarn nx run-many -t lint,test,build -p backend --nxBail
+
+      - name: Race detector
+        run: yarn nx exec -p backend --skipNxCache -- go test -race ./...
+
   deploy:
+    needs: checks
     runs-on: ubuntu-latest
     env:
       RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
@@ -14,7 +40,7 @@ jobs:
       - name: Trigger Render deploy hook
         run: |
           if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "Missing RENDER_DEPLOY_HOOK_URL secret. Skipping deploy."
-            exit 0
+            echo "Missing RENDER_DEPLOY_HOOK_URL secret."
+            exit 1
           fi
-          curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+          curl --fail-with-body --show-error --silent -X POST "$RENDER_DEPLOY_HOOK_URL"

@@ -81,6 +81,19 @@ Environment variables:
 - `JOBS_ACCESS_TOKEN` – shared secret for the job endpoint.
 - `NOTIFICATIONS_JOB_INTERVAL` – schedule interval (default `24h`, set to `0` to disable).
 
+All `/jobs/*` endpoints fail closed when `JOBS_ACCESS_TOKEN` is missing. Configure
+the token in every deployed environment before enabling external cron calls.
+
+## Production safety configuration
+
+- `HTTP_MAX_BODY_BYTES` – maximum request body size (default `1048576`).
+- `HTTP_RATE_LIMIT_PER_MINUTE` – general per-instance client limit (default `240`).
+- `AUTH_RATE_LIMIT_PER_MINUTE` – stricter auth limit (default `20`).
+- `EXPENSIVE_RATE_LIMIT_PER_MINUTE` – AI, game and job limit (default `30`).
+- `SUPERUSER_EMAILS` – comma-separated privileged account emails.
+- `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS` – database pool bounds.
+- `DB_CONN_MAX_LIFETIME` / `DB_CONN_MAX_IDLE_TIME` – pool recycling intervals.
+
 ## Swagger / OpenAPI
 
 - Documentation UI is served at `http://localhost:8080/swagger/`.

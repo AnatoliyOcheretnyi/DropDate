@@ -20,6 +20,7 @@ apps/mobile/.expo-shared/
 # Env files
 .env
 .env.*
+!apps/backend/.env.example
 apps/frontend/.env.local
 apps/backend/.env
 apps/backend/.env.local

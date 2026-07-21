@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/akinator"
 )
@@ -90,12 +92,18 @@ func (s *Server) akinatorJobHandler(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
+	if status, ok := s.authorizeJob(r); !ok {
+		writeError(w, status, http.StatusText(status))
+		return
+	}
 	if s.akinatorBuilder == nil {
 		writeError(w, http.StatusServiceUnavailable, "akinator builder unavailable")
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	written, err := s.akinatorBuilder.Refresh(r.Context(), limit)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	defer cancel()
+	written, err := s.akinatorBuilder.Refresh(ctx, limit)
 	if err != nil {
 		s.logger.Printf("akinator refresh failed after %d rows: %v", written, err)
 		writeError(w, http.StatusBadGateway, "akinator refresh failed")

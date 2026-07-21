@@ -19,6 +19,20 @@ type Config struct {
 	Email           EmailConfig
 	AI              AIConfig
 	Recommendations RecommendationsConfig
+	Security        SecurityConfig
+	Jobs            JobsConfig
+}
+
+type SecurityConfig struct {
+	MaxBodyBytes           int64
+	GeneralRatePerMinute   int
+	AuthRatePerMinute      int
+	ExpensiveRatePerMinute int
+	SuperuserEmails        []string
+}
+
+type JobsConfig struct {
+	AccessToken string
 }
 
 type AIConfig struct {
@@ -63,7 +77,11 @@ type TMDBConfig struct {
 }
 
 type DatabaseConfig struct {
-	DSN string
+	DSN             string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
 }
 
 type AuthConfig struct {
@@ -112,7 +130,11 @@ func LoadConfig() (Config, error) {
 			Token: config.String("TMDB_ACCESS_TOKEN", ""),
 		},
 		Database: DatabaseConfig{
-			DSN: config.String("SUPABASE_CONNECTION_STRING", ""),
+			DSN:             config.String("SUPABASE_CONNECTION_STRING", ""),
+			MaxOpenConns:    config.Int("DB_MAX_OPEN_CONNS", 10),
+			MaxIdleConns:    config.Int("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: config.Duration("DB_CONN_MAX_LIFETIME", 30*time.Minute),
+			ConnMaxIdleTime: config.Duration("DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		},
 		Notifications: NotificationsConfig{
 			Interval: config.Duration("NOTIFICATIONS_JOB_INTERVAL", 24*time.Hour),
@@ -132,6 +154,16 @@ func LoadConfig() (Config, error) {
 		},
 		Recommendations: RecommendationsConfig{
 			RefreshDebounce: config.Duration("RECOMMENDATIONS_REFRESH_DEBOUNCE", 5*time.Minute),
+		},
+		Security: SecurityConfig{
+			MaxBodyBytes:           config.Int64("HTTP_MAX_BODY_BYTES", 1<<20),
+			GeneralRatePerMinute:   config.Int("HTTP_RATE_LIMIT_PER_MINUTE", 240),
+			AuthRatePerMinute:      config.Int("AUTH_RATE_LIMIT_PER_MINUTE", 20),
+			ExpensiveRatePerMinute: config.Int("EXPENSIVE_RATE_LIMIT_PER_MINUTE", 30),
+			SuperuserEmails:        splitCommaSeparated(config.String("SUPERUSER_EMAILS", "")),
+		},
+		Jobs: JobsConfig{
+			AccessToken: config.String("JOBS_ACCESS_TOKEN", ""),
 		},
 	}
 
@@ -158,6 +190,17 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
+func splitCommaSeparated(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if normalized := strings.ToLower(strings.TrimSpace(part)); normalized != "" {
+			result = append(result, normalized)
+		}
+	}
+	return result
+}
+
 type validationErrors []string
 
 func (v validationErrors) Error() string {
@@ -172,11 +215,26 @@ func (c Config) Validate() error {
 	if c.HTTP.RequestTimeout < 0 {
 		errs = append(errs, "HTTP_REQUEST_TIMEOUT must be >= 0")
 	}
+	if c.Security.MaxBodyBytes <= 0 {
+		errs = append(errs, "HTTP_MAX_BODY_BYTES must be > 0")
+	}
+	if c.Security.GeneralRatePerMinute <= 0 || c.Security.AuthRatePerMinute <= 0 || c.Security.ExpensiveRatePerMinute <= 0 {
+		errs = append(errs, "rate limits must be > 0")
+	}
 	if c.Shutdown.Timeout <= 0 {
 		errs = append(errs, "HTTP_SHUTDOWN_TIMEOUT must be > 0")
 	}
 	if c.Database.DSN != "" && c.Auth.JWTSecret == "" {
 		errs = append(errs, "AUTH_JWT_SECRET is required when database is configured")
+	}
+	if c.Database.MaxOpenConns <= 0 {
+		errs = append(errs, "DB_MAX_OPEN_CONNS must be > 0")
+	}
+	if c.Database.MaxIdleConns < 0 || c.Database.MaxIdleConns > c.Database.MaxOpenConns {
+		errs = append(errs, "DB_MAX_IDLE_CONNS must be between 0 and DB_MAX_OPEN_CONNS")
+	}
+	if c.Database.ConnMaxLifetime <= 0 || c.Database.ConnMaxIdleTime <= 0 {
+		errs = append(errs, "database connection lifetimes must be > 0")
 	}
 	if c.Auth.RequireEmailVerification {
 		if c.Email.ResendAPIKey == "" {

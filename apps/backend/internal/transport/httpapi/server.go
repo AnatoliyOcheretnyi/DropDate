@@ -50,6 +50,10 @@ type ServerOptions struct {
 	Readiness        ReadinessChecker
 	ReadinessTimeout time.Duration
 	RequestTimeout   time.Duration
+	MaxBodyBytes     int64
+	RateLimits       RateLimitConfig
+	JobsAccessToken  string
+	SuperuserEmails  []string
 	AI               *airecs.Service
 	Capabilities     capabilities.Resolver
 	People           *people.Service
@@ -86,6 +90,10 @@ type Server struct {
 	readiness        ReadinessChecker
 	readinessTimeout time.Duration
 	requestTimeout   time.Duration
+	maxBodyBytes     int64
+	rateLimiter      *rateLimiter
+	jobsAccessToken  string
+	superuserEmails  map[string]struct{}
 	logger           *log.Logger
 }
 
@@ -106,6 +114,12 @@ func NewServer(
 	}
 	if options.ReadinessTimeout <= 0 {
 		options.ReadinessTimeout = 2 * time.Second
+	}
+	superusers := make(map[string]struct{}, len(options.SuperuserEmails))
+	for _, email := range options.SuperuserEmails {
+		if normalized := strings.ToLower(strings.TrimSpace(email)); normalized != "" {
+			superusers[normalized] = struct{}{}
+		}
 	}
 	return &Server{
 		releases:         releases,
@@ -130,6 +144,10 @@ func NewServer(
 		readiness:        options.Readiness,
 		readinessTimeout: options.ReadinessTimeout,
 		requestTimeout:   options.RequestTimeout,
+		maxBodyBytes:     options.MaxBodyBytes,
+		rateLimiter:      newRateLimiter(options.RateLimits),
+		jobsAccessToken:  strings.TrimSpace(options.JobsAccessToken),
+		superuserEmails:  superusers,
 		logger:           logger,
 	}
 }
@@ -146,10 +164,9 @@ func (s *Server) Routes() http.Handler {
 	return s.withMiddleware(mux)
 }
 
-const superuserEmail = "svito014@gmail.com"
-
 func (s *Server) isSuperuserEmail(email string) bool {
-	return strings.EqualFold(strings.TrimSpace(email), superuserEmail)
+	_, ok := s.superuserEmails[strings.ToLower(strings.TrimSpace(email))]
+	return ok
 }
 
 func (s *Server) requireSuperuser(r *http.Request) (auth.User, error) {

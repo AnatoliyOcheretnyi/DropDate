@@ -188,17 +188,25 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			Readiness:        readiness,
 			ReadinessTimeout: cfg.Readiness.Timeout,
 			RequestTimeout:   cfg.HTTP.RequestTimeout,
-			AI:               aiService,
-			Capabilities:     capabilitiesResolver,
-			People:           peopleService,
-			Achievements:     achievementsService,
-			Friends:          friendsService,
-			Akinator:         akinatorService,
-			AkinatorBuilder:  akinatorBuilder,
-			Taste:            tasteService,
-			Social:           socialService,
-			GameStats:        gameStatsService,
-			Episodes:         episodeService,
+			MaxBodyBytes:     cfg.Security.MaxBodyBytes,
+			RateLimits: httpapi.RateLimitConfig{
+				GeneralPerMinute:   cfg.Security.GeneralRatePerMinute,
+				AuthPerMinute:      cfg.Security.AuthRatePerMinute,
+				ExpensivePerMinute: cfg.Security.ExpensiveRatePerMinute,
+			},
+			JobsAccessToken: cfg.Jobs.AccessToken,
+			SuperuserEmails: cfg.Security.SuperuserEmails,
+			AI:              aiService,
+			Capabilities:    capabilitiesResolver,
+			People:          peopleService,
+			Achievements:    achievementsService,
+			Friends:         friendsService,
+			Akinator:        akinatorService,
+			AkinatorBuilder: akinatorBuilder,
+			Taste:           tasteService,
+			Social:          socialService,
+			GameStats:       gameStatsService,
+			Episodes:        episodeService,
 		},
 	)
 
@@ -317,6 +325,10 @@ func openDatabase(cfg DatabaseConfig) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
