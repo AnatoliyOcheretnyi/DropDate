@@ -1,17 +1,19 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { NotificationBell } from '../../../shared/ui/NotificationBell';
+import { StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { NotificationBell } from "../../../shared/ui/NotificationBell";
 
-import { colors } from '../../../shared/theme/colors';
-import { copy } from '../../../shared/strings';
-import { SavedHeader } from './components/SavedHeader';
-import { SavedSection } from './components/SavedSection';
-import { useSavedScreen } from '../hooks/useSavedScreen';
+import { colors } from "../../../shared/theme/colors";
+import { copy } from "../../../shared/strings";
+import { SavedHeader } from "./components/SavedHeader";
+import { SavedSection } from "./components/SavedSection";
+import { useSavedScreen } from "../hooks/useSavedScreen";
 
 export default function SavedScreen() {
   const {
     activeList,
     setActiveList,
+    sort,
+    setSort,
     listItems,
     sections,
     stats,
@@ -37,10 +39,14 @@ export default function SavedScreen() {
             activeList={activeList}
             onChangeList={setActiveList}
             stats={stats}
+            sort={sort}
+            onChangeSort={setSort}
           />
         }
         ListEmptyComponent={
-          listItems.length === 0 ? <Text style={styles.hint}>{copy.hints.listEmpty}</Text> : null
+          listItems.length === 0 ? (
+            <Text style={styles.hint}>{copy.hints.listEmpty}</Text>
+          ) : null
         }
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}

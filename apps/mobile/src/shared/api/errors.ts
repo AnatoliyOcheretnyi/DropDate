@@ -6,8 +6,9 @@ export class ApiError extends Error {
     readonly payload?: unknown,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
-export const isApiError = (error: unknown): error is ApiError => error instanceof ApiError;
+export const isApiError = (error: unknown): error is ApiError =>
+  error instanceof ApiError;

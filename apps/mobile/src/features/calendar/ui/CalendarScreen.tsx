@@ -1,4 +1,203 @@
-import { useMemo,useState } from 'react';import { Text,View,StyleSheet } from 'react-native';import { useQuery } from '@tanstack/react-query';import { useRouter } from 'expo-router';import { Ionicons } from '@expo/vector-icons';import { FeatureScreen,featureStyles as s } from '../../../shared/ui/FeatureScreen';import { MotionPressable } from '../../../shared/ui/MotionPressable';import { AnimatedSection } from '../../../shared/ui/AnimatedScreen';import { useSaved } from '../../saved/hooks/useSaved';import { useAuthStore } from '../../auth/store/authStore';import { getNotifications } from '../../notifications/api/notifications';import { queryKeys } from '../../../shared/api/queryKeys';import { colors } from '../../../shared/theme/colors';
-type Event={id:string;tmdbId:number;mediaType:'movie'|'tv';title:string;date:string;source:'subscription'|'history'};type Mode='week'|'month';const day=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate());const add=(d:Date,n:number)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};const key=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-export function CalendarScreen(){const router=useRouter();const[mode,setMode]=useState<Mode>('week');const[anchor,setAnchor]=useState(()=>day(new Date()));const{saved}=useSaved();const authed=useAuthStore(x=>Boolean(x.user&&x.accessToken));const history=useQuery({queryKey:queryKeys.notifications,queryFn:({signal})=>getNotifications(signal),enabled:authed});const events=useMemo(()=>{const map=new Map<string,Event>();saved.filter(x=>x.nextRelease&&x.listTypes.some(t=>t==='follow'||t==='watchlist')).forEach(x=>map.set(`${x.mediaType}:${x.tmdbId}:${x.nextRelease}`,{id:x.id,tmdbId:x.tmdbId,mediaType:x.mediaType,title:x.title,date:x.nextRelease!,source:'subscription'}));history.data?.items.filter(x=>x.releaseDate).forEach(x=>{if(x.mediaType==='social')return;const k=`${x.mediaType}:${x.tmdbId}:${x.releaseDate}`;if(!map.has(k))map.set(k,{id:x.id,tmdbId:x.tmdbId,mediaType:x.mediaType,title:x.title,date:x.releaseDate!,source:'history'})});return [...map.values()]},[history.data,saved]);const days=useMemo(()=>{if(mode==='week'){const weekday=anchor.getDay()||7;const start=add(anchor,1-weekday);return Array.from({length:7},(_,i)=>add(start,i))}const start=new Date(anchor.getFullYear(),anchor.getMonth(),1);const gridStart=add(start,-((start.getDay()||7)-1));return Array.from({length:42},(_,i)=>add(gridStart,i))},[anchor,mode]);const byDay=useMemo(()=>new Map(days.map(d=>[key(d),events.filter(e=>key(new Date(e.date))===key(d))])),[days,events]);const shift=(delta:number)=>setAnchor(x=>add(x,delta*(mode==='week'?7:30)));const label=new Intl.DateTimeFormat('uk-UA',mode==='week'?{day:'numeric',month:'short',year:'numeric'}:{month:'long',year:'numeric'}).format(anchor);return <FeatureScreen title="Календар релізів" subtitle="Тиждень і місяць із підписок та історії."><View style={styles.toolbar}><MotionPressable style={styles.nav} onPress={()=>shift(-1)}><Ionicons name="chevron-back" color={colors.text} size={22}/></MotionPressable><Text style={styles.period}>{label}</Text><MotionPressable style={styles.nav} onPress={()=>shift(1)}><Ionicons name="chevron-forward" color={colors.text} size={22}/></MotionPressable></View><View style={styles.modes}>{(['week','month'] as Mode[]).map(x=><MotionPressable key={x} style={[s.option,mode===x&&s.optionSelected]} onPress={()=>setMode(x)}><Text style={s.optionText}>{x==='week'?'Тиждень':'Місяць'}</Text></MotionPressable>)}<MotionPressable style={s.option} onPress={()=>setAnchor(day(new Date()))}><Text style={s.optionText}>Сьогодні</Text></MotionPressable></View>{days.map((date,index)=>{const list=byDay.get(key(date))??[];if(mode==='month'&&!list.length)return null;return <AnimatedSection key={key(date)} index={index}><View style={[s.card,key(date)===key(new Date())&&s.optionSelected]}><Text style={s.heading}>{new Intl.DateTimeFormat('uk-UA',{weekday:'long',day:'numeric',month:'long'}).format(date)}</Text>{list.length?list.map(event=><MotionPressable key={`${event.id}:${event.date}`} style={s.option} onPress={()=>router.push(`/title/${event.mediaType}/${event.tmdbId}`)}><Text style={s.optionText}>{event.title}</Text><Text style={s.text}>{event.source==='history'?'Вийшло':'Очікується'}</Text></MotionPressable>):<Text style={s.text}>Без релізів</Text>}</View></AnimatedSection>})}</FeatureScreen>}
-const styles=StyleSheet.create({toolbar:{flexDirection:'row',alignItems:'center',gap:12},nav:{width:44,height:44,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:colors.card},period:{flex:1,color:colors.text,fontSize:18,fontWeight:'900',textAlign:'center',textTransform:'capitalize'},modes:{flexDirection:'row',gap:8,flexWrap:'wrap'}});
+import { useMemo, useState } from "react";
+import { Text, View, StyleSheet } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  FeatureScreen,
+  featureStyles as s,
+} from "../../../shared/ui/FeatureScreen";
+import { MotionPressable } from "../../../shared/ui/MotionPressable";
+import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
+import { useSaved } from "../../saved/hooks/useSaved";
+import { useAuthStore } from "../../auth/store/authStore";
+import { getNotifications } from "../../notifications/api/notifications";
+import { queryKeys } from "../../../shared/api/queryKeys";
+import { colors } from "../../../shared/theme/colors";
+type Event = {
+  id: string;
+  tmdbId: number;
+  mediaType: "movie" | "tv";
+  title: string;
+  date: string;
+  source: "subscription" | "history";
+};
+type Mode = "week" | "month";
+const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const add = (d: Date, n: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+const key = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export function CalendarScreen() {
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>("week");
+  const [anchor, setAnchor] = useState(() => day(new Date()));
+  const { saved } = useSaved();
+  const authed = useAuthStore((x) => Boolean(x.user && x.accessToken));
+  const history = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: ({ signal }) => getNotifications(signal),
+    enabled: authed,
+  });
+  const events = useMemo(() => {
+    const map = new Map<string, Event>();
+    saved
+      .filter(
+        (x) =>
+          x.nextRelease &&
+          x.listTypes.some((t) => t === "follow" || t === "watchlist"),
+      )
+      .forEach((x) =>
+        map.set(`${x.mediaType}:${x.tmdbId}:${x.nextRelease}`, {
+          id: x.id,
+          tmdbId: x.tmdbId,
+          mediaType: x.mediaType,
+          title: x.title,
+          date: x.nextRelease!,
+          source: "subscription",
+        }),
+      );
+    history.data?.items
+      .filter((x) => x.releaseDate)
+      .forEach((x) => {
+        if (x.mediaType === "social") return;
+        const k = `${x.mediaType}:${x.tmdbId}:${x.releaseDate}`;
+        if (!map.has(k))
+          map.set(k, {
+            id: x.id,
+            tmdbId: x.tmdbId,
+            mediaType: x.mediaType,
+            title: x.title,
+            date: x.releaseDate!,
+            source: "history",
+          });
+      });
+    return [...map.values()];
+  }, [history.data, saved]);
+  const days = useMemo(() => {
+    if (mode === "week") {
+      const weekday = anchor.getDay() || 7;
+      const start = add(anchor, 1 - weekday);
+      return Array.from({ length: 7 }, (_, i) => add(start, i));
+    }
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const gridStart = add(start, -((start.getDay() || 7) - 1));
+    return Array.from({ length: 42 }, (_, i) => add(gridStart, i));
+  }, [anchor, mode]);
+  const byDay = useMemo(
+    () =>
+      new Map(
+        days.map((d) => [
+          key(d),
+          events.filter((e) => key(new Date(e.date)) === key(d)),
+        ]),
+      ),
+    [days, events],
+  );
+  const shift = (delta: number) =>
+    setAnchor((x) => add(x, delta * (mode === "week" ? 7 : 30)));
+  const label = new Intl.DateTimeFormat(
+    "uk-UA",
+    mode === "week"
+      ? { day: "numeric", month: "short", year: "numeric" }
+      : { month: "long", year: "numeric" },
+  ).format(anchor);
+  return (
+    <FeatureScreen
+      title="Календар релізів"
+      subtitle="Тиждень і місяць із підписок та історії."
+    >
+      <View style={styles.toolbar}>
+        <MotionPressable style={styles.nav} onPress={() => shift(-1)}>
+          <Ionicons name="chevron-back" color={colors.text} size={22} />
+        </MotionPressable>
+        <Text style={styles.period}>{label}</Text>
+        <MotionPressable style={styles.nav} onPress={() => shift(1)}>
+          <Ionicons name="chevron-forward" color={colors.text} size={22} />
+        </MotionPressable>
+      </View>
+      <View style={styles.modes}>
+        {(["week", "month"] as Mode[]).map((x) => (
+          <MotionPressable
+            key={x}
+            style={[s.option, mode === x && s.optionSelected]}
+            onPress={() => setMode(x)}
+          >
+            <Text style={s.optionText}>
+              {x === "week" ? "Тиждень" : "Місяць"}
+            </Text>
+          </MotionPressable>
+        ))}
+        <MotionPressable
+          style={s.option}
+          onPress={() => setAnchor(day(new Date()))}
+        >
+          <Text style={s.optionText}>Сьогодні</Text>
+        </MotionPressable>
+      </View>
+      {days.map((date, index) => {
+        const list = byDay.get(key(date)) ?? [];
+        if (mode === "month" && !list.length) return null;
+        return (
+          <AnimatedSection key={key(date)} index={index}>
+            <View
+              style={[
+                s.card,
+                key(date) === key(new Date()) && s.optionSelected,
+              ]}
+            >
+              <Text style={s.heading}>
+                {new Intl.DateTimeFormat("uk-UA", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                }).format(date)}
+              </Text>
+              {list.length ? (
+                list.map((event) => (
+                  <MotionPressable
+                    key={`${event.id}:${event.date}`}
+                    style={s.option}
+                    onPress={() =>
+                      router.push(`/title/${event.mediaType}/${event.tmdbId}`)
+                    }
+                  >
+                    <Text style={s.optionText}>{event.title}</Text>
+                    <Text style={s.text}>
+                      {event.source === "history" ? "Вийшло" : "Очікується"}
+                    </Text>
+                  </MotionPressable>
+                ))
+              ) : (
+                <Text style={s.text}>Без релізів</Text>
+              )}
+            </View>
+          </AnimatedSection>
+        );
+      })}
+    </FeatureScreen>
+  );
+}
+const styles = StyleSheet.create({
+  toolbar: { flexDirection: "row", alignItems: "center", gap: 12 },
+  nav: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: colors.card,
+  },
+  period: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "900",
+    textAlign: "center",
+    textTransform: "capitalize",
+  },
+  modes: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+});

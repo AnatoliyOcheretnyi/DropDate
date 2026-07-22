@@ -1,3 +1,96 @@
-import{useEffect,useMemo,useState}from'react';import{Alert,StyleSheet,Text,TextInput,View}from'react-native';import{useMutation,useQuery,useQueryClient}from'@tanstack/react-query';import{useTheme}from'../../../../shared/theme/ThemeProvider';import type{Palette}from'../../../../shared/theme/palette';import{MotionPressable}from'../../../../shared/ui/MotionPressable';import{getProfile,updateUsername}from'../../api/profile';
-const key=['profile','identity']as const;export function UsernameEditor(){const{colors}=useTheme();const styles=useMemo(()=>makeStyles(colors),[colors]);const client=useQueryClient();const profile=useQuery({queryKey:key,queryFn:({signal})=>getProfile(signal),staleTime:60_000});const[value,setValue]=useState('');useEffect(()=>{if(profile.data)setValue(profile.data.username)},[profile.data]);const mutation=useMutation({mutationFn:updateUsername,onSuccess:data=>{client.setQueryData(key,data);Alert.alert('Готово','Нікнейм оновлено.')}});return <View style={styles.card}><Text style={styles.title}>Твій нікнейм</Text><Text style={styles.hint}>За ним тебе зможуть знайти друзі.</Text><View style={styles.row}><TextInput value={value} onChangeText={setValue} autoCapitalize="none" autoCorrect={false} maxLength={30} placeholder="movie_fan" placeholderTextColor={colors.textMuted} style={styles.input}/><MotionPressable disabled={mutation.isPending||value.trim().length<3||value.trim()===profile.data?.username} style={styles.save} onPress={()=>void mutation.mutateAsync(value.trim()).catch(error=>Alert.alert('Не вдалося оновити',error.message))}><Text style={styles.saveText}>Зберегти</Text></MotionPressable></View></View>}
-const makeStyles=(c:Palette)=>StyleSheet.create({card:{padding:16,gap:8,borderRadius:20,borderWidth:1,borderColor:c.border,backgroundColor:c.card},title:{color:c.text,fontSize:17,fontWeight:'900'},hint:{color:c.textMuted,fontSize:13},row:{flexDirection:'row',gap:8},input:{flex:1,minHeight:48,paddingHorizontal:14,borderRadius:15,borderWidth:1,borderColor:c.border,color:c.text,backgroundColor:c.elevated},save:{minHeight:48,justifyContent:'center',paddingHorizontal:14,borderRadius:15,backgroundColor:c.accent},saveText:{color:c.background,fontWeight:'900'}});
+import { useEffect, useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
+import { MotionPressable } from "../../../../shared/ui/MotionPressable";
+import { getProfile, updateUsername } from "../../api/profile";
+const key = ["profile", "identity"] as const;
+export function UsernameEditor() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const client = useQueryClient();
+  const profile = useQuery({
+    queryKey: key,
+    queryFn: ({ signal }) => getProfile(signal),
+    staleTime: 60_000,
+  });
+  const [value, setValue] = useState("");
+  useEffect(() => {
+    if (profile.data) setValue(profile.data.username);
+  }, [profile.data]);
+  const mutation = useMutation({
+    mutationFn: updateUsername,
+    onSuccess: (data) => {
+      client.setQueryData(key, data);
+      Alert.alert("Готово", "Нікнейм оновлено.");
+    },
+  });
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>Твій нікнейм</Text>
+      <Text style={styles.hint}>За ним тебе зможуть знайти друзі.</Text>
+      <View style={styles.row}>
+        <TextInput
+          value={value}
+          onChangeText={setValue}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={30}
+          placeholder="movie_fan"
+          placeholderTextColor={colors.textMuted}
+          style={styles.input}
+        />
+        <MotionPressable
+          disabled={
+            mutation.isPending ||
+            value.trim().length < 3 ||
+            value.trim() === profile.data?.username
+          }
+          style={styles.save}
+          onPress={() =>
+            void mutation
+              .mutateAsync(value.trim())
+              .catch((error) =>
+                Alert.alert("Не вдалося оновити", error.message),
+              )
+          }
+        >
+          <Text style={styles.saveText}>Зберегти</Text>
+        </MotionPressable>
+      </View>
+    </View>
+  );
+}
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    card: {
+      padding: 16,
+      gap: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    title: { color: c.text, fontSize: 17, fontWeight: "900" },
+    hint: { color: c.textMuted, fontSize: 13 },
+    row: { flexDirection: "row", gap: 8 },
+    input: {
+      flex: 1,
+      minHeight: 48,
+      paddingHorizontal: 14,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: c.border,
+      color: c.text,
+      backgroundColor: c.elevated,
+    },
+    save: {
+      minHeight: 48,
+      justifyContent: "center",
+      paddingHorizontal: 14,
+      borderRadius: 15,
+      backgroundColor: c.accent,
+    },
+    saveText: { color: c.background, fontWeight: "900" },
+  });

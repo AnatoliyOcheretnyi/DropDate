@@ -1,7 +1,7 @@
-import { useEffect, useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useEffect, useCallback } from "react";
+import { useRouter } from "expo-router";
 
-import { useAuth } from '../store/authStore';
+import { useAuth } from "../store/authStore";
 
 export function useWelcomeScreen() {
   const router = useRouter();
@@ -10,17 +10,17 @@ export function useWelcomeScreen() {
   useEffect(() => {
     if (isLoading) return;
     if (user || isGuest) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [isGuest, isLoading, router, user]);
 
   const handleSignIn = useCallback(() => {
-    router.push('/auth');
+    router.push("/auth");
   }, [router]);
 
   const handleContinueAsGuest = useCallback(() => {
     continueAsGuest();
-    router.replace('/(tabs)');
+    router.replace("/(tabs)");
   }, [continueAsGuest, router]);
 
   return {

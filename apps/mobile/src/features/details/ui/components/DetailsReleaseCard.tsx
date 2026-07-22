@@ -1,10 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
 
-import type { ReleaseInfo } from '../../../../shared/types/release';
-import { colors } from '../../../../shared/theme/colors';
-import { copy } from '../../../../shared/strings';
-import { getReleaseStatusLabel } from '../../../../shared/types/release';
-import { formatFullDate } from '../../../../shared/utils/date';
+import type { ReleaseInfo } from "../../../../shared/types/release";
+import { colors } from "../../../../shared/theme/colors";
+import { copy } from "../../../../shared/strings";
+import { getReleaseStatusLabel } from "../../../../shared/types/release";
+import { formatFullDate } from "../../../../shared/utils/date";
 
 type Props = {
   release: ReleaseInfo;
@@ -30,17 +30,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   sectionTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   releaseLabel: {
     color: colors.textMuted,
     fontSize: 12,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 2,
   },
   releaseDate: {

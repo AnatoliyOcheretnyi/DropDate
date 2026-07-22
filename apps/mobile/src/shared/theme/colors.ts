@@ -1,4 +1,4 @@
-import { darkPalette } from './palette';
+import { darkPalette } from "./palette";
 
 /**
  * Backward-compatible static export. Screens that have not yet migrated to the
@@ -7,4 +7,4 @@ import { darkPalette } from './palette';
  */
 export const colors = darkPalette;
 
-export type { Palette } from './palette';
+export type { Palette } from "./palette";

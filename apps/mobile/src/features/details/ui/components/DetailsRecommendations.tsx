@@ -1,12 +1,12 @@
-import { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
+import { useCallback } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { useRouter } from "expo-router";
 
-import type { Suggestion } from '../../../../shared/types/release';
-import { PosterCard } from '../../../../shared/ui/PosterCard';
-import { colors } from '../../../../shared/theme/colors';
-import { copy } from '../../../../shared/strings';
+import type { Suggestion } from "../../../../shared/types/release";
+import { PosterCard } from "../../../../shared/ui/PosterCard";
+import { colors } from "../../../../shared/theme/colors";
+import { copy } from "../../../../shared/strings";
 
 type Props = {
   items: Suggestion[];
@@ -19,7 +19,7 @@ export function DetailsRecommendations({ items }: Props) {
     (item: Suggestion) => {
       router.push(`/title/${item.mediaType}/${item.id}`);
     },
-    [router]
+    [router],
   );
 
   if (items.length === 0) {
@@ -33,7 +33,9 @@ export function DetailsRecommendations({ items }: Props) {
         horizontal
         data={items}
         keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-        renderItem={({ item }) => <PosterCard item={item} onPress={handlePress} />}
+        renderItem={({ item }) => (
+          <PosterCard item={item} onPress={handlePress} />
+        )}
         showsHorizontalScrollIndicator={false}
         removeClippedSubviews={false}
         contentContainerStyle={styles.row}
@@ -51,7 +53,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   row: {
     gap: 12,

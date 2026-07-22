@@ -1,13 +1,17 @@
-import { useCallback } from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
-import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
-import { apiRequest } from '../../../shared/api/client';
-import { queryKeys } from '../../../shared/api/queryKeys';
-import { buildFallbackRelease } from '../../../shared/utils/release';
-import { useSaved } from '../../saved/hooks/useSaved';
-import { copy } from '../../../shared/strings';
+import type {
+  Details,
+  ReleaseInfo,
+  Suggestion,
+} from "../../../shared/types/release";
+import { apiRequest } from "../../../shared/api/client";
+import { queryKeys } from "../../../shared/api/queryKeys";
+import { buildFallbackRelease } from "../../../shared/utils/release";
+import { useSaved } from "../../saved/hooks/useSaved";
+import { copy } from "../../../shared/strings";
 
 type DetailsPayload = {
   details: Details;
@@ -22,12 +26,17 @@ export function useDetailsScreen() {
   }>();
   const { addRelease, isSuggestionSaved } = useSaved();
 
-  const isValidRequest = Boolean(id) && (mediaType === 'movie' || mediaType === 'tv');
+  const isValidRequest =
+    Boolean(id) && (mediaType === "movie" || mediaType === "tv");
 
   const detailsQuery = useQuery<DetailsPayload>({
-    queryKey: queryKeys.details(mediaType ?? '', Number(id)),
+    queryKey: queryKeys.details(mediaType ?? "", Number(id)),
     enabled: isValidRequest,
-    queryFn: ({ signal }) => apiRequest<DetailsPayload>(`/details?tmdbId=${id}&mediaType=${mediaType}`, { signal }),
+    queryFn: ({ signal }) =>
+      apiRequest<DetailsPayload>(
+        `/details?tmdbId=${id}&mediaType=${mediaType}`,
+        { signal },
+      ),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -38,14 +47,15 @@ export function useDetailsScreen() {
   const error = !isValidRequest
     ? copy.errors.invalidRequest
     : detailsQuery.isError
-    ? copy.errors.detailsLoad
-    : null;
+      ? copy.errors.detailsLoad
+      : null;
 
   const handleAdd = useCallback(() => {
     if (!details) {
       return;
     }
-    const releaseInfo = release || buildFallbackRelease(details, details.mediaType);
+    const releaseInfo =
+      release || buildFallbackRelease(details, details.mediaType);
     if (!releaseInfo) {
       return;
     }

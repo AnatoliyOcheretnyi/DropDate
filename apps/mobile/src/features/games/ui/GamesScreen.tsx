@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter, type Href } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FeatureScreen } from "../../../shared/ui/FeatureScreen";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
@@ -13,11 +13,13 @@ import type { Palette } from "../../../shared/theme/palette";
 import {
   getGameQuestions,
   recordGameResult,
+  submitChallenge,
   type GameMode,
   type GameQuestion,
   type GameTitle,
 } from "../api/games";
 import { GameDashboard } from "./GameDashboard";
+import { ChallengeInbox } from "./ChallengeInbox";
 import { useAuthStore } from "../../auth/store/authStore";
 
 type Format = "rounds" | "survival";
@@ -85,11 +87,19 @@ const games: GameConfig[] = [
 ];
 const fixedModes = new Set<GameMode>(["timeline", "year"]);
 export function GamesScreen() {
+  const params = useLocalSearchParams<{
+    challengeId?: string;
+    mode?: GameMode;
+  }>();
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [mode, setMode] = useState<GameMode | null>(null);
-  const [format, setFormat] = useState<Format | null>(null);
+  const [mode, setMode] = useState<GameMode | null>(
+    params.challengeId && params.mode ? params.mode : null,
+  );
+  const [format, setFormat] = useState<Format | null>(
+    params.challengeId ? "rounds" : null,
+  );
   const [daily, setDaily] = useState(false);
   if (!mode)
     return (
@@ -98,7 +108,26 @@ export function GamesScreen() {
         subtitle="Тренуй кіноінтуїцію короткими сесіями — без окремої дубльованої endless-гри."
       >
         <GameDashboard />
-        <MotionPressable style={styles.daily} onPress={() => { const rotation: GameMode[] = ["release_date", "poster", "rating"]; const day = Math.floor(Date.now() / 86400000); setDaily(true); setMode(rotation[day % rotation.length]); setFormat("rounds"); }}><Text style={styles.emoji}>🔥</Text><View style={styles.grow}><Text style={styles.hubTitle}>Щоденний виклик</Text><Text style={styles.muted}>Однакове завдання для всіх · нове щодня</Text></View><Ionicons name="chevron-forward" color={colors.accent} size={21}/></MotionPressable>
+        <ChallengeInbox />
+        <MotionPressable
+          style={styles.daily}
+          onPress={() => {
+            const rotation: GameMode[] = ["release_date", "poster", "rating"];
+            const day = Math.floor(Date.now() / 86400000);
+            setDaily(true);
+            setMode(rotation[day % rotation.length]);
+            setFormat("rounds");
+          }}
+        >
+          <Text style={styles.emoji}>🔥</Text>
+          <View style={styles.grow}>
+            <Text style={styles.hubTitle}>Щоденний виклик</Text>
+            <Text style={styles.muted}>
+              Однакове завдання для всіх · нове щодня
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" color={colors.accent} size={21} />
+        </MotionPressable>
         <View style={styles.hub}>
           {games.map((game, index) => (
             <MotionPressable
@@ -222,6 +251,7 @@ export function GamesScreen() {
       mode={mode}
       format={format}
       daily={daily}
+      challengeId={params.challengeId}
       onExit={() => {
         setFormat(null);
         setMode(null);
@@ -234,11 +264,13 @@ function Session({
   mode,
   format,
   daily,
+  challengeId,
   onExit,
 }: {
   mode: GameMode;
   format: Format;
   daily: boolean;
+  challengeId?: string;
   onExit: () => void;
 }) {
   const router = useRouter();
@@ -254,11 +286,15 @@ function Session({
   const [lives, setLives] = useState(format === "survival" ? 3 : 0);
   const [selected, setSelected] = useState<string | null>(null);
   const query = useQuery({
-    queryKey: queryKeys.gameQuestions(`${mode}:${daily ? "daily" : "regular"}`, count),
+    queryKey: queryKeys.gameQuestions(
+      `${mode}:${daily ? "daily" : "regular"}`,
+      count,
+    ),
     queryFn: ({ signal }) => getGameQuestions(mode, count, signal, daily),
   });
   const q = query.data?.[index];
-  const finished = !query.isLoading && (!q || (format === "survival" && lives <= 0));
+  const finished =
+    !query.isLoading && (!q || (format === "survival" && lives <= 0));
   const correctId = answerId(q);
   const choose = (id: string) => {
     if (selected || !q) return;
@@ -292,8 +328,19 @@ function Session({
     if (finished && authed && query.data?.length && !recorded.current) {
       recorded.current = true;
       void recordGameResult(mode, score, best, daily).catch(() => undefined);
+      if (challengeId)
+        void submitChallenge(challengeId, score).catch(() => undefined);
     }
-  }, [authed, best, daily, finished, mode, query.data?.length, score]);
+  }, [
+    authed,
+    best,
+    challengeId,
+    daily,
+    finished,
+    mode,
+    query.data?.length,
+    score,
+  ]);
   if (query.isLoading) return <ScreenState loading title="Готуємо запитання" />;
   if (query.isError)
     return (
@@ -372,23 +419,239 @@ function Session({
   );
 }
 function YearSession({ onExit }: { onExit: () => void }) {
-  const { colors } = useTheme(); const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [index, setIndex] = useState(0); const [guess, setGuess] = useState(2000); const [revealed, setRevealed] = useState(false); const [points, setPoints] = useState(0);
-  const query = useQuery({ queryKey: queryKeys.gameQuestions("year", 8), queryFn: ({ signal }) => getGameQuestions("year", 8, signal) });
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [index, setIndex] = useState(0);
+  const [guess, setGuess] = useState(2000);
+  const [revealed, setRevealed] = useState(false);
+  const [points, setPoints] = useState(0);
+  const query = useQuery({
+    queryKey: queryKeys.gameQuestions("year", 8),
+    queryFn: ({ signal }) => getGameQuestions("year", 8, signal),
+  });
   const q = query.data?.[index];
-  if (query.isLoading) return <ScreenState loading title="Перемотуємо плівку" />;
-  if (!q?.card) return <FeatureScreen title="Гру завершено" subtitle={`${points} очок`}><MotionPressable style={styles.primary} onPress={() => { setIndex(0); setPoints(0); setGuess(2000); setRevealed(false); void query.refetch(); }}><Text style={styles.primaryText}>Ще раз</Text></MotionPressable><MotionPressable style={styles.backChoice} onPress={onExit}><Text style={styles.muted}>До ігор</Text></MotionPressable></FeatureScreen>;
-  const actual = Number((q.card.releaseDate ?? q.card.year ?? "").slice(0, 4)); const diff = Math.abs(guess - actual); const earned = diff === 0 ? 50 : Math.max(0, 30 - diff * 3);
-  return <FeatureScreen title="Вгадай рік" subtitle={`Раунд ${index + 1}/${query.data?.length} · ${points} очок`}><View style={styles.yearCard}><Poster item={q.card} /><Text style={styles.subjectTitle}>{q.card.title}</Text><View style={styles.yearValue}><MotionPressable disabled={revealed} style={styles.yearStep} onPress={() => setGuess(v => Math.max(1950, v - 1))}><Ionicons name="remove" size={24} color={colors.text} /></MotionPressable><Text style={styles.yearText}>{guess}</Text><MotionPressable disabled={revealed} style={styles.yearStep} onPress={() => setGuess(v => Math.min(new Date().getFullYear(), v + 1))}><Ionicons name="add" size={24} color={colors.text} /></MotionPressable></View>{revealed ? <><Text style={[styles.feedback, { color: diff <= 2 ? colors.accent : colors.error }]}>Правильно: {actual} · +{earned}</Text><MotionPressable style={styles.primary} onPress={() => { setIndex(v => v + 1); setGuess(2000); setRevealed(false); }}><Text style={styles.primaryText}>Далі</Text></MotionPressable></> : <MotionPressable style={styles.primary} onPress={() => { setRevealed(true); setPoints(v => v + earned); }}><Text style={styles.primaryText}>Відповісти</Text></MotionPressable>}</View></FeatureScreen>;
+  if (query.isLoading)
+    return <ScreenState loading title="Перемотуємо плівку" />;
+  if (!q?.card)
+    return (
+      <FeatureScreen title="Гру завершено" subtitle={`${points} очок`}>
+        <MotionPressable
+          style={styles.primary}
+          onPress={() => {
+            setIndex(0);
+            setPoints(0);
+            setGuess(2000);
+            setRevealed(false);
+            void query.refetch();
+          }}
+        >
+          <Text style={styles.primaryText}>Ще раз</Text>
+        </MotionPressable>
+        <MotionPressable style={styles.backChoice} onPress={onExit}>
+          <Text style={styles.muted}>До ігор</Text>
+        </MotionPressable>
+      </FeatureScreen>
+    );
+  const actual = Number((q.card.releaseDate ?? q.card.year ?? "").slice(0, 4));
+  const diff = Math.abs(guess - actual);
+  const earned = diff === 0 ? 50 : Math.max(0, 30 - diff * 3);
+  return (
+    <FeatureScreen
+      title="Вгадай рік"
+      subtitle={`Раунд ${index + 1}/${query.data?.length} · ${points} очок`}
+    >
+      <View style={styles.yearCard}>
+        <Poster item={q.card} />
+        <Text style={styles.subjectTitle}>{q.card.title}</Text>
+        <View style={styles.yearValue}>
+          <MotionPressable
+            disabled={revealed}
+            style={styles.yearStep}
+            onPress={() => setGuess((v) => Math.max(1950, v - 1))}
+          >
+            <Ionicons name="remove" size={24} color={colors.text} />
+          </MotionPressable>
+          <Text style={styles.yearText}>{guess}</Text>
+          <MotionPressable
+            disabled={revealed}
+            style={styles.yearStep}
+            onPress={() =>
+              setGuess((v) => Math.min(new Date().getFullYear(), v + 1))
+            }
+          >
+            <Ionicons name="add" size={24} color={colors.text} />
+          </MotionPressable>
+        </View>
+        {revealed ? (
+          <>
+            <Text
+              style={[
+                styles.feedback,
+                { color: diff <= 2 ? colors.accent : colors.error },
+              ]}
+            >
+              Правильно: {actual} · +{earned}
+            </Text>
+            <MotionPressable
+              style={styles.primary}
+              onPress={() => {
+                setIndex((v) => v + 1);
+                setGuess(2000);
+                setRevealed(false);
+              }}
+            >
+              <Text style={styles.primaryText}>Далі</Text>
+            </MotionPressable>
+          </>
+        ) : (
+          <MotionPressable
+            style={styles.primary}
+            onPress={() => {
+              setRevealed(true);
+              setPoints((v) => v + earned);
+            }}
+          >
+            <Text style={styles.primaryText}>Відповісти</Text>
+          </MotionPressable>
+        )}
+      </View>
+    </FeatureScreen>
+  );
 }
 function TimelineSession({ onExit }: { onExit: () => void }) {
-  const { colors } = useTheme(); const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [index, setIndex] = useState(0); const [placed, setPlaced] = useState<GameTitle[]>([]); const [revealed, setRevealed] = useState(false); const [score, setScore] = useState(0);
-  const query = useQuery({ queryKey: queryKeys.gameQuestions("timeline", 5), queryFn: ({ signal }) => getGameQuestions("timeline", 5, signal) }); const q = query.data?.[index];
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [index, setIndex] = useState(0);
+  const [placed, setPlaced] = useState<GameTitle[]>([]);
+  const [revealed, setRevealed] = useState(false);
+  const [score, setScore] = useState(0);
+  const query = useQuery({
+    queryKey: queryKeys.gameQuestions("timeline", 5),
+    queryFn: ({ signal }) => getGameQuestions("timeline", 5, signal),
+  });
+  const q = query.data?.[index];
   if (query.isLoading) return <ScreenState loading title="Гортаємо архів" />;
-  if (!q) return <FeatureScreen title="Хронологію завершено" subtitle={`${score}/${query.data?.length ?? 0} правильних`}><MotionPressable style={styles.primary} onPress={() => { setIndex(0); setPlaced([]); setScore(0); setRevealed(false); void query.refetch(); }}><Text style={styles.primaryText}>Ще раз</Text></MotionPressable><MotionPressable style={styles.backChoice} onPress={onExit}><Text style={styles.muted}>До ігор</Text></MotionPressable></FeatureScreen>;
-  const items = q.items ?? []; const pool = items.filter(item => !placed.some(x => x.tmdbId === item.tmdbId)); const expected = [...items].sort((a, b) => (a.releaseDate ?? a.year ?? "").localeCompare(b.releaseDate ?? b.year ?? "")); const perfect = placed.length === expected.length && placed.every((x, i) => x.tmdbId === expected[i]?.tmdbId);
-  return <FeatureScreen title="Хронологія" subtitle={`Раунд ${index + 1}/${query.data?.length} · від старого до нового`}><View style={styles.timelineSlots}>{items.map((_, i) => { const item = placed[i]; return <MotionPressable disabled={revealed || !item} key={i} style={[styles.timelineSlot, revealed && item?.tmdbId === expected[i]?.tmdbId && styles.correct]} onPress={() => item && setPlaced(v => v.filter(x => x.tmdbId !== item.tmdbId))}><Text style={styles.slotIndex}>{i + 1}</Text><Text numberOfLines={2} style={styles.slotText}>{item?.title ?? "?"}</Text>{revealed && item ? <Text style={styles.muted}>{(item.releaseDate ?? item.year)?.slice(0, 4)}</Text> : null}</MotionPressable>; })}</View>{!revealed ? <View style={styles.timelinePool}>{pool.map(item => <MotionPressable key={item.tmdbId} style={styles.poolCard} onPress={() => setPlaced(v => [...v, item])}><Image source={item.posterUrl ? { uri: item.posterUrl } : undefined} style={styles.poolPoster} /><Text numberOfLines={2} style={styles.optionText}>{item.title}</Text></MotionPressable>)}</View> : <Text style={[styles.feedback, { color: perfect ? colors.accent : colors.error }]}>{perfect ? "Ідеально!" : `Правильно: ${expected.map(x => `${x.title} (${(x.releaseDate ?? x.year)?.slice(0, 4)})`).join(" → ")}`}</Text>}<MotionPressable disabled={!revealed && placed.length !== items.length} style={styles.primary} onPress={() => { if (!revealed) { setRevealed(true); if (perfect) setScore(v => v + 1); } else { setIndex(v => v + 1); setPlaced([]); setRevealed(false); } }}><Text style={styles.primaryText}>{revealed ? "Далі" : "Перевірити"}</Text></MotionPressable></FeatureScreen>;
+  if (!q)
+    return (
+      <FeatureScreen
+        title="Хронологію завершено"
+        subtitle={`${score}/${query.data?.length ?? 0} правильних`}
+      >
+        <MotionPressable
+          style={styles.primary}
+          onPress={() => {
+            setIndex(0);
+            setPlaced([]);
+            setScore(0);
+            setRevealed(false);
+            void query.refetch();
+          }}
+        >
+          <Text style={styles.primaryText}>Ще раз</Text>
+        </MotionPressable>
+        <MotionPressable style={styles.backChoice} onPress={onExit}>
+          <Text style={styles.muted}>До ігор</Text>
+        </MotionPressable>
+      </FeatureScreen>
+    );
+  const items = q.items ?? [];
+  const pool = items.filter(
+    (item) => !placed.some((x) => x.tmdbId === item.tmdbId),
+  );
+  const expected = [...items].sort((a, b) =>
+    (a.releaseDate ?? a.year ?? "").localeCompare(
+      b.releaseDate ?? b.year ?? "",
+    ),
+  );
+  const perfect =
+    placed.length === expected.length &&
+    placed.every((x, i) => x.tmdbId === expected[i]?.tmdbId);
+  return (
+    <FeatureScreen
+      title="Хронологія"
+      subtitle={`Раунд ${index + 1}/${query.data?.length} · від старого до нового`}
+    >
+      <View style={styles.timelineSlots}>
+        {items.map((_, i) => {
+          const item = placed[i];
+          return (
+            <MotionPressable
+              disabled={revealed || !item}
+              key={i}
+              style={[
+                styles.timelineSlot,
+                revealed &&
+                  item?.tmdbId === expected[i]?.tmdbId &&
+                  styles.correct,
+              ]}
+              onPress={() =>
+                item &&
+                setPlaced((v) => v.filter((x) => x.tmdbId !== item.tmdbId))
+              }
+            >
+              <Text style={styles.slotIndex}>{i + 1}</Text>
+              <Text numberOfLines={2} style={styles.slotText}>
+                {item?.title ?? "?"}
+              </Text>
+              {revealed && item ? (
+                <Text style={styles.muted}>
+                  {(item.releaseDate ?? item.year)?.slice(0, 4)}
+                </Text>
+              ) : null}
+            </MotionPressable>
+          );
+        })}
+      </View>
+      {!revealed ? (
+        <View style={styles.timelinePool}>
+          {pool.map((item) => (
+            <MotionPressable
+              key={item.tmdbId}
+              style={styles.poolCard}
+              onPress={() => setPlaced((v) => [...v, item])}
+            >
+              <Image
+                source={item.posterUrl ? { uri: item.posterUrl } : undefined}
+                style={styles.poolPoster}
+              />
+              <Text numberOfLines={2} style={styles.optionText}>
+                {item.title}
+              </Text>
+            </MotionPressable>
+          ))}
+        </View>
+      ) : (
+        <Text
+          style={[
+            styles.feedback,
+            { color: perfect ? colors.accent : colors.error },
+          ]}
+        >
+          {perfect
+            ? "Ідеально!"
+            : `Правильно: ${expected.map((x) => `${x.title} (${(x.releaseDate ?? x.year)?.slice(0, 4)})`).join(" → ")}`}
+        </Text>
+      )}
+      <MotionPressable
+        disabled={!revealed && placed.length !== items.length}
+        style={styles.primary}
+        onPress={() => {
+          if (!revealed) {
+            setRevealed(true);
+            if (perfect) setScore((v) => v + 1);
+          } else {
+            setIndex((v) => v + 1);
+            setPlaced([]);
+            setRevealed(false);
+          }
+        }}
+      >
+        <Text style={styles.primaryText}>
+          {revealed ? "Далі" : "Перевірити"}
+        </Text>
+      </MotionPressable>
+    </FeatureScreen>
+  );
 }
 function answerId(q?: GameQuestion) {
   if (!q) return "";
@@ -554,7 +817,17 @@ const base = StyleSheet.create({
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     hub: { gap: 11 },
-    daily: { minHeight: 82, flexDirection: "row", alignItems: "center", gap: 14, padding: 15, borderRadius: 22, borderWidth: 1, borderColor: c.accent, backgroundColor: c.accentSoft },
+    daily: {
+      minHeight: 82,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      padding: 15,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: c.accent,
+      backgroundColor: c.accentSoft,
+    },
     hubCard: {
       minHeight: 86,
       flexDirection: "row",
@@ -655,15 +928,53 @@ const makeStyles = (c: Palette) =>
       backgroundColor: c.card,
     },
     summaryScore: { color: c.accent, fontSize: 58, fontWeight: "900" },
-    yearCard: { gap: 15, padding: 16, borderRadius: 22, backgroundColor: c.card },
-    yearValue: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18 },
-    yearStep: { width: 50, height: 50, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: c.elevated },
+    yearCard: {
+      gap: 15,
+      padding: 16,
+      borderRadius: 22,
+      backgroundColor: c.card,
+    },
+    yearValue: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 18,
+    },
+    yearStep: {
+      width: 50,
+      height: 50,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.elevated,
+    },
     yearText: { color: c.text, fontSize: 38, fontWeight: "900" },
     timelineSlots: { gap: 8 },
-    timelineSlot: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 17, borderWidth: 1, borderColor: c.border, backgroundColor: c.card },
+    timelineSlot: {
+      minHeight: 62,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      padding: 10,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
     slotIndex: { width: 28, color: c.accent, fontSize: 18, fontWeight: "900" },
     slotText: { flex: 1, color: c.text, fontWeight: "800" },
     timelinePool: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-    poolCard: { width: "47%", padding: 8, gap: 6, borderRadius: 16, backgroundColor: c.card },
-    poolPoster: { width: "100%", height: 112, borderRadius: 12, backgroundColor: c.elevated },
+    poolCard: {
+      width: "47%",
+      padding: 8,
+      gap: 6,
+      borderRadius: 16,
+      backgroundColor: c.card,
+    },
+    poolPoster: {
+      width: "100%",
+      height: 112,
+      borderRadius: 12,
+      backgroundColor: c.elevated,
+    },
   });

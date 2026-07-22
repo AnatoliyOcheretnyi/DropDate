@@ -1,3 +1,205 @@
-import { useEffect,useMemo,useState } from 'react';import { Text,View } from 'react-native';import { useMutation,useQuery } from '@tanstack/react-query';import { useRouter } from 'expo-router';import { FeatureScreen,featureStyles as s } from '../../../shared/ui/FeatureScreen';import { ScreenState } from '../../../shared/ui/ScreenState';import { MotionPressable } from '../../../shared/ui/MotionPressable';import { AnimatedSection } from '../../../shared/ui/AnimatedScreen';import { queryKeys } from '../../../shared/api/queryKeys';import { storageDelete,storageGetJSON,storageKeys,storageSetJSON } from '../../../shared/utils/storage';import { getMatchPicks,getMatchQuestions,type MatchPick } from '../api/match';
-type Snap={index:number;media:string;answers:Record<string,string>;picks:MatchPick[];shown:string[]};const initial:Snap={index:0,media:'',answers:{},picks:[],shown:[]};const key=(x:MatchPick)=>`${x.mediaType}:${x.tmdbId}`;
-export function MatchScreen(){const router=useRouter();const[state,setState]=useState<Snap>(()=>storageGetJSON<Snap>(storageKeys.matchSession)??initial);const query=useQuery({queryKey:queryKeys.matchQuestions,queryFn:({signal})=>getMatchQuestions(signal)});const flow=useMemo(()=>state.media?query.data?.filter(q=>q.appliesTo==='both'||q.appliesTo===state.media)??[]:query.data?.filter(q=>q.id==='media')??[],[query.data,state.media]);const picks=useMutation({mutationFn:getMatchPicks,onSuccess:items=>setState(x=>({...x,picks:items,shown:[...x.shown,...items.map(key)]}))});useEffect(()=>storageSetJSON(storageKeys.matchSession,state),[state]);const q=flow[state.index];const answer=(id:string)=>{if(!q)return;const next={...state,answers:{...state.answers,[q.id]:id},media:q.id==='media'?id:state.media,index:state.index+1};setState(next);picks.mutate({answers:next.answers,excludeKeys:next.shown})};const reset=()=>{storageDelete(storageKeys.matchSession);setState(initial);picks.reset()};if(query.isLoading)return <ScreenState loading title="Готуємо кінометч"/>;if(query.isError)return <ScreenState title="Питання недоступні" message={query.error.message} onRetry={()=>query.refetch()}/>;return <FeatureScreen title="Кінометч" subtitle={q?`Уточнення ${state.index+1}`:'Ітеративний підбір без впливу на глобальний смак.'}>{picks.isPending?<ScreenState loading title="Шукаємо нові збіги"/>:state.picks.length?<>{state.picks.map((item,index)=><AnimatedSection key={key(item)} index={index}><MotionPressable style={s.card} onPress={()=>router.push(`/title/${item.mediaType}/${item.tmdbId}`)}><Text style={s.heading}>{item.title} {item.year?`(${item.year})`:''}</Text>{item.reason?<Text style={s.text}>{item.reason}</Text>:null}<View style={{flexDirection:'row',gap:8}}><MotionPressable style={s.option} onPress={()=>{}} haptic="success"><Text style={s.optionText}>Підходить</Text></MotionPressable><MotionPressable style={s.option} onPress={()=>setState(x=>({...x,picks:x.picks.filter(p=>key(p)!==key(item))}))} haptic="error"><Text style={s.optionText}>Не те</Text></MotionPressable></View></MotionPressable></AnimatedSection>)}{q?<MotionPressable style={s.button} onPress={()=>setState(x=>({...x,picks:[]}))}><Text style={s.buttonText}>Уточнити ще</Text></MotionPressable>:null}<MotionPressable style={s.button} onPress={()=>picks.mutate({answers:state.answers,excludeKeys:state.shown})}><Text style={s.buttonText}>Інші варіанти</Text></MotionPressable><MotionPressable style={s.option} onPress={reset}><Text style={s.optionText}>Почати заново</Text></MotionPressable></>:q?<View style={s.card}><Text style={s.heading}>{q.title}</Text>{q.options.map(o=><MotionPressable key={o.id} style={s.option} onPress={()=>answer(o.id)}><Text style={s.optionText}>{o.emoji?`${o.emoji} `:''}{o.label}</Text></MotionPressable>)}</View>:<View style={s.card}><Text style={s.heading}>Готово до підбору</Text><MotionPressable style={s.button} onPress={()=>picks.mutate({answers:state.answers,excludeKeys:state.shown})}><Text style={s.buttonText}>Показати варіанти</Text></MotionPressable></View>}</FeatureScreen>}
+import { useEffect, useMemo, useState } from "react";
+import { Text, View } from "react-native";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter, type Href } from "expo-router";
+import {
+  FeatureScreen,
+  featureStyles as s,
+} from "../../../shared/ui/FeatureScreen";
+import { ScreenState } from "../../../shared/ui/ScreenState";
+import { MotionPressable } from "../../../shared/ui/MotionPressable";
+import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
+import { queryKeys } from "../../../shared/api/queryKeys";
+import {
+  storageDelete,
+  storageGetJSON,
+  storageKeys,
+  storageSetJSON,
+} from "../../../shared/utils/storage";
+import { getMatchPicks, getMatchQuestions, type MatchPick } from "../api/match";
+
+type Snap = {
+  index: number;
+  media: string;
+  answers: Record<string, string>;
+  picks: MatchPick[];
+  shown: string[];
+};
+const initial: Snap = {
+  index: 0,
+  media: "",
+  answers: {},
+  picks: [],
+  shown: [],
+};
+const key = (x: MatchPick) => `${x.mediaType}:${x.tmdbId}`;
+
+export function MatchScreen() {
+  const router = useRouter();
+  const [state, setState] = useState<Snap>(
+    () => storageGetJSON<Snap>(storageKeys.matchSession) ?? initial,
+  );
+  const query = useQuery({
+    queryKey: queryKeys.matchQuestions,
+    queryFn: ({ signal }) => getMatchQuestions(signal),
+  });
+  const flow = useMemo(
+    () =>
+      state.media
+        ? (query.data?.filter(
+            (q) => q.appliesTo === "both" || q.appliesTo === state.media,
+          ) ?? [])
+        : (query.data?.filter((q) => q.id === "media") ?? []),
+    [query.data, state.media],
+  );
+  const picks = useMutation({
+    mutationFn: getMatchPicks,
+    onSuccess: (items) =>
+      setState((x) => ({
+        ...x,
+        picks: items,
+        shown: [...x.shown, ...items.map(key)],
+      })),
+  });
+  useEffect(() => storageSetJSON(storageKeys.matchSession, state), [state]);
+  const q = flow[state.index];
+  const answer = (id: string) => {
+    if (!q) return;
+    const next = {
+      ...state,
+      answers: { ...state.answers, [q.id]: id },
+      media: q.id === "media" ? id : state.media,
+      index: state.index + 1,
+    };
+    setState(next);
+    picks.mutate({ answers: next.answers, excludeKeys: next.shown });
+  };
+  const reset = () => {
+    storageDelete(storageKeys.matchSession);
+    setState(initial);
+    picks.reset();
+  };
+  const similar = (item: MatchPick) =>
+    router.push({
+      pathname: "/similar",
+      params: {
+        tmdbId: String(item.tmdbId),
+        mediaType: item.mediaType,
+        title: item.title,
+      },
+    } as Href);
+  if (query.isLoading) return <ScreenState loading title="Готуємо кінометч" />;
+  if (query.isError)
+    return (
+      <ScreenState
+        title="Питання недоступні"
+        message={query.error.message}
+        onRetry={() => query.refetch()}
+      />
+    );
+  return (
+    <FeatureScreen
+      title="Кінометч"
+      subtitle={
+        q
+          ? `Уточнення ${state.index + 1}`
+          : "Ітеративний підбір без впливу на глобальний смак."
+      }
+    >
+      {picks.isPending ? (
+        <ScreenState loading title="Шукаємо нові збіги" />
+      ) : state.picks.length ? (
+        <>
+          {state.picks.map((item, index) => (
+            <AnimatedSection key={key(item)} index={index}>
+              <View style={s.card}>
+                <MotionPressable
+                  onPress={() =>
+                    router.push(
+                      `/title/${item.mediaType}/${item.tmdbId}` as Href,
+                    )
+                  }
+                >
+                  <Text style={s.heading}>
+                    {item.title} {item.year ? `(${item.year})` : ""}
+                  </Text>
+                  {item.reason ? (
+                    <Text style={s.text}>{item.reason}</Text>
+                  ) : null}
+                </MotionPressable>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <MotionPressable
+                    style={[s.option, { flex: 1 }]}
+                    onPress={() => similar(item)}
+                    haptic="success"
+                  >
+                    <Text style={s.optionText}>Схоже</Text>
+                  </MotionPressable>
+                  <MotionPressable
+                    style={[s.option, { flex: 1 }]}
+                    onPress={() =>
+                      setState((x) => ({
+                        ...x,
+                        picks: x.picks.filter((p) => key(p) !== key(item)),
+                      }))
+                    }
+                    haptic="error"
+                  >
+                    <Text style={s.optionText}>Не те</Text>
+                  </MotionPressable>
+                </View>
+              </View>
+            </AnimatedSection>
+          ))}
+          {q ? (
+            <MotionPressable
+              style={s.button}
+              onPress={() => setState((x) => ({ ...x, picks: [] }))}
+            >
+              <Text style={s.buttonText}>Уточнити ще</Text>
+            </MotionPressable>
+          ) : null}
+          <MotionPressable
+            style={s.button}
+            onPress={() =>
+              picks.mutate({ answers: state.answers, excludeKeys: state.shown })
+            }
+          >
+            <Text style={s.buttonText}>Інші варіанти</Text>
+          </MotionPressable>
+          <MotionPressable style={s.option} onPress={reset}>
+            <Text style={s.optionText}>Почати заново</Text>
+          </MotionPressable>
+        </>
+      ) : q ? (
+        <View style={s.card}>
+          <Text style={s.heading}>{q.title}</Text>
+          {q.options.map((o) => (
+            <MotionPressable
+              key={o.id}
+              style={s.option}
+              onPress={() => answer(o.id)}
+            >
+              <Text style={s.optionText}>
+                {o.emoji ? `${o.emoji} ` : ""}
+                {o.label}
+              </Text>
+            </MotionPressable>
+          ))}
+        </View>
+      ) : (
+        <View style={s.card}>
+          <Text style={s.heading}>Готово до підбору</Text>
+          <MotionPressable
+            style={s.button}
+            onPress={() =>
+              picks.mutate({ answers: state.answers, excludeKeys: state.shown })
+            }
+          >
+            <Text style={s.buttonText}>Показати варіанти</Text>
+          </MotionPressable>
+        </View>
+      )}
+    </FeatureScreen>
+  );
+}

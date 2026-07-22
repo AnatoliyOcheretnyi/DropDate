@@ -1,28 +1,506 @@
-import { useMemo, useState } from 'react';
-import { Alert, Modal, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../../shared/api/queryKeys';
-import { useTheme } from '../../../shared/theme/ThemeProvider';
-import type { Palette } from '../../../shared/theme/palette';
-import { AnimatedSection } from '../../../shared/ui/AnimatedScreen';
-import { FeatureScreen } from '../../../shared/ui/FeatureScreen';
-import { MotionPressable } from '../../../shared/ui/MotionPressable';
-import { ScreenState } from '../../../shared/ui/ScreenState';
-import { getFriends } from '../../friends/api/friends';
-import { addSharedListMember, createSharedList, getSharedLists, getSocialActivity, type SharedList } from '../api/social';
+import { useMemo, useState } from "react";
+import {
+  Alert,
+  Modal,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useRouter, type Href } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../../shared/api/queryKeys";
+import { useTheme } from "../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../shared/theme/palette";
+import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
+import { FeatureScreen } from "../../../shared/ui/FeatureScreen";
+import { MotionPressable } from "../../../shared/ui/MotionPressable";
+import { ScreenState } from "../../../shared/ui/ScreenState";
+import { getFriends } from "../../friends/api/friends";
+import {
+  addSharedListMember,
+  createSharedList,
+  getSharedLists,
+  getSocialActivity,
+  type SharedList,
+} from "../api/social";
 
-export function SocialHubScreen(){const{colors}=useTheme();const styles=useMemo(()=>makeStyles(colors),[colors]);const router=useRouter();const client=useQueryClient();const[tab,setTab]=useState<'activity'|'lists'>('activity');const[creating,setCreating]=useState(false);const[name,setName]=useState('');const[visibility,setVisibility]=useState<SharedList['Visibility']>('friends');const[inviteFor,setInviteFor]=useState<string|null>(null);
- const activity=useQuery({queryKey:queryKeys.socialActivity,queryFn:({signal})=>getSocialActivity(signal),staleTime:30_000});const lists=useQuery({queryKey:queryKeys.sharedLists,queryFn:({signal})=>getSharedLists(signal),staleTime:30_000});const friends=useQuery({queryKey:queryKeys.friends,queryFn:({signal})=>getFriends(signal),enabled:Boolean(inviteFor),staleTime:30_000});
- const create=useMutation({mutationFn:()=>createSharedList(name.trim(),visibility),onSuccess:async()=>{setCreating(false);setName('');await client.invalidateQueries({queryKey:queryKeys.sharedLists})}});
- const invite=useMutation({mutationFn:(userId:string)=>addSharedListMember(inviteFor!,userId),onSuccess:async()=>{setInviteFor(null);await client.invalidateQueries({queryKey:queryKeys.sharedLists});Alert.alert('Готово','Друг може редагувати цей список.')}});
- return <FeatureScreen title="Разом цікавіше" subtitle="Активність друзів і спільні списки без зайвого соціального шуму."><View accessibilityRole="tablist" style={styles.segment}><Tab label="Активність" active={tab==='activity'} onPress={()=>setTab('activity')}/><Tab label="Спільні списки" active={tab==='lists'} onPress={()=>setTab('lists')}/></View>{tab==='activity'?(activity.isLoading?<ScreenState loading title="Оновлюємо стрічку"/>:activity.data?.length?activity.data.map((item,index)=><AnimatedSection key={`${item.type}:${item.actorId}:${item.createdAt}`} index={index}><MotionPressable style={styles.activity} disabled={item.tmdbId<=0} onPress={()=>router.push(`/title/${item.mediaType}/${item.tmdbId}` as Href)}><View style={styles.activityIcon}><Ionicons name={item.type==='rating'?'star':item.type==='recommendation'?'paper-plane':'film'} size={21} color={colors.accent}/></View><View style={styles.grow}><Text style={styles.actor}>{item.actorName}</Text><Text style={styles.body}>{activityText(item)}</Text><Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString('uk-UA',{day:'numeric',month:'short'})}</Text></View>{item.tmdbId>0?<Ionicons name="chevron-forward" color={colors.textMuted} size={18}/>:null}</MotionPressable></AnimatedSection>):<Empty title="У стрічці поки тихо" text="Тут з’являться оцінки, рекомендації та нові друзі."/>):<><MotionPressable style={styles.createButton} onPress={()=>setCreating(true)}><Ionicons name="add" size={21} color={colors.background}/><Text style={styles.createText}>Новий спільний список</Text></MotionPressable>{lists.isLoading?<ScreenState loading title="Завантажуємо списки"/>:lists.data?.length?lists.data.map((list,index)=><AnimatedSection key={list.ID} index={index}><View style={styles.listCard}><View style={styles.listHead}><View style={styles.grow}><Text style={styles.visibility}>{visibilityLabel(list.Visibility)}</Text><Text style={styles.listName}>{list.Name}</Text><Text style={styles.body}>{list.ItemCount} тайтлів · {list.MemberCount} учасників</Text></View><Ionicons name="albums-outline" size={29} color={colors.accent}/></View><View style={styles.actions}><MotionPressable style={styles.secondary} onPress={()=>setInviteFor(list.ID)}><Text style={styles.secondaryText}>Додати друга</Text></MotionPressable>{list.Visibility==='public'?<MotionPressable accessibilityLabel="Поділитися списком" style={styles.iconButton} onPress={()=>void Share.share({message:`DropDate · ${list.Name}\ndropdate.app/shared/${list.ShareToken}`})}><Ionicons name="share-outline" size={20} color={colors.text}/></MotionPressable>:null}</View></View></AnimatedSection>):<Empty title="Немає спільних списків" text="Створи добірку для кіновечора або подорожі."/>}</>}
- <Modal visible={creating} transparent animationType="slide" onRequestClose={()=>setCreating(false)}><View style={styles.backdrop}><View style={styles.sheet}><Text style={styles.sheetTitle}>Новий список</Text><TextInput autoFocus value={name} onChangeText={setName} maxLength={80} placeholder="Наприклад, Вечір п’ятниці" placeholderTextColor={colors.textMuted} style={styles.input}/><Text style={styles.label}>Хто бачить список</Text><View style={styles.visibilityRow}>{(['private','friends','public'] as const).map(value=><MotionPressable key={value} style={[styles.visibilityChoice,visibility===value&&styles.visibilityActive]} onPress={()=>setVisibility(value)}><Text style={[styles.secondaryText,visibility===value&&{color:colors.accent}]}>{visibilityLabel(value)}</Text></MotionPressable>)}</View><MotionPressable disabled={!name.trim()||create.isPending} style={styles.createButton} onPress={()=>void create.mutateAsync().catch(error=>Alert.alert('Не вдалося створити',error.message))}><Text style={styles.createText}>{create.isPending?'Створюємо…':'Створити'}</Text></MotionPressable><MotionPressable style={styles.cancel} onPress={()=>setCreating(false)}><Text style={styles.secondaryText}>Скасувати</Text></MotionPressable></View></View></Modal>
- <Modal visible={Boolean(inviteFor)} transparent animationType="slide" onRequestClose={()=>setInviteFor(null)}><View style={styles.backdrop}><View style={styles.sheet}><Text style={styles.sheetTitle}>Додати друга</Text>{friends.data?.friends.map(friend=><MotionPressable key={friend.user.id} style={styles.friend} onPress={()=>invite.mutate(friend.user.id)}><View><Text style={styles.actor}>{friend.user.username||friend.user.email}</Text><Text style={styles.date}>{friend.user.email}</Text></View><Ionicons name="add-circle" color={colors.accent} size={24}/></MotionPressable>)}{!friends.isLoading&&!friends.data?.friends.length?<Text style={styles.body}>Спочатку додай когось у друзі.</Text>:null}<MotionPressable style={styles.cancel} onPress={()=>setInviteFor(null)}><Text style={styles.secondaryText}>Закрити</Text></MotionPressable></View></View></Modal></FeatureScreen>}
-function activityText(item:{type:string;title:string;rating?:number}){if(item.type==='rating')return `оцінив(ла) «${item.title}» на ${item.rating}/10`;if(item.type==='save')return `додав(ла) «${item.title}» до колекції`;if(item.type==='recommendation')return `порадив(ла) тобі «${item.title}»`;return 'тепер у твоїх друзях'}
-function visibilityLabel(value:string){return value==='public'?'Публічний':value==='friends'?'Для друзів':'Приватний'}
-function Tab({label,active,onPress}:{label:string;active:boolean;onPress:()=>void}){const{colors}=useTheme();return <MotionPressable accessibilityRole="tab" accessibilityState={{selected:active}} style={[base.tab,active&&{backgroundColor:colors.elevated}]} onPress={onPress}><Text style={{color:active?colors.text:colors.textMuted,fontWeight:'800'}}>{label}</Text></MotionPressable>}
-function Empty({title,text}:{title:string;text:string}){const{colors}=useTheme();return <View style={[base.empty,{backgroundColor:colors.card}]}><Text style={[base.emptyTitle,{color:colors.text}]}>{title}</Text><Text style={{color:colors.textMuted,textAlign:'center',lineHeight:20}}>{text}</Text></View>}
-const base=StyleSheet.create({tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:14},empty:{padding:30,borderRadius:22,alignItems:'center',gap:7},emptyTitle:{fontSize:19,fontWeight:'900'}});
-const makeStyles=(c:Palette)=>StyleSheet.create({segment:{flexDirection:'row',gap:6,padding:5,borderRadius:18,backgroundColor:c.card},activity:{minHeight:82,flexDirection:'row',alignItems:'center',gap:12,padding:14,borderRadius:20,borderWidth:1,borderColor:c.border,backgroundColor:c.card},activityIcon:{width:44,height:44,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:c.accentSoft},grow:{flex:1},actor:{color:c.text,fontWeight:'900'},body:{color:c.textMuted,lineHeight:19,marginTop:2},date:{color:c.textMuted,fontSize:11,marginTop:5},createButton:{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,borderRadius:17,backgroundColor:c.accent},createText:{color:c.background,fontWeight:'900'},listCard:{gap:15,padding:18,borderRadius:22,borderWidth:1,borderColor:c.border,backgroundColor:c.card},listHead:{flexDirection:'row',gap:12},visibility:{color:c.eyebrow,fontSize:11,fontWeight:'800',textTransform:'uppercase',letterSpacing:1.5},listName:{color:c.text,fontSize:20,fontWeight:'900',marginTop:5},actions:{flexDirection:'row',gap:8},secondary:{minHeight:44,flex:1,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:c.elevated},secondaryText:{color:c.text,fontWeight:'800'},iconButton:{width:44,height:44,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:c.elevated},backdrop:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,.58)'},sheet:{padding:20,paddingBottom:36,gap:14,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:c.elevated},sheetTitle:{color:c.text,fontSize:24,fontWeight:'900'},input:{minHeight:54,paddingHorizontal:15,borderRadius:17,borderWidth:1,borderColor:c.border,color:c.text,backgroundColor:c.card},label:{color:c.textMuted,fontSize:12,fontWeight:'700'},visibilityRow:{flexDirection:'row',gap:7},visibilityChoice:{flex:1,minHeight:48,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:c.card},visibilityActive:{borderWidth:1,borderColor:c.accent,backgroundColor:c.accentSoft},cancel:{minHeight:46,alignItems:'center',justifyContent:'center'},friend:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',padding:13,borderRadius:17,backgroundColor:c.card}});
+export function SocialHubScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const router = useRouter();
+  const client = useQueryClient();
+  const [tab, setTab] = useState<"activity" | "lists">("activity");
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [visibility, setVisibility] =
+    useState<SharedList["Visibility"]>("friends");
+  const [inviteFor, setInviteFor] = useState<string | null>(null);
+  const activity = useQuery({
+    queryKey: queryKeys.socialActivity,
+    queryFn: ({ signal }) => getSocialActivity(signal),
+    staleTime: 30_000,
+  });
+  const lists = useQuery({
+    queryKey: queryKeys.sharedLists,
+    queryFn: ({ signal }) => getSharedLists(signal),
+    staleTime: 30_000,
+  });
+  const friends = useQuery({
+    queryKey: queryKeys.friends,
+    queryFn: ({ signal }) => getFriends(signal),
+    enabled: Boolean(inviteFor),
+    staleTime: 30_000,
+  });
+  const create = useMutation({
+    mutationFn: () => createSharedList(name.trim(), visibility),
+    onSuccess: async () => {
+      setCreating(false);
+      setName("");
+      await client.invalidateQueries({ queryKey: queryKeys.sharedLists });
+    },
+  });
+  const invite = useMutation({
+    mutationFn: (userId: string) => addSharedListMember(inviteFor!, userId),
+    onSuccess: async () => {
+      setInviteFor(null);
+      await client.invalidateQueries({ queryKey: queryKeys.sharedLists });
+      Alert.alert("Готово", "Друг може редагувати цей список.");
+    },
+  });
+  return (
+    <FeatureScreen
+      title="Разом цікавіше"
+      subtitle="Активність друзів і спільні списки без зайвого соціального шуму."
+    >
+      <View accessibilityRole="tablist" style={styles.segment}>
+        <Tab
+          label="Активність"
+          active={tab === "activity"}
+          onPress={() => setTab("activity")}
+        />
+        <Tab
+          label="Спільні списки"
+          active={tab === "lists"}
+          onPress={() => setTab("lists")}
+        />
+      </View>
+      {tab === "activity" ? (
+        activity.isLoading ? (
+          <ScreenState loading title="Оновлюємо стрічку" />
+        ) : activity.data?.length ? (
+          activity.data.map((item, index) => (
+            <AnimatedSection
+              key={`${item.type}:${item.actorId}:${item.createdAt}`}
+              index={index}
+            >
+              <MotionPressable
+                style={styles.activity}
+                disabled={item.tmdbId <= 0}
+                onPress={() =>
+                  router.push(`/title/${item.mediaType}/${item.tmdbId}` as Href)
+                }
+              >
+                <View style={styles.activityIcon}>
+                  <Ionicons
+                    name={
+                      item.type === "rating"
+                        ? "star"
+                        : item.type === "recommendation"
+                          ? "paper-plane"
+                          : "film"
+                    }
+                    size={21}
+                    color={colors.accent}
+                  />
+                </View>
+                <View style={styles.grow}>
+                  <Text style={styles.actor}>{item.actorName}</Text>
+                  <Text style={styles.body}>{activityText(item)}</Text>
+                  <Text style={styles.date}>
+                    {new Date(item.createdAt).toLocaleDateString("uk-UA", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </Text>
+                </View>
+                {item.tmdbId > 0 ? (
+                  <Ionicons
+                    name="chevron-forward"
+                    color={colors.textMuted}
+                    size={18}
+                  />
+                ) : null}
+              </MotionPressable>
+            </AnimatedSection>
+          ))
+        ) : (
+          <Empty
+            title="У стрічці поки тихо"
+            text="Тут з’являться оцінки, рекомендації та нові друзі."
+          />
+        )
+      ) : (
+        <>
+          <MotionPressable
+            style={styles.createButton}
+            onPress={() => setCreating(true)}
+          >
+            <Ionicons name="add" size={21} color={colors.background} />
+            <Text style={styles.createText}>Новий спільний список</Text>
+          </MotionPressable>
+          {lists.isLoading ? (
+            <ScreenState loading title="Завантажуємо списки" />
+          ) : lists.data?.length ? (
+            lists.data.map((list, index) => (
+              <AnimatedSection key={list.ID} index={index}>
+                <View style={styles.listCard}>
+                  <View style={styles.listHead}>
+                    <View style={styles.grow}>
+                      <Text style={styles.visibility}>
+                        {visibilityLabel(list.Visibility)}
+                      </Text>
+                      <Text style={styles.listName}>{list.Name}</Text>
+                      <Text style={styles.body}>
+                        {list.ItemCount} тайтлів · {list.MemberCount} учасників
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="albums-outline"
+                      size={29}
+                      color={colors.accent}
+                    />
+                  </View>
+                  <View style={styles.actions}>
+                    <MotionPressable
+                      style={styles.secondary}
+                      onPress={() => setInviteFor(list.ID)}
+                    >
+                      <Text style={styles.secondaryText}>Додати друга</Text>
+                    </MotionPressable>
+                    {list.Visibility === "public" ? (
+                      <MotionPressable
+                        accessibilityLabel="Поділитися списком"
+                        style={styles.iconButton}
+                        onPress={() =>
+                          void Share.share({
+                            message: `DropDate · ${list.Name}\ndropdate.app/shared/${list.ShareToken}`,
+                          })
+                        }
+                      >
+                        <Ionicons
+                          name="share-outline"
+                          size={20}
+                          color={colors.text}
+                        />
+                      </MotionPressable>
+                    ) : null}
+                  </View>
+                </View>
+              </AnimatedSection>
+            ))
+          ) : (
+            <Empty
+              title="Немає спільних списків"
+              text="Створи добірку для кіновечора або подорожі."
+            />
+          )}
+        </>
+      )}
+      <Modal
+        visible={creating}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCreating(false)}
+      >
+        <View style={styles.backdrop}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Новий список</Text>
+            <TextInput
+              autoFocus
+              value={name}
+              onChangeText={setName}
+              maxLength={80}
+              placeholder="Наприклад, Вечір п’ятниці"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+            />
+            <Text style={styles.label}>Хто бачить список</Text>
+            <View style={styles.visibilityRow}>
+              {(["private", "friends", "public"] as const).map((value) => (
+                <MotionPressable
+                  key={value}
+                  style={[
+                    styles.visibilityChoice,
+                    visibility === value && styles.visibilityActive,
+                  ]}
+                  onPress={() => setVisibility(value)}
+                >
+                  <Text
+                    style={[
+                      styles.secondaryText,
+                      visibility === value && { color: colors.accent },
+                    ]}
+                  >
+                    {visibilityLabel(value)}
+                  </Text>
+                </MotionPressable>
+              ))}
+            </View>
+            <MotionPressable
+              disabled={!name.trim() || create.isPending}
+              style={styles.createButton}
+              onPress={() =>
+                void create
+                  .mutateAsync()
+                  .catch((error) =>
+                    Alert.alert("Не вдалося створити", error.message),
+                  )
+              }
+            >
+              <Text style={styles.createText}>
+                {create.isPending ? "Створюємо…" : "Створити"}
+              </Text>
+            </MotionPressable>
+            <MotionPressable
+              style={styles.cancel}
+              onPress={() => setCreating(false)}
+            >
+              <Text style={styles.secondaryText}>Скасувати</Text>
+            </MotionPressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={Boolean(inviteFor)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setInviteFor(null)}
+      >
+        <View style={styles.backdrop}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Додати друга</Text>
+            {friends.data?.friends.map((friend) => (
+              <MotionPressable
+                key={friend.user.id}
+                style={styles.friend}
+                onPress={() => invite.mutate(friend.user.id)}
+              >
+                <View>
+                  <Text style={styles.actor}>
+                    {friend.user.username || friend.user.email}
+                  </Text>
+                  <Text style={styles.date}>{friend.user.email}</Text>
+                </View>
+                <Ionicons name="add-circle" color={colors.accent} size={24} />
+              </MotionPressable>
+            ))}
+            {!friends.isLoading && !friends.data?.friends.length ? (
+              <Text style={styles.body}>Спочатку додай когось у друзі.</Text>
+            ) : null}
+            <MotionPressable
+              style={styles.cancel}
+              onPress={() => setInviteFor(null)}
+            >
+              <Text style={styles.secondaryText}>Закрити</Text>
+            </MotionPressable>
+          </View>
+        </View>
+      </Modal>
+    </FeatureScreen>
+  );
+}
+function activityText(item: { type: string; title: string; rating?: number }) {
+  if (item.type === "rating")
+    return `оцінив(ла) «${item.title}» на ${item.rating}/10`;
+  if (item.type === "save") return `додав(ла) «${item.title}» до колекції`;
+  if (item.type === "recommendation") return `порадив(ла) тобі «${item.title}»`;
+  return "тепер у твоїх друзях";
+}
+function visibilityLabel(value: string) {
+  return value === "public"
+    ? "Публічний"
+    : value === "friends"
+      ? "Для друзів"
+      : "Приватний";
+}
+function Tab({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <MotionPressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      style={[base.tab, active && { backgroundColor: colors.elevated }]}
+      onPress={onPress}
+    >
+      <Text
+        style={{
+          color: active ? colors.text : colors.textMuted,
+          fontWeight: "800",
+        }}
+      >
+        {label}
+      </Text>
+    </MotionPressable>
+  );
+}
+function Empty({ title, text }: { title: string; text: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[base.empty, { backgroundColor: colors.card }]}>
+      <Text style={[base.emptyTitle, { color: colors.text }]}>{title}</Text>
+      <Text
+        style={{ color: colors.textMuted, textAlign: "center", lineHeight: 20 }}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+const base = StyleSheet.create({
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  empty: { padding: 30, borderRadius: 22, alignItems: "center", gap: 7 },
+  emptyTitle: { fontSize: 19, fontWeight: "900" },
+});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    segment: {
+      flexDirection: "row",
+      gap: 6,
+      padding: 5,
+      borderRadius: 18,
+      backgroundColor: c.card,
+    },
+    activity: {
+      minHeight: 82,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    activityIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.accentSoft,
+    },
+    grow: { flex: 1 },
+    actor: { color: c.text, fontWeight: "900" },
+    body: { color: c.textMuted, lineHeight: 19, marginTop: 2 },
+    date: { color: c.textMuted, fontSize: 11, marginTop: 5 },
+    createButton: {
+      minHeight: 52,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 17,
+      backgroundColor: c.accent,
+    },
+    createText: { color: c.background, fontWeight: "900" },
+    listCard: {
+      gap: 15,
+      padding: 18,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    listHead: { flexDirection: "row", gap: 12 },
+    visibility: {
+      color: c.eyebrow,
+      fontSize: 11,
+      fontWeight: "800",
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+    },
+    listName: { color: c.text, fontSize: 20, fontWeight: "900", marginTop: 5 },
+    actions: { flexDirection: "row", gap: 8 },
+    secondary: {
+      minHeight: 44,
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 14,
+      backgroundColor: c.elevated,
+    },
+    secondaryText: { color: c.text, fontWeight: "800" },
+    iconButton: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 14,
+      backgroundColor: c.elevated,
+    },
+    backdrop: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0,0,0,.58)",
+    },
+    sheet: {
+      padding: 20,
+      paddingBottom: 36,
+      gap: 14,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: c.elevated,
+    },
+    sheetTitle: { color: c.text, fontSize: 24, fontWeight: "900" },
+    input: {
+      minHeight: 54,
+      paddingHorizontal: 15,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderColor: c.border,
+      color: c.text,
+      backgroundColor: c.card,
+    },
+    label: { color: c.textMuted, fontSize: 12, fontWeight: "700" },
+    visibilityRow: { flexDirection: "row", gap: 7 },
+    visibilityChoice: {
+      flex: 1,
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 15,
+      backgroundColor: c.card,
+    },
+    visibilityActive: {
+      borderWidth: 1,
+      borderColor: c.accent,
+      backgroundColor: c.accentSoft,
+    },
+    cancel: { minHeight: 46, alignItems: "center", justifyContent: "center" },
+    friend: {
+      minHeight: 58,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: 13,
+      borderRadius: 17,
+      backgroundColor: c.card,
+    },
+  });

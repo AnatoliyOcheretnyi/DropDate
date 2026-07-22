@@ -8,6 +8,8 @@
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
     "typecheck": "nx run-many -t typecheck",
+    "format:mobile": "prettier --write \"apps/mobile/{app,src}/**/*.{ts,tsx}\" \"apps/mobile/{app.json,project.json}\"",
+    "format:check:mobile": "prettier --check \"apps/mobile/{app,src}/**/*.{ts,tsx}\" \"apps/mobile/{app.json,project.json}\"",
     "check:staged": "bash scripts/check-staged.sh",
     "check:all": "nx run-many -t lint,typecheck,test,build --nxBail",
     "check:frontend": "nx run-many -t lint,typecheck,test,build -p frontend --nxBail",
@@ -30,6 +32,7 @@
     "release:mobile:current": "bash scripts/release-local.sh mobile current"
   },
   "devDependencies": {
-    "nx": "22.2.3"
+    "nx": "22.2.3",
+    "prettier": "^3.9.6"
   }
 }

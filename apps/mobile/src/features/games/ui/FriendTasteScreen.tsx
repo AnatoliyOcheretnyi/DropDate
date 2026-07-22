@@ -1,4 +1,192 @@
-import{useMemo,useState}from'react';import{StyleSheet,Text,View}from'react-native';import{Image}from'expo-image';import{useQuery}from'@tanstack/react-query';import{useTheme}from'../../../shared/theme/ThemeProvider';import type{Palette}from'../../../shared/theme/palette';import{FeatureScreen}from'../../../shared/ui/FeatureScreen';import{MotionPressable}from'../../../shared/ui/MotionPressable';import{ScreenState}from'../../../shared/ui/ScreenState';import{getFriends,getFriendSaved}from'../../friends/api/friends';import type{SavedItem}from'../../saved/store/savedStore';import{queryKeys}from'../../../shared/api/queryKeys';
-type Pair={left:SavedItem;right:SavedItem;answer:'left'|'right'};const pairsOf=(items:SavedItem[])=>{const rated=items.filter(x=>(x.userRating??0)>0);const out:Pair[]=[];for(const a of rated)for(const b of rated){if(out.length>=10)break;if(a.tmdbId===b.tmdbId||Math.abs((a.userRating??0)-(b.userRating??0))<2)continue;const[left,right]=Math.random()>.5?[a,b]:[b,a];if(out.some(x=>[x.left.tmdbId,x.right.tmdbId].includes(a.tmdbId)))continue;out.push({left,right,answer:(left.userRating??0)>(right.userRating??0)?'left':'right'})}return out};
-export function FriendTasteScreen(){const{colors}=useTheme();const styles=useMemo(()=>makeStyles(colors),[colors]);const[friendId,setFriendId]=useState('');const[pairs,setPairs]=useState<Pair[]>([]);const[index,setIndex]=useState(0);const[selected,setSelected]=useState<'left'|'right'|null>(null);const[score,setScore]=useState(0);const friends=useQuery({queryKey:queryKeys.friends,queryFn:({signal})=>getFriends(signal)});const start=async(id:string)=>{setFriendId(id);const built=pairsOf(await getFriendSaved(id));setPairs(built);setIndex(0);setScore(0);setSelected(null)};if(friends.isLoading)return <ScreenState loading title="Шукаємо друзів"/>;if(!friendId)return <FeatureScreen title="Смак друга" subtitle="Обери друга й вгадуй, який із двох тайтлів він оцінив вище.">{friends.data?.friends.map(friend=><MotionPressable key={friend.user.id} style={styles.friend} onPress={()=>void start(friend.user.id)}><View style={styles.avatar}><Text style={styles.avatarText}>{(friend.user.username||friend.user.email).slice(0,2).toUpperCase()}</Text></View><Text style={styles.friendName}>{friend.user.username||friend.user.email}</Text></MotionPressable>)}</FeatureScreen>;const pair=pairs[index];if(!pair)return <FeatureScreen title={pairs.length?'Гру завершено':'Недостатньо оцінок'} subtitle={pairs.length?`${score}/${pairs.length} правильних`:'Другу потрібно оцінити хоча б кілька різних тайтлів.'}><MotionPressable style={styles.primary} onPress={()=>setFriendId('')}><Text style={styles.primaryText}>Обрати іншого друга</Text></MotionPressable></FeatureScreen>;const choose=(side:'left'|'right')=>{if(selected)return;setSelected(side);if(side===pair.answer)setScore(v=>v+1)};return <FeatureScreen title="Що друг оцінив вище?" subtitle={`Раунд ${index+1}/${pairs.length} · ${score} очок`}><View style={styles.cards}>{(['left','right']as const).map(side=>{const item=pair[side];return <MotionPressable key={side} style={[styles.card,selected&&side===pair.answer&&styles.correct,selected===side&&side!==pair.answer&&styles.wrong]} onPress={()=>choose(side)}>{item.posterUrl?<Image source={{uri:item.posterUrl}} style={styles.poster}/>:null}<Text style={styles.title}>{item.title}</Text>{selected?<Text style={styles.rating}>★ {item.userRating}/10</Text>:null}</MotionPressable>})}</View>{selected?<MotionPressable style={styles.primary} onPress={()=>{setIndex(v=>v+1);setSelected(null)}}><Text style={styles.primaryText}>Далі</Text></MotionPressable>:null}</FeatureScreen>}
-const makeStyles=(c:Palette)=>StyleSheet.create({friend:{minHeight:68,flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:19,backgroundColor:c.card},avatar:{width:46,height:46,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:c.accentSoft},avatarText:{color:c.accent,fontWeight:'900'},friendName:{color:c.text,fontSize:16,fontWeight:'800'},cards:{flexDirection:'row',gap:10},card:{flex:1,gap:8,padding:9,borderRadius:19,borderWidth:1,borderColor:c.border,backgroundColor:c.card},correct:{borderColor:c.accent,backgroundColor:c.accentSoft},wrong:{borderColor:c.error,opacity:.7},poster:{width:'100%',aspectRatio:2/3,borderRadius:14},title:{color:c.text,fontWeight:'900'},rating:{color:c.accent,fontWeight:'900'},primary:{minHeight:52,alignItems:'center',justifyContent:'center',borderRadius:17,backgroundColor:c.accent},primaryText:{color:c.background,fontWeight:'900'}});
+import { useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { useQuery } from "@tanstack/react-query";
+import { useTheme } from "../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../shared/theme/palette";
+import { FeatureScreen } from "../../../shared/ui/FeatureScreen";
+import { MotionPressable } from "../../../shared/ui/MotionPressable";
+import { ScreenState } from "../../../shared/ui/ScreenState";
+import { getFriends, getFriendSaved } from "../../friends/api/friends";
+import type { SavedItem } from "../../saved/store/savedStore";
+import { queryKeys } from "../../../shared/api/queryKeys";
+type Pair = { left: SavedItem; right: SavedItem; answer: "left" | "right" };
+const pairsOf = (items: SavedItem[]) => {
+  const rated = items.filter((x) => (x.userRating ?? 0) > 0);
+  const out: Pair[] = [];
+  for (const a of rated)
+    for (const b of rated) {
+      if (out.length >= 10) break;
+      if (
+        a.tmdbId === b.tmdbId ||
+        Math.abs((a.userRating ?? 0) - (b.userRating ?? 0)) < 2
+      )
+        continue;
+      const [left, right] = Math.random() > 0.5 ? [a, b] : [b, a];
+      if (out.some((x) => [x.left.tmdbId, x.right.tmdbId].includes(a.tmdbId)))
+        continue;
+      out.push({
+        left,
+        right,
+        answer:
+          (left.userRating ?? 0) > (right.userRating ?? 0) ? "left" : "right",
+      });
+    }
+  return out;
+};
+export function FriendTasteScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [friendId, setFriendId] = useState("");
+  const [pairs, setPairs] = useState<Pair[]>([]);
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<"left" | "right" | null>(null);
+  const [score, setScore] = useState(0);
+  const friends = useQuery({
+    queryKey: queryKeys.friends,
+    queryFn: ({ signal }) => getFriends(signal),
+  });
+  const start = async (id: string) => {
+    setFriendId(id);
+    const built = pairsOf(await getFriendSaved(id));
+    setPairs(built);
+    setIndex(0);
+    setScore(0);
+    setSelected(null);
+  };
+  if (friends.isLoading) return <ScreenState loading title="Шукаємо друзів" />;
+  if (!friendId)
+    return (
+      <FeatureScreen
+        title="Смак друга"
+        subtitle="Обери друга й вгадуй, який із двох тайтлів він оцінив вище."
+      >
+        {friends.data?.friends.map((friend) => (
+          <MotionPressable
+            key={friend.user.id}
+            style={styles.friend}
+            onPress={() => void start(friend.user.id)}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(friend.user.username || friend.user.email)
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.friendName}>
+              {friend.user.username || friend.user.email}
+            </Text>
+          </MotionPressable>
+        ))}
+      </FeatureScreen>
+    );
+  const pair = pairs[index];
+  if (!pair)
+    return (
+      <FeatureScreen
+        title={pairs.length ? "Гру завершено" : "Недостатньо оцінок"}
+        subtitle={
+          pairs.length
+            ? `${score}/${pairs.length} правильних`
+            : "Другу потрібно оцінити хоча б кілька різних тайтлів."
+        }
+      >
+        <MotionPressable style={styles.primary} onPress={() => setFriendId("")}>
+          <Text style={styles.primaryText}>Обрати іншого друга</Text>
+        </MotionPressable>
+      </FeatureScreen>
+    );
+  const choose = (side: "left" | "right") => {
+    if (selected) return;
+    setSelected(side);
+    if (side === pair.answer) setScore((v) => v + 1);
+  };
+  return (
+    <FeatureScreen
+      title="Що друг оцінив вище?"
+      subtitle={`Раунд ${index + 1}/${pairs.length} · ${score} очок`}
+    >
+      <View style={styles.cards}>
+        {(["left", "right"] as const).map((side) => {
+          const item = pair[side];
+          return (
+            <MotionPressable
+              key={side}
+              style={[
+                styles.card,
+                selected && side === pair.answer && styles.correct,
+                selected === side && side !== pair.answer && styles.wrong,
+              ]}
+              onPress={() => choose(side)}
+            >
+              {item.posterUrl ? (
+                <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+              ) : null}
+              <Text style={styles.title}>{item.title}</Text>
+              {selected ? (
+                <Text style={styles.rating}>★ {item.userRating}/10</Text>
+              ) : null}
+            </MotionPressable>
+          );
+        })}
+      </View>
+      {selected ? (
+        <MotionPressable
+          style={styles.primary}
+          onPress={() => {
+            setIndex((v) => v + 1);
+            setSelected(null);
+          }}
+        >
+          <Text style={styles.primaryText}>Далі</Text>
+        </MotionPressable>
+      ) : null}
+    </FeatureScreen>
+  );
+}
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    friend: {
+      minHeight: 68,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 12,
+      borderRadius: 19,
+      backgroundColor: c.card,
+    },
+    avatar: {
+      width: 46,
+      height: 46,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.accentSoft,
+    },
+    avatarText: { color: c.accent, fontWeight: "900" },
+    friendName: { color: c.text, fontSize: 16, fontWeight: "800" },
+    cards: { flexDirection: "row", gap: 10 },
+    card: {
+      flex: 1,
+      gap: 8,
+      padding: 9,
+      borderRadius: 19,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    correct: { borderColor: c.accent, backgroundColor: c.accentSoft },
+    wrong: { borderColor: c.error, opacity: 0.7 },
+    poster: { width: "100%", aspectRatio: 2 / 3, borderRadius: 14 },
+    title: { color: c.text, fontWeight: "900" },
+    rating: { color: c.accent, fontWeight: "900" },
+    primary: {
+      minHeight: 52,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 17,
+      backgroundColor: c.accent,
+    },
+    primaryText: { color: c.background, fontWeight: "900" },
+  });

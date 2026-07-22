@@ -1,10 +1,10 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from "react-native";
 
-import { colors } from '../../../shared/theme/colors';
-import { AuthBackdrop } from './AuthBackdrop';
-import { AuthHero } from './components/AuthHero';
-import { AuthFormPanel } from './components/AuthFormPanel';
-import { useAuthScreen } from '../hooks/useAuthScreen';
+import { colors } from "../../../shared/theme/colors";
+import { AuthBackdrop } from "./AuthBackdrop";
+import { AuthHero } from "./components/AuthHero";
+import { AuthFormPanel } from "./components/AuthFormPanel";
+import { useAuthScreen } from "../hooks/useAuthScreen";
 
 export default function AuthScreen() {
   const {
@@ -59,6 +59,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
 });

@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { ReleaseInfo } from '../types/release';
-import { getBackendURL } from '../utils/config';
-import { copy } from '../strings';
+import { useCallback, useMemo, useState } from "react";
+import type { ReleaseInfo } from "../types/release";
+import { getBackendURL } from "../utils/config";
+import { copy } from "../strings";
 
 type SearchParams = {
   title: string;
@@ -30,18 +30,18 @@ export function useNextRelease() {
 
       try {
         const params = new URLSearchParams();
-        params.set('title', trimmed);
+        params.set("title", trimmed);
         if (tmdbId) {
-          params.set('tmdbId', String(tmdbId));
+          params.set("tmdbId", String(tmdbId));
         }
         if (mediaType) {
-          params.set('mediaType', mediaType);
+          params.set("mediaType", mediaType);
         }
 
         const url = `${backendUrl}/next-release?${params.toString()}`;
 
         const response = await fetch(url, {
-          headers: { accept: 'application/json' },
+          headers: { accept: "application/json" },
         });
 
         const payload = await response
@@ -64,7 +64,7 @@ export function useNextRelease() {
         setIsLoading(false);
       }
     },
-    [backendUrl]
+    [backendUrl],
   );
 
   return { release, error, isLoading, search };

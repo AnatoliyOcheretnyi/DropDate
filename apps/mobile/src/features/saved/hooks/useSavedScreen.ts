@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 
-import type { ListType } from '../../../shared/types/lists';
-import { copy } from '../../../shared/strings';
-import type { SavedItem } from '../store/savedStore';
-import { useSaved } from './useSaved';
+import type { ListType } from "../../../shared/types/lists";
+import { copy } from "../../../shared/strings";
+import type { SavedItem } from "../store/savedStore";
+import { useSaved } from "./useSaved";
 
 type Section = {
   id: string;
@@ -13,12 +13,23 @@ type Section = {
 
 export function useSavedScreen() {
   const { saved, removeRelease } = useSaved();
-  const [activeList, setActiveList] = useState<ListType>('follow');
-
-  const listItems = useMemo(
-    () => saved.filter((item) => item.listTypes?.includes(activeList)),
-    [activeList, saved]
+  const [activeList, setActiveList] = useState<ListType>("follow");
+  const [sort, setSort] = useState<"default" | "rating" | "alpha" | "release">(
+    "default",
   );
+
+  const listItems = useMemo(() => {
+    const items = saved.filter((item) => item.listTypes?.includes(activeList));
+    if (sort === "default") return items;
+    return [...items].sort((a, b) =>
+      sort === "alpha"
+        ? a.title.localeCompare(b.title, "uk")
+        : sort === "rating"
+          ? (b.userRating ?? 0) - (a.userRating ?? 0)
+          : new Date(a.nextRelease || 0).getTime() -
+            new Date(b.nextRelease || 0).getTime(),
+    );
+  }, [activeList, saved, sort]);
 
   const sections = useMemo<Section[]>(() => {
     const now = new Date();
@@ -28,15 +39,15 @@ export function useSavedScreen() {
     endMonth.setDate(endMonth.getDate() + 30);
 
     const buckets: Record<string, Section> = {
-      today: { id: 'today', title: copy.saved.sectionTitles.today, items: [] },
-      week: { id: 'week', title: copy.saved.sectionTitles.week, items: [] },
-      month: { id: 'month', title: copy.saved.sectionTitles.month, items: [] },
-      later: { id: 'later', title: copy.saved.sectionTitles.later, items: [] },
-      ended: { id: 'ended', title: copy.saved.sectionTitles.ended, items: [] },
+      today: { id: "today", title: copy.saved.sectionTitles.today, items: [] },
+      week: { id: "week", title: copy.saved.sectionTitles.week, items: [] },
+      month: { id: "month", title: copy.saved.sectionTitles.month, items: [] },
+      later: { id: "later", title: copy.saved.sectionTitles.later, items: [] },
+      ended: { id: "ended", title: copy.saved.sectionTitles.ended, items: [] },
     };
 
     listItems.forEach((item) => {
-      if (item.status !== 'upcoming' || !item.nextRelease) {
+      if (item.status !== "upcoming" || !item.nextRelease) {
         buckets.ended.items.push(item);
         return;
       }
@@ -65,9 +76,11 @@ export function useSavedScreen() {
 
   const stats = useMemo(() => {
     const total = listItems.length;
-    const seriesCount = listItems.filter((item) => item.mediaType === 'tv').length;
+    const seriesCount = listItems.filter(
+      (item) => item.mediaType === "tv",
+    ).length;
 
-    if (activeList === 'follow') {
+    if (activeList === "follow") {
       const now = new Date();
       const endWeek = new Date();
       endWeek.setDate(endWeek.getDate() + 7);
@@ -78,58 +91,108 @@ export function useSavedScreen() {
       }).length;
       return {
         left: { value: total, label: copy.listStats.total },
-        middle: { value: thisWeek, label: copy.listStats.thisWeek, tone: 'warm' as const },
-        right: { value: seriesCount, label: copy.listStats.series, tone: 'cool' as const },
+        middle: {
+          value: thisWeek,
+          label: copy.listStats.thisWeek,
+          tone: "warm" as const,
+        },
+        right: {
+          value: seriesCount,
+          label: copy.listStats.series,
+          tone: "cool" as const,
+        },
       };
     }
 
-    if (activeList === 'watchlist') {
-      const watchedCount = listItems.reduce((acc, item) => acc + (item.watchCount ?? 0), 0);
+    if (activeList === "watchlist") {
+      const watchedCount = listItems.reduce(
+        (acc, item) => acc + (item.watchCount ?? 0),
+        0,
+      );
       return {
         left: { value: total, label: copy.listStats.total },
-        middle: { value: watchedCount, label: copy.listStats.watched, tone: 'warm' as const },
-        right: { value: seriesCount, label: copy.listStats.series, tone: 'cool' as const },
+        middle: {
+          value: watchedCount,
+          label: copy.listStats.watched,
+          tone: "warm" as const,
+        },
+        right: {
+          value: seriesCount,
+          label: copy.listStats.series,
+          tone: "cool" as const,
+        },
       };
     }
 
-    if (activeList === 'favorite') {
+    if (activeList === "favorite") {
       const rewatches = listItems.reduce((acc, item) => {
         const count = item.watchCount ?? 0;
         return acc + Math.max(count - 1, 0);
       }, 0);
       return {
         left: { value: total, label: copy.listStats.total },
-        middle: { value: rewatches, label: copy.listStats.rewatches, tone: 'warm' as const },
-        right: { value: seriesCount, label: copy.listStats.series, tone: 'cool' as const },
+        middle: {
+          value: rewatches,
+          label: copy.listStats.rewatches,
+          tone: "warm" as const,
+        },
+        right: {
+          value: seriesCount,
+          label: copy.listStats.series,
+          tone: "cool" as const,
+        },
       };
     }
 
-    if (activeList === 'watched') {
-      const views = listItems.reduce((acc, item) => acc + (item.watchCount ?? 0), 0);
+    if (activeList === "watched") {
+      const views = listItems.reduce(
+        (acc, item) => acc + (item.watchCount ?? 0),
+        0,
+      );
       return {
         left: { value: total, label: copy.listStats.total },
-        middle: { value: views, label: copy.listStats.views, tone: 'warm' as const },
-        right: { value: seriesCount, label: copy.listStats.series, tone: 'cool' as const },
+        middle: {
+          value: views,
+          label: copy.listStats.views,
+          tone: "warm" as const,
+        },
+        right: {
+          value: seriesCount,
+          label: copy.listStats.series,
+          tone: "cool" as const,
+        },
       };
     }
 
     const ratings = listItems
       .map((item) => item.userRating)
-      .filter((value): value is number => typeof value === 'number');
+      .filter((value): value is number => typeof value === "number");
     const avg =
       ratings.length > 0
-        ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+        ? Math.round(
+            (ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10,
+          ) / 10
         : 0;
     return {
       left: { value: total, label: copy.listStats.total },
-      middle: { value: `${avg}`, label: copy.listStats.avgRating, tone: 'warm' as const },
-      right: { value: seriesCount, label: copy.listStats.series, tone: 'cool' as const },
+      middle: {
+        value: `${avg}`,
+        label: copy.listStats.avgRating,
+        tone: "warm" as const,
+      },
+      right: {
+        value: seriesCount,
+        label: copy.listStats.series,
+        tone: "cool" as const,
+      },
     };
   }, [activeList, listItems]);
 
   return {
     activeList,
     setActiveList,
+    sort,
+    setSort,
     listItems,
     sections,
     stats,

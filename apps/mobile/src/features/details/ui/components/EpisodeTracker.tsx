@@ -1,30 +1,400 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Details } from '../../../../shared/types/release';
-import { queryKeys } from '../../../../shared/api/queryKeys';
-import { useTheme } from '../../../../shared/theme/ThemeProvider';
-import type { Palette } from '../../../../shared/theme/palette';
-import { MotionPressable } from '../../../../shared/ui/MotionPressable';
-import { useAuthStore } from '../../../auth/store/authStore';
-import { getEpisodeMetadata, getEpisodeProgress, updateEpisodeProgress, type EpisodeProgress } from '../../api/episodes';
+import { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Details } from "../../../../shared/types/release";
+import { queryKeys } from "../../../../shared/api/queryKeys";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
+import { MotionPressable } from "../../../../shared/ui/MotionPressable";
+import { useAuthStore } from "../../../auth/store/authStore";
+import {
+  getEpisodeMetadata,
+  getEpisodeProgress,
+  updateEpisodeProgress,
+  type EpisodeProgress,
+} from "../../api/episodes";
 
-type Season = NonNullable<Details['seasons']>[number];
+type Season = NonNullable<Details["seasons"]>[number];
 export function EpisodeTracker({ details }: { details: Details }) {
-  const authed=useAuthStore(s=>Boolean(s.user)); const client=useQueryClient(); const {colors}=useTheme(); const styles=useMemo(()=>makeStyles(colors),[colors]);
-  const progress=useQuery({queryKey:queryKeys.episodeProgress(details.id),queryFn:({signal})=>getEpisodeProgress(details.id,signal),enabled:authed&&details.mediaType==='tv'});
-  const mutation=useMutation({mutationFn:(body:Record<string,unknown>)=>updateEpisodeProgress(details.id,body),onSuccess:()=>client.invalidateQueries({queryKey:queryKeys.episodeProgress(details.id)})});
-  if(!authed||details.mediaType!=='tv'||!details.seasons?.length)return null;
-  const map=new Map((progress.data??[]).map(item=>[`${item.seasonNumber}:${item.episodeNumber}`,item]));
-  return <View style={styles.section}><Text style={styles.eyebrow}>ТВІЙ ПРОГРЕС</Text><Text style={styles.heading}>Епізоди</Text><Text style={styles.lead}>Сезони згорнуті за замовчуванням. Відкрий потрібний, щоб побачити кадри й оцінки.</Text>{details.seasons.map(season=><SeasonBlock key={season.seasonNumber} season={season} tmdbId={details.id} progress={map} update={body=>mutation.mutate(body)}/>)}</View>;
+  const authed = useAuthStore((s) => Boolean(s.user));
+  const client = useQueryClient();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const progress = useQuery({
+    queryKey: queryKeys.episodeProgress(details.id),
+    queryFn: ({ signal }) => getEpisodeProgress(details.id, signal),
+    enabled: authed && details.mediaType === "tv",
+  });
+  const mutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      updateEpisodeProgress(details.id, body),
+    onSuccess: () =>
+      client.invalidateQueries({
+        queryKey: queryKeys.episodeProgress(details.id),
+      }),
+  });
+  if (!authed || details.mediaType !== "tv" || !details.seasons?.length)
+    return null;
+  const map = new Map(
+    (progress.data ?? []).map((item) => [
+      `${item.seasonNumber}:${item.episodeNumber}`,
+      item,
+    ]),
+  );
+  return (
+    <View style={styles.section}>
+      <Text style={styles.eyebrow}>ТВІЙ ПРОГРЕС</Text>
+      <Text style={styles.heading}>Епізоди</Text>
+      <Text style={styles.lead}>
+        Сезони згорнуті за замовчуванням. Відкрий потрібний, щоб побачити кадри
+        й оцінки.
+      </Text>
+      {details.seasons.map((season) => (
+        <SeasonBlock
+          key={season.seasonNumber}
+          season={season}
+          tmdbId={details.id}
+          progress={map}
+          update={(body) => mutation.mutate(body)}
+        />
+      ))}
+    </View>
+  );
 }
-function SeasonBlock({season,tmdbId,progress,update}:{season:Season;tmdbId:number;progress:Map<string,EpisodeProgress>;update:(body:Record<string,unknown>)=>void}){
-  const {colors}=useTheme();const styles=useMemo(()=>makeStyles(colors),[colors]);const[open,setOpen]=useState(false);const[ratingFor,setRatingFor]=useState<number|null>(null);
-  const metadata=useQuery({queryKey:queryKeys.episodeMetadata(tmdbId,season.seasonNumber),queryFn:({signal})=>getEpisodeMetadata(tmdbId,season.seasonNumber,signal),enabled:open,staleTime:3_600_000});
-  const meta=new Map((metadata.data??[]).map(item=>[item.episodeNumber,item]));const watched=Array.from({length:season.episodeCount},(_,i)=>progress.get(`${season.seasonNumber}:${i+1}`)?.watched).filter(Boolean).length;const percent=season.episodeCount?watched/season.episodeCount:0;
-  return <View style={styles.season}><MotionPressable accessibilityState={{expanded:open}} style={styles.summary} onPress={()=>setOpen(v=>!v)}><View style={styles.grow}><Text style={styles.seasonTitle}>{season.name||`Сезон ${season.seasonNumber}`}</Text><Text style={styles.meta}>{watched}/{season.episodeCount} переглянуто</Text><View style={styles.track}><View style={[styles.fill,{width:`${percent*100}%`}]} /></View></View><Ionicons name={open?'chevron-up':'chevron-down'} color={colors.accent} size={22}/></MotionPressable>{open?<View style={styles.open}><View style={styles.bulk}><MotionPressable style={styles.bulkButton} onPress={()=>update({seasonNumber:season.seasonNumber,episodeCount:season.episodeCount,watched:true})}><Text style={styles.bulkText}>✓ Усе переглянуто</Text></MotionPressable><MotionPressable style={styles.bulkButton} onPress={()=>update({seasonNumber:season.seasonNumber,episodeCount:season.episodeCount,watched:false})}><Text style={styles.bulkText}>Скинути</Text></MotionPressable></View>{metadata.isLoading?<ActivityIndicator color={colors.accent}/>:<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodeRow}>{Array.from({length:season.episodeCount},(_,index)=>index+1).map(number=>{const item=progress.get(`${season.seasonNumber}:${number}`);const info=meta.get(number);return <View key={number} style={styles.episode}><MotionPressable style={styles.still} accessibilityLabel={`${item?.watched?'Скасувати перегляд':'Позначити переглянутим'} серії ${number}`} onPress={()=>update({seasonNumber:season.seasonNumber,episodeNumber:number,watched:!item?.watched})}>{info?.stillUrl?<Image source={{uri:info.stillUrl}} style={StyleSheet.absoluteFill}/>:<Text style={styles.episodeNumber}>E{String(number).padStart(2,'0')}</Text>}{item?.watched?<View style={styles.checked}><Ionicons name="checkmark" size={16} color={colors.background}/></View>:null}</MotionPressable><Text numberOfLines={2} style={styles.episodeTitle}>{info?.name||`Серія ${number}`}</Text><Text style={styles.meta}>{info?.airDate||`S${season.seasonNumber}E${number}`}</Text><MotionPressable style={styles.rating} onPress={()=>setRatingFor(number)}><Ionicons name="star" size={15} color={item?.rating?colors.accent:colors.textMuted}/><Text style={styles.ratingText}>{item?.rating??'Оцінити'}</Text></MotionPressable></View>})}</ScrollView>}<RatingSheet visible={ratingFor!==null} value={ratingFor?progress.get(`${season.seasonNumber}:${ratingFor}`)?.rating:undefined} onClose={()=>setRatingFor(null)} onRate={rating=>{if(ratingFor)update({seasonNumber:season.seasonNumber,episodeNumber:ratingFor,rating});setRatingFor(null);}}/></View>:null}</View>;
+function SeasonBlock({
+  season,
+  tmdbId,
+  progress,
+  update,
+}: {
+  season: Season;
+  tmdbId: number;
+  progress: Map<string, EpisodeProgress>;
+  update: (body: Record<string, unknown>) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [open, setOpen] = useState(false);
+  const [ratingFor, setRatingFor] = useState<number | null>(null);
+  const metadata = useQuery({
+    queryKey: queryKeys.episodeMetadata(tmdbId, season.seasonNumber),
+    queryFn: ({ signal }) =>
+      getEpisodeMetadata(tmdbId, season.seasonNumber, signal),
+    enabled: open,
+    staleTime: 3_600_000,
+  });
+  const meta = new Map(
+    (metadata.data ?? []).map((item) => [item.episodeNumber, item]),
+  );
+  const watched = Array.from(
+    { length: season.episodeCount },
+    (_, i) => progress.get(`${season.seasonNumber}:${i + 1}`)?.watched,
+  ).filter(Boolean).length;
+  const percent = season.episodeCount ? watched / season.episodeCount : 0;
+  return (
+    <View style={styles.season}>
+      <MotionPressable
+        accessibilityState={{ expanded: open }}
+        style={styles.summary}
+        onPress={() => setOpen((v) => !v)}
+      >
+        <View style={styles.grow}>
+          <Text style={styles.seasonTitle}>
+            {season.name || `Сезон ${season.seasonNumber}`}
+          </Text>
+          <Text style={styles.meta}>
+            {watched}/{season.episodeCount} переглянуто
+          </Text>
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${percent * 100}%` }]} />
+          </View>
+        </View>
+        <Ionicons
+          name={open ? "chevron-up" : "chevron-down"}
+          color={colors.accent}
+          size={22}
+        />
+      </MotionPressable>
+      {open ? (
+        <View style={styles.open}>
+          <View style={styles.bulk}>
+            <MotionPressable
+              style={styles.bulkButton}
+              onPress={() =>
+                update({
+                  seasonNumber: season.seasonNumber,
+                  episodeCount: season.episodeCount,
+                  watched: true,
+                })
+              }
+            >
+              <Text style={styles.bulkText}>✓ Усе переглянуто</Text>
+            </MotionPressable>
+            <MotionPressable
+              style={styles.bulkButton}
+              onPress={() =>
+                update({
+                  seasonNumber: season.seasonNumber,
+                  episodeCount: season.episodeCount,
+                  watched: false,
+                })
+              }
+            >
+              <Text style={styles.bulkText}>Скинути</Text>
+            </MotionPressable>
+          </View>
+          {metadata.isLoading ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.episodeRow}
+            >
+              {Array.from(
+                { length: season.episodeCount },
+                (_, index) => index + 1,
+              ).map((number) => {
+                const item = progress.get(`${season.seasonNumber}:${number}`);
+                const info = meta.get(number);
+                return (
+                  <View key={number} style={styles.episode}>
+                    <MotionPressable
+                      style={styles.still}
+                      accessibilityLabel={`${item?.watched ? "Скасувати перегляд" : "Позначити переглянутим"} серії ${number}`}
+                      onPress={() =>
+                        update({
+                          seasonNumber: season.seasonNumber,
+                          episodeNumber: number,
+                          watched: !item?.watched,
+                        })
+                      }
+                    >
+                      {info?.stillUrl ? (
+                        <Image
+                          source={{ uri: info.stillUrl }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                      ) : (
+                        <Text style={styles.episodeNumber}>
+                          E{String(number).padStart(2, "0")}
+                        </Text>
+                      )}
+                      {item?.watched ? (
+                        <View style={styles.checked}>
+                          <Ionicons
+                            name="checkmark"
+                            size={16}
+                            color={colors.background}
+                          />
+                        </View>
+                      ) : null}
+                    </MotionPressable>
+                    <Text numberOfLines={2} style={styles.episodeTitle}>
+                      {info?.name || `Серія ${number}`}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {info?.airDate || `S${season.seasonNumber}E${number}`}
+                    </Text>
+                    <MotionPressable
+                      style={styles.rating}
+                      onPress={() => setRatingFor(number)}
+                    >
+                      <Ionicons
+                        name="star"
+                        size={15}
+                        color={item?.rating ? colors.accent : colors.textMuted}
+                      />
+                      <Text style={styles.ratingText}>
+                        {item?.rating ?? "Оцінити"}
+                      </Text>
+                    </MotionPressable>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+          <RatingSheet
+            visible={ratingFor !== null}
+            value={
+              ratingFor
+                ? progress.get(`${season.seasonNumber}:${ratingFor}`)?.rating
+                : undefined
+            }
+            onClose={() => setRatingFor(null)}
+            onRate={(rating) => {
+              if (ratingFor)
+                update({
+                  seasonNumber: season.seasonNumber,
+                  episodeNumber: ratingFor,
+                  rating,
+                });
+              setRatingFor(null);
+            }}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
 }
-function RatingSheet({visible,value,onClose,onRate}:{visible:boolean;value?:number;onClose:()=>void;onRate:(n:number)=>void}){const{colors}=useTheme();const styles=useMemo(()=>makeStyles(colors),[colors]);return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}><View style={styles.modalBackdrop}><View style={styles.ratingSheet}><Text style={styles.heading}>Твоя оцінка</Text><View style={styles.numbers}>{Array.from({length:10},(_,i)=>i+1).map(n=><MotionPressable key={n} style={[styles.number,value===n&&styles.numberActive]} onPress={()=>onRate(n)}><Text style={styles.numberText}>{n}</Text></MotionPressable>)}</View><MotionPressable style={styles.closeButton} onPress={onClose}><Text style={styles.bulkText}>Скасувати</Text></MotionPressable></View></View></Modal>}
-const makeStyles=(c:Palette)=>StyleSheet.create({section:{marginHorizontal:20,marginTop:18,gap:12},eyebrow:{color:c.eyebrow,fontSize:11,fontWeight:'800',letterSpacing:2},heading:{color:c.text,fontSize:25,fontWeight:'900'},lead:{color:c.textMuted,lineHeight:21},season:{borderRadius:20,borderWidth:1,borderColor:c.border,backgroundColor:c.card,overflow:'hidden'},summary:{minHeight:72,flexDirection:'row',alignItems:'center',padding:15,gap:12},grow:{flex:1},seasonTitle:{color:c.text,fontSize:17,fontWeight:'900'},meta:{color:c.textMuted,fontSize:11,marginTop:4},track:{height:5,borderRadius:99,backgroundColor:c.border,marginTop:9,overflow:'hidden'},fill:{height:'100%',backgroundColor:c.accent},open:{paddingBottom:16,gap:14},bulk:{flexDirection:'row',gap:8,paddingHorizontal:14},bulkButton:{minHeight:40,justifyContent:'center',paddingHorizontal:13,borderRadius:13,backgroundColor:c.elevated},bulkText:{color:c.text,fontWeight:'800'},episodeRow:{paddingHorizontal:14,gap:12},episode:{width:210,gap:5},still:{height:118,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:c.elevated},episodeNumber:{color:c.textMuted,fontSize:24,fontWeight:'900'},checked:{position:'absolute',right:8,top:8,width:28,height:28,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:c.accent},episodeTitle:{color:c.text,fontWeight:'800',minHeight:36},rating:{minHeight:40,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,borderRadius:13,backgroundColor:c.elevated},ratingText:{color:c.text,fontWeight:'700'},modalBackdrop:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,.58)'},ratingSheet:{padding:20,paddingBottom:36,gap:18,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:c.elevated},numbers:{flexDirection:'row',flexWrap:'wrap',gap:9},number:{width:52,height:52,borderRadius:17,alignItems:'center',justifyContent:'center',backgroundColor:c.card},numberActive:{backgroundColor:c.accent},numberText:{color:c.text,fontSize:18,fontWeight:'900'},closeButton:{minHeight:48,alignItems:'center',justifyContent:'center',borderRadius:16,backgroundColor:c.card}});
+function RatingSheet({
+  visible,
+  value,
+  onClose,
+  onRate,
+}: {
+  visible: boolean;
+  value?: number;
+  onClose: () => void;
+  onRate: (n: number) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={styles.ratingSheet}>
+          <Text style={styles.heading}>Твоя оцінка</Text>
+          <View style={styles.numbers}>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <MotionPressable
+                key={n}
+                style={[styles.number, value === n && styles.numberActive]}
+                onPress={() => onRate(n)}
+              >
+                <Text style={styles.numberText}>{n}</Text>
+              </MotionPressable>
+            ))}
+          </View>
+          <MotionPressable style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.bulkText}>Скасувати</Text>
+          </MotionPressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    section: { marginHorizontal: 20, marginTop: 18, gap: 12 },
+    eyebrow: {
+      color: c.eyebrow,
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 2,
+    },
+    heading: { color: c.text, fontSize: 25, fontWeight: "900" },
+    lead: { color: c.textMuted, lineHeight: 21 },
+    season: {
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      overflow: "hidden",
+    },
+    summary: {
+      minHeight: 72,
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 15,
+      gap: 12,
+    },
+    grow: { flex: 1 },
+    seasonTitle: { color: c.text, fontSize: 17, fontWeight: "900" },
+    meta: { color: c.textMuted, fontSize: 11, marginTop: 4 },
+    track: {
+      height: 5,
+      borderRadius: 99,
+      backgroundColor: c.border,
+      marginTop: 9,
+      overflow: "hidden",
+    },
+    fill: { height: "100%", backgroundColor: c.accent },
+    open: { paddingBottom: 16, gap: 14 },
+    bulk: { flexDirection: "row", gap: 8, paddingHorizontal: 14 },
+    bulkButton: {
+      minHeight: 40,
+      justifyContent: "center",
+      paddingHorizontal: 13,
+      borderRadius: 13,
+      backgroundColor: c.elevated,
+    },
+    bulkText: { color: c.text, fontWeight: "800" },
+    episodeRow: { paddingHorizontal: 14, gap: 12 },
+    episode: { width: 210, gap: 5 },
+    still: {
+      height: 118,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.elevated,
+    },
+    episodeNumber: { color: c.textMuted, fontSize: 24, fontWeight: "900" },
+    checked: {
+      position: "absolute",
+      right: 8,
+      top: 8,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.accent,
+    },
+    episodeTitle: { color: c.text, fontWeight: "800", minHeight: 36 },
+    rating: {
+      minHeight: 40,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderRadius: 13,
+      backgroundColor: c.elevated,
+    },
+    ratingText: { color: c.text, fontWeight: "700" },
+    modalBackdrop: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0,0,0,.58)",
+    },
+    ratingSheet: {
+      padding: 20,
+      paddingBottom: 36,
+      gap: 18,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: c.elevated,
+    },
+    numbers: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+    number: {
+      width: 52,
+      height: 52,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.card,
+    },
+    numberActive: { backgroundColor: c.accent },
+    numberText: { color: c.text, fontSize: 18, fontWeight: "900" },
+    closeButton: {
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 16,
+      backgroundColor: c.card,
+    },
+  });

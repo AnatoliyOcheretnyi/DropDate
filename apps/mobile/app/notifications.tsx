@@ -1,1 +1,2 @@
-import { NotificationsScreen } from '../src/features/notifications/ui/NotificationsScreen'; export default NotificationsScreen;
+import { NotificationsScreen } from "../src/features/notifications/ui/NotificationsScreen";
+export default NotificationsScreen;

@@ -1,6 +1,6 @@
 # Mobile parity audit and delivery plan
 
-Status: in progress
+Status: feature parity complete; release hardening remains
 
 Last audited: 2026-07-22
 
@@ -9,24 +9,24 @@ native navigation, interaction, accessibility and performance patterns.
 
 ## Current assessment
 
-The mobile app is now about **90% functionally aligned** with the current web
-product. Core discovery, title details, social flows and the complete game suite
-are available through native interaction patterns. Remaining work is primarily
-release hardening and deeper automated coverage rather than missing product flows.
+The mobile app now has **100% user-feature coverage** of the current web product.
+Routes are adapted to native navigation rather than copied literally. Release
+hardening, native push delivery and deeper automated/device coverage remain a
+separate quality phase; they are not missing web capabilities.
 
-| Product area | Parity | What already works | Gap to close |
-| --- | ---: | --- | --- |
-| Auth/session | 85% | login, registration, verification link, refresh, guest mode | username/profile editing, recovery flow and boundary tests |
-| Home/discovery | 75% | feed, recommendations, mood, Cinematch, people | social activity, daily/game entry points and continuity blocks |
-| Search | 75% | search, suggestions, title navigation | consolidate query/cache behavior, richer native filters |
-| Title details | 95% | providers, friend recommendations, shared lists, episodes and ratings | device QA and layout polish |
-| Saved library | 90% | Query server state, guest persistence and optimistic rollback | selective offline cache verification |
-| Profile | 90% | identity/username, theme, stats, taste, friends and achievements | unlock celebration polish |
-| Friends/social | 95% | requests, profiles, activity and collaborative/public lists | public-link universal-link QA |
-| Games | 90% | all web modes, formats, stats, leaderboard and friend challenges | daily presentation and extended session telemetry |
-| Calendar/people | 80% | calendar, follows, person details and filmography | richer media presentation, social context and polish |
-| Notifications | 45% | in-app list, unread badge, mark read | social/game event rendering, deep links and push delivery |
-| Mobile quality | 35% | theme, Reanimated foundation, haptics, API refresh | Dynamic Type audit, reduced-motion coverage, offline cache, screen-reader QA, tests and production builds |
+| Product area    |          Parity | What already works                                                                               | Gap to close                                                                                              |
+| --------------- | --------------: | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Auth/session    |            100% | login, registration, verification/resend, refresh, guest mode, username and superuser access     | boundary tests                                                                                            |
+| Home/discovery  |            100% | feed, recommendations, daily pick, continue watching, mood, Cinematch and Bridge                 | device polish                                                                                             |
+| Search          |            100% | search, filters, relevance/year/title sorting, paging and title navigation                       | query-cache hardening                                                                                     |
+| Title details   |            100% | providers, friend recommendations, shared lists, episodes and ratings                            | device QA                                                                                                 |
+| Saved library   |            100% | every web list, sorting, statistics, ratings, Query server state and guest persistence           | offline verification                                                                                      |
+| Profile         |            100% | identity, theme, stats, server taste tournament/onboarding, achievements, changelog and Dev Zone | device polish                                                                                             |
+| Friends/social  |            100% | requests, profiles, activity, collaborative list detail and public token links                   | associated-domain production verification                                                                 |
+| Games           |            100% | all modes/formats, daily, stats, leaderboard and complete friend-challenge submission            | telemetry polish                                                                                          |
+| Calendar/people |            100% | calendar, follows, person details, filmography and recommendations                               | richer presentation                                                                                       |
+| Notifications   | 100% web parity | in-app inbox, event rendering, unread state and deep links                                       | native push delivery is a mobile-only phase-two enhancement                                               |
+| Mobile quality  |             35% | theme, Reanimated foundation, haptics, API refresh                                               | Dynamic Type audit, reduced-motion coverage, offline cache, screen-reader QA, tests and production builds |
 
 ## Native product rules
 
@@ -48,25 +48,25 @@ release hardening and deeper automated coverage rather than missing product flow
 
 - [x] Make the shared feature screen theme-aware; safe-area and typography audit continues.
 - [x] Add Friends: search, requests, list and native friend profile with shared titles.
-- [ ] Add Achievements: own and friend progress views are complete; unlock celebration remains.
-- [ ] Connect profile shortcuts and notification deep links.
+- [x] Add Achievements: own/friend progress and global unlock celebration.
+- [x] Connect profile shortcuts and notification deep links.
 
 ### 2. Title-detail parity
 
 - [x] Add regional watch providers with a compact native country picker.
 - [x] Replace the large recommend block with a compact action and friend sheet.
 - [x] Add seasons collapsed by default, lazy episode metadata, responsive poster
-  cards, watched state and per-episode rating.
+      cards, watched state and per-episode rating.
 - [x] Add shared-list actions without crowding the primary title controls.
 
 ### 3. Games parity
 
 - [x] Build a native games hub and focused routes for comparison, people,
-  director/movie, timeline, year, blitz, wheel, friend taste and Akinator.
+      director/movie, timeline, year, blitz, wheel, friend taste and Akinator.
 - [x] Support `10 rounds` and `until defeat` in comparison/people games; remove the
-  separate endless duplicate.
-- [ ] Increase pool diversity and apply progressive difficulty appropriate to
-  each mode (closer years/ratings and less obvious people links).
+      separate endless duplicate.
+- [x] Increase pool diversity and apply progressive difficulty appropriate to
+      each mode (closer years/ratings and less obvious people links).
 - [x] Add deterministic daily challenge, streaks, results, stats, leaderboard and challenge feedback.
 
 ### 4. Social depth and data ownership
@@ -80,8 +80,8 @@ release hardening and deeper automated coverage rather than missing product flow
 - [x] Persist the authenticated saved library as a user-scoped read-only offline fallback.
 - [ ] Audit VoiceOver/TalkBack and contrast; Dynamic Type uses native scaling and shared motion respects the system setting.
 - [ ] Add unit tests for domain hooks, integration tests for auth/cache boundaries,
-  and E2E for auth → discovery → save → episode/social flows.
-- [ ] Validate lifecycle/back navigation and create production iOS/Android builds.
+      and E2E for auth → discovery → save → episode/social flows.
+- [ ] Validate lifecycle/back navigation and create signed production iOS/Android builds.
 
 ## Definition of parity
 

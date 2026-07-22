@@ -1,12 +1,12 @@
-import { useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
+import { useCallback } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { useRouter } from "expo-router";
 
-import { PosterCard } from '../../../../shared/ui/PosterCard';
-import { colors } from '../../../../shared/theme/colors';
-import type { SavedItem } from '../../store/savedStore';
-import type { ListType } from '../../../../shared/types/lists';
+import { PosterCard } from "../../../../shared/ui/PosterCard";
+import { colors } from "../../../../shared/theme/colors";
+import type { SavedItem } from "../../store/savedStore";
+import type { ListType } from "../../../../shared/types/lists";
 
 type Props = {
   title: string;
@@ -22,7 +22,7 @@ export function SavedSection({ title, items, activeList, onRemove }: Props) {
     (item: SavedItem) => {
       router.push(`/title/${item.mediaType}/${item.tmdbId}`);
     },
-    [router]
+    [router],
   );
 
   const renderItem = useCallback(
@@ -46,7 +46,7 @@ export function SavedSection({ title, items, activeList, onRemove }: Props) {
         </Pressable>
       </View>
     ),
-    [activeList, handlePress, onRemove]
+    [activeList, handlePress, onRemove],
   );
 
   return (
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
   },
   rowWrap: {
@@ -91,21 +91,21 @@ const styles = StyleSheet.create({
     width: 140,
   },
   removeButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     width: 28,
     height: 28,
     borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: "rgba(255,255,255,0.2)",
   },
   removeText: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

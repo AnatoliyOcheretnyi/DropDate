@@ -1,14 +1,14 @@
-import { MMKV } from 'react-native-mmkv';
+import { MMKV } from "react-native-mmkv";
 
-const storage = new MMKV({ id: 'dropdate' });
+const storage = new MMKV({ id: "dropdate" });
 
 export const storageKeys = {
-  refreshToken: 'dropdate_refresh_token',
-  guestSaved: 'dropdate_guest_saved',
-  guestMode: 'dropdate_guest_mode',
-  moodSession: 'dropdate_mood_session',
-  matchSession: 'dropdate_match_session',
-  tasteProfile: 'dropdate_taste_profile',
+  refreshToken: "dropdate_refresh_token",
+  guestSaved: "dropdate_guest_saved",
+  guestMode: "dropdate_guest_mode",
+  moodSession: "dropdate_mood_session",
+  matchSession: "dropdate_match_session",
+  tasteProfile: "dropdate_taste_profile",
 };
 
 export const storageGetString = (key: string): string | null => {

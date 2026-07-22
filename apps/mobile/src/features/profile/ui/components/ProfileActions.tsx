@@ -1,7 +1,7 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from "react-native";
 
-import { ActionButton } from '../../../../shared/ui/ActionButton';
-import { copy } from '../../../../shared/strings';
+import { ActionButton } from "../../../../shared/ui/ActionButton";
+import { copy } from "../../../../shared/strings";
 
 type Props = {
   isGuest: boolean;
@@ -23,10 +23,18 @@ export function ProfileActions({
       {isGuest || !hasUser ? (
         <>
           <ActionButton label={copy.auth.signIn} onPress={onSignIn} />
-          <ActionButton label={copy.auth.resetGuest} variant="ghost" onPress={onResetGuest} />
+          <ActionButton
+            label={copy.auth.resetGuest}
+            variant="ghost"
+            onPress={onResetGuest}
+          />
         </>
       ) : (
-        <ActionButton label={copy.auth.signOut} variant="ghost" onPress={onSignOut} />
+        <ActionButton
+          label={copy.auth.signOut}
+          variant="ghost"
+          onPress={onSignOut}
+        />
       )}
     </View>
   );

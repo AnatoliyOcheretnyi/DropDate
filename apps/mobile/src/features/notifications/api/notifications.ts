@@ -1,6 +1,56 @@
-import{apiRequest}from'../../../shared/api/client';
-export type NotificationEvent='movie_release'|'episode_release'|'friend_request'|'friend_accepted'|'friend_recommendation'|'game_challenge'|'person_release';
-export type NotificationItem={id:string;tmdbId:number;mediaType:'movie'|'tv'|'social';title:string;eventType:NotificationEvent;eventKey:string;seasonNumber?:number;episodeNumber?:number;episodeName?:string;releaseDate?:string;posterUrl?:string;backdropUrl?:string;readAt?:string;createdAt:string};
-export type NotificationsResponse={items:NotificationItem[];unreadCount:number};
-export const getNotifications=(signal?:AbortSignal)=>apiRequest<NotificationsResponse>('/notifications?limit=100',{auth:true,signal});export const markNotificationsRead=(ids?:string[])=>apiRequest<void>('/notifications/read',{method:'POST',auth:true,body:ids?.length?{ids}:{all:true}});
-export function notificationCopy(item:NotificationItem){if(item.eventType==='friend_request')return`${item.title} запрошує тебе у друзі`;if(item.eventType==='friend_accepted')return`${item.title} прийняв запрошення`;if(item.eventType==='friend_recommendation'){const sender=item.episodeName?.split('\n')[0]||'Друг';return`${sender} радить «${item.title}»`}if(item.eventType==='game_challenge')return'Друг викликає тебе на кінодуель';if(item.eventType==='person_release')return`Новий реліз: ${item.title}`;if(item.eventType==='episode_release')return`Нова серія${item.seasonNumber?` · S${item.seasonNumber}E${item.episodeNumber}`:''}`;return'Фільм уже вийшов'}
+import { apiRequest } from "../../../shared/api/client";
+export type NotificationEvent =
+  | "movie_release"
+  | "episode_release"
+  | "friend_request"
+  | "friend_accepted"
+  | "friend_recommendation"
+  | "game_challenge"
+  | "person_release";
+export type NotificationItem = {
+  id: string;
+  tmdbId: number;
+  mediaType: "movie" | "tv" | "social";
+  title: string;
+  eventType: NotificationEvent;
+  eventKey: string;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeName?: string;
+  releaseDate?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
+  readAt?: string;
+  createdAt: string;
+};
+export type NotificationsResponse = {
+  items: NotificationItem[];
+  unreadCount: number;
+};
+export const getNotifications = (signal?: AbortSignal) =>
+  apiRequest<NotificationsResponse>("/notifications?limit=100", {
+    auth: true,
+    signal,
+  });
+export const markNotificationsRead = (ids?: string[]) =>
+  apiRequest<void>("/notifications/read", {
+    method: "POST",
+    auth: true,
+    body: ids?.length ? { ids } : { all: true },
+  });
+export function notificationCopy(item: NotificationItem) {
+  if (item.eventType === "friend_request")
+    return `${item.title} запрошує тебе у друзі`;
+  if (item.eventType === "friend_accepted")
+    return `${item.title} прийняв запрошення`;
+  if (item.eventType === "friend_recommendation") {
+    const sender = item.episodeName?.split("\n")[0] || "Друг";
+    return `${sender} радить «${item.title}»`;
+  }
+  if (item.eventType === "game_challenge")
+    return "Друг викликає тебе на кінодуель";
+  if (item.eventType === "person_release") return `Новий реліз: ${item.title}`;
+  if (item.eventType === "episode_release")
+    return `Нова серія${item.seasonNumber ? ` · S${item.seasonNumber}E${item.episodeNumber}` : ""}`;
+  return "Фільм уже вийшов";
+}

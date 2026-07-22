@@ -1,34 +1,37 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
-import { apiRequest, configureApiAuth } from '../../../shared/api/client';
-import { ApiError } from '../../../shared/api/errors';
-import { clearUserSessionCache } from '../../../shared/api/queryClient';
+import { apiRequest, configureApiAuth } from "../../../shared/api/client";
+import { ApiError } from "../../../shared/api/errors";
+import { clearUserSessionCache } from "../../../shared/api/queryClient";
 import {
   storageDelete,
   storageGetString,
   storageKeys,
   storageSetString,
-} from '../../../shared/utils/storage';
+} from "../../../shared/utils/storage";
 
 export type AuthUser = {
   id: string;
   email: string;
   verified?: boolean;
+  username?: string;
+  isSuperuser?: boolean;
 };
 
 export type AuthResult =
-  | { status: 'ok' }
-  | { status: 'verification_required' }
-  | { status: 'email_not_verified' }
-  | { status: 'error'; message: string; code?: string };
+  | { status: "ok" }
+  | { status: "verification_required" }
+  | { status: "email_not_verified" }
+  | { status: "error"; message: string; code?: string };
 
 type AuthResponse = {
   accessToken: string;
   refreshToken?: string;
-  user: { id: string; email: string; verified?: boolean };
+  user: AuthUser;
 };
 
-type RegisterResponse = AuthResponse | { status: 'verification_required'; message?: string };
+type RegisterResponse =
+  AuthResponse | { status: "verification_required"; message?: string };
 
 type AuthState = {
   user: AuthUser | null;
@@ -52,8 +55,8 @@ const STORAGE_KEY = storageKeys.refreshToken;
 const GUEST_KEY = storageKeys.guestMode;
 
 const authError = (error: unknown): AuthResult => ({
-  status: 'error',
-  message: error instanceof Error ? error.message : 'Network error',
+  status: "error",
+  message: error instanceof Error ? error.message : "Network error",
   code: error instanceof ApiError ? error.code : undefined,
 });
 
@@ -77,7 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ initialized: true, isLoading: true });
     const token = storageGetString(STORAGE_KEY);
     const guestFlag = storageGetString(GUEST_KEY);
-    if (guestFlag === '1') {
+    if (guestFlag === "1") {
       set({ isGuest: true });
     }
     if (!token) {
@@ -90,9 +93,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   login: async (email: string, password: string) => {
     try {
-      const payload = await apiRequest<AuthResponse>('/auth/login', {
-        method: 'POST',
-        body: { email, password, returnRefresh: true, client: 'mobile' },
+      const payload = await apiRequest<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: { email, password, returnRefresh: true, client: "mobile" },
       });
       await clearUserSessionCache();
       const refreshToken = payload.refreshToken ?? null;
@@ -101,6 +104,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: payload.user.id,
           email: payload.user.email,
           verified: payload.user.verified,
+          username: payload.user.username,
+          isSuperuser: payload.user.isSuperuser,
         },
         accessToken: payload.accessToken,
         refreshToken,
@@ -110,22 +115,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (refreshToken) {
         storageSetString(STORAGE_KEY, refreshToken);
       }
-      return { status: 'ok' };
+      return { status: "ok" };
     } catch (error) {
-      if (error instanceof ApiError && error.status === 403) return { status: 'email_not_verified' };
+      if (error instanceof ApiError && error.status === 403)
+        return { status: "email_not_verified" };
       return authError(error);
     }
   },
   register: async (email: string, password: string) => {
     try {
-      const payload = await apiRequest<RegisterResponse>('/auth/register', {
-        method: 'POST',
-        body: { email, password, returnRefresh: true, client: 'mobile' },
+      const payload = await apiRequest<RegisterResponse>("/auth/register", {
+        method: "POST",
+        body: { email, password, returnRefresh: true, client: "mobile" },
       });
-      if (!('accessToken' in payload)) {
+      if (!("accessToken" in payload)) {
         set({ isGuest: false });
         storageDelete(GUEST_KEY);
-        return { status: 'verification_required' };
+        return { status: "verification_required" };
       }
       const refreshToken = payload.refreshToken ?? null;
       set({
@@ -133,6 +139,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: payload.user.id,
           email: payload.user.email,
           verified: payload.user.verified,
+          username: payload.user.username,
+          isSuperuser: payload.user.isSuperuser,
         },
         accessToken: payload.accessToken,
         refreshToken,
@@ -142,13 +150,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (refreshToken) {
         storageSetString(STORAGE_KEY, refreshToken);
       }
-      return { status: 'ok' };
+      return { status: "ok" };
     } catch (error) {
       return authError(error);
     }
   },
   continueAsGuest: () => {
-    storageSetString(GUEST_KEY, '1');
+    storageSetString(GUEST_KEY, "1");
     set({ isGuest: true });
   },
   resetGuest: () => {
@@ -159,8 +167,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { refreshToken } = get();
     const token = refreshToken || storageGetString(STORAGE_KEY);
     if (token) {
-      await apiRequest('/auth/logout', {
-        method: 'POST',
+      await apiRequest("/auth/logout", {
+        method: "POST",
         body: { refreshToken: token },
       }).catch(() => undefined);
     }
@@ -179,8 +187,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
     try {
-      const payload = await apiRequest<AuthResponse>('/auth/refresh', {
-        method: 'POST',
+      const payload = await apiRequest<AuthResponse>("/auth/refresh", {
+        method: "POST",
         body: { refreshToken: token },
         retryAuth: false,
       });
@@ -190,6 +198,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: payload.user.id,
           email: payload.user.email,
           verified: payload.user.verified,
+          username: payload.user.username,
+          isSuperuser: payload.user.isSuperuser,
         },
         accessToken: payload.accessToken,
         refreshToken: nextRefresh,
@@ -205,11 +215,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   resendVerification: async (email: string) => {
     try {
-      await apiRequest('/auth/verify/resend', {
-        method: 'POST',
+      await apiRequest("/auth/verify/resend", {
+        method: "POST",
         body: { email },
       });
-      return { status: 'ok' };
+      return { status: "ok" };
     } catch (error) {
       return authError(error);
     }
@@ -228,6 +238,10 @@ configureApiAuth({
   refresh: () => useAuthStore.getState().refresh(),
   onUnauthorized: () => {
     clearLocalSession();
-    useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
+    useAuthStore.setState({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+    });
   },
 });

@@ -1,10 +1,17 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import { colors } from '../../../../shared/theme/colors';
-import { copy } from '../../../../shared/strings';
+import { colors } from "../../../../shared/theme/colors";
+import { copy } from "../../../../shared/strings";
 
 type Props = {
-  mode: 'login' | 'register';
+  mode: "login" | "register";
   email: string;
   password: string;
   confirm: string;
@@ -37,7 +44,7 @@ export function AuthFormPanel({
   return (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>
-        {mode === 'login' ? copy.auth.signIn : copy.auth.submitRegister}
+        {mode === "login" ? copy.auth.signIn : copy.auth.submitRegister}
       </Text>
       <Text style={styles.panelLead}>{copy.auth.helperText}</Text>
       <View style={styles.form}>
@@ -58,7 +65,7 @@ export function AuthFormPanel({
           value={password}
           onChangeText={onChangePassword}
         />
-        {mode === 'register' ? (
+        {mode === "register" ? (
           <TextInput
             style={styles.input}
             secureTextEntry
@@ -71,20 +78,27 @@ export function AuthFormPanel({
         {message ? <Text style={styles.message}>{message}</Text> : null}
       </View>
       <Pressable
-        style={[styles.primary, !canSubmit || busy ? styles.primaryDisabled : null]}
+        style={[
+          styles.primary,
+          !canSubmit || busy ? styles.primaryDisabled : null,
+        ]}
         onPress={onSubmit}
       >
         {busy || isLoading ? (
           <ActivityIndicator color="#04140f" />
         ) : (
           <Text style={styles.primaryText}>
-            {mode === 'login' ? copy.auth.submitLogin : copy.auth.submitRegister}
+            {mode === "login"
+              ? copy.auth.submitLogin
+              : copy.auth.submitRegister}
           </Text>
         )}
       </Pressable>
       <Pressable style={styles.switch} onPress={onToggleMode}>
         <Text style={styles.switchText}>
-          {mode === 'login' ? copy.auth.switchToRegister : copy.auth.switchToLogin}
+          {mode === "login"
+            ? copy.auth.switchToRegister
+            : copy.auth.switchToLogin}
         </Text>
       </Pressable>
     </View>
@@ -93,7 +107,7 @@ export function AuthFormPanel({
 
 const styles = StyleSheet.create({
   panel: {
-    width: '100%',
+    width: "100%",
     padding: 20,
     borderRadius: 24,
     borderWidth: 1,
@@ -104,7 +118,7 @@ const styles = StyleSheet.create({
   panelTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   panelLead: {
     color: colors.textMuted,
@@ -132,18 +146,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderRadius: 999,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   primaryDisabled: {
     opacity: 0.6,
   },
   primaryText: {
-    color: '#04140f',
-    fontWeight: '700',
+    color: "#04140f",
+    fontWeight: "700",
     fontSize: 16,
   },
   switch: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
   },
   switchText: {

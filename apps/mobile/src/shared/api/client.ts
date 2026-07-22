@@ -1,5 +1,5 @@
-import { getBackendURL } from '../utils/config';
-import { ApiError } from './errors';
+import { getBackendURL } from "../utils/config";
+import { ApiError } from "./errors";
 
 type AuthAdapter = {
   getAccessToken: () => string | null;
@@ -7,7 +7,7 @@ type AuthAdapter = {
   onUnauthorized: () => void;
 };
 
-type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   auth?: boolean;
   timeoutMs?: number;
@@ -33,14 +33,17 @@ const refreshOnce = async () => {
 
 const parsePayload = async (response: Response) => {
   if (response.status === 204) return undefined;
-  const contentType = response.headers.get('content-type') ?? '';
-  if (contentType.includes('application/json')) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
     return response.json().catch(() => undefined);
   }
   return response.text().catch(() => undefined);
 };
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
   const {
     auth = false,
     timeoutMs = 15_000,
@@ -53,7 +56,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
-  signal?.addEventListener('abort', abort, { once: true });
+  signal?.addEventListener("abort", abort, { once: true });
 
   try {
     const token = authAdapter?.getAccessToken();
@@ -61,8 +64,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       ...requestInit,
       signal: controller.signal,
       headers: {
-        accept: 'application/json',
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        accept: "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
@@ -76,7 +79,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     const payload = await parsePayload(response);
     if (!response.ok) {
       if (response.status === 401 && auth) authAdapter?.onUnauthorized();
-      const data = payload as { message?: string; error?: string; code?: string } | undefined;
+      const data = payload as
+        { message?: string; error?: string; code?: string } | undefined;
       throw new ApiError(
         data?.message ?? data?.error ?? `Request failed (${response.status})`,
         response.status,
@@ -87,6 +91,6 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     return payload as T;
   } finally {
     clearTimeout(timeout);
-    signal?.removeEventListener('abort', abort);
+    signal?.removeEventListener("abort", abort);
   }
 }

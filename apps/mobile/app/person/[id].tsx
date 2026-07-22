@@ -1,1 +1,2 @@
-import { PersonScreen } from '../../src/features/people/ui/PersonScreen'; export default PersonScreen;
+import { PersonScreen } from "../../src/features/people/ui/PersonScreen";
+export default PersonScreen;

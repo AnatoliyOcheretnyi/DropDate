@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
-import { apiRequest } from '../../../shared/api/client';
-import { buildFallbackRelease } from '../../../shared/utils/release';
-import { useSaved } from '../../saved/hooks/useSaved';
-import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import type {
+  Details,
+  ReleaseInfo,
+  Suggestion,
+} from "../../../shared/types/release";
+import { apiRequest } from "../../../shared/api/client";
+import { buildFallbackRelease } from "../../../shared/utils/release";
+import { useSaved } from "../../saved/hooks/useSaved";
+import { useDebouncedValue } from "../../../shared/hooks/useDebouncedValue";
 
 type SearchPayload = {
   results: Suggestion[];
@@ -21,13 +25,14 @@ type DetailsPayload = {
 export function useSearchScreen() {
   const { addRelease, isSuggestionSaved } = useSaved();
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
   const [results, setResults] = useState<Suggestion[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'movie' | 'tv'>('all');
+  const [filter, setFilter] = useState<"all" | "movie" | "tv">("all");
+  const [sort, setSort] = useState<"relevance" | "year" | "title">("relevance");
 
   const loadResults = useCallback(
     async (nextPage: number, append: boolean) => {
@@ -39,8 +44,12 @@ export function useSearchScreen() {
       }
       setIsLoading(true);
       try {
-        const payload = await apiRequest<SearchPayload>(`/search?query=${encodeURIComponent(debouncedQuery)}&page=${nextPage}`);
-        setResults((prev) => (append ? [...prev, ...payload.results] : payload.results));
+        const payload = await apiRequest<SearchPayload>(
+          `/search?query=${encodeURIComponent(debouncedQuery)}&page=${nextPage}`,
+        );
+        setResults((prev) =>
+          append ? [...prev, ...payload.results] : payload.results,
+        );
         setPage(payload.page || nextPage);
         setTotalPages(payload.totalPages || 1);
       } catch {
@@ -49,7 +58,7 @@ export function useSearchScreen() {
         setIsLoading(false);
       }
     },
-    [debouncedQuery]
+    [debouncedQuery],
   );
 
   useEffect(() => {
@@ -69,12 +78,15 @@ export function useSearchScreen() {
         return;
       }
       try {
-        const payload = await apiRequest<DetailsPayload>(`/details?tmdbId=${item.id}&mediaType=${item.mediaType}`);
+        const payload = await apiRequest<DetailsPayload>(
+          `/details?tmdbId=${item.id}&mediaType=${item.mediaType}`,
+        );
         if (!payload.details) {
           return;
         }
         const release =
-          payload.release || buildFallbackRelease(payload.details as Details, item.mediaType);
+          payload.release ||
+          buildFallbackRelease(payload.details as Details, item.mediaType);
         if (!release) {
           return;
         }
@@ -87,21 +99,29 @@ export function useSearchScreen() {
         // ignore network failures for now
       }
     },
-    [addRelease, isSuggestionSaved]
+    [addRelease, isSuggestionSaved],
   );
 
   const filteredResults = useMemo(() => {
-    if (filter === 'all') {
-      return results;
-    }
-    return results.filter((item) => item.mediaType === filter);
-  }, [filter, results]);
+    const filtered =
+      filter === "all"
+        ? results
+        : results.filter((item) => item.mediaType === filter);
+    if (sort === "relevance") return filtered;
+    return [...filtered].sort((a, b) =>
+      sort === "title"
+        ? a.title.localeCompare(b.title, "uk")
+        : Number(b.year || 0) - Number(a.year || 0),
+    );
+  }, [filter, results, sort]);
 
   return {
     query,
     setQuery,
     filter,
     setFilter,
+    sort,
+    setSort,
     filteredResults,
     isLoading,
     page,

@@ -1,12 +1,12 @@
-import { useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { Image } from 'expo-image';
+import { useCallback, useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Image } from "expo-image";
 
-import { useTheme } from '../../../../shared/theme/ThemeProvider';
-import type { Palette } from '../../../../shared/theme/palette';
-import type { Suggestion } from '../../../../shared/types/release';
-import { MotionPressable } from '../../../../shared/ui/MotionPressable';
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
+import type { Suggestion } from "../../../../shared/types/release";
+import { MotionPressable } from "../../../../shared/ui/MotionPressable";
 
 type Props = {
   items: Suggestion[];
@@ -40,13 +40,15 @@ export function RankedRow({ items, onPress, onLongPress }: Props) {
             />
           ) : (
             <View style={styles.posterFallback}>
-              <Text style={styles.posterFallbackText}>{item.title.slice(0, 1)}</Text>
+              <Text style={styles.posterFallbackText}>
+                {item.title.slice(0, 1)}
+              </Text>
             </View>
           )}
         </View>
       </MotionPressable>
     ),
-    [onLongPress, onPress, styles]
+    [onLongPress, onPress, styles],
   );
 
   return (
@@ -63,48 +65,49 @@ export function RankedRow({ items, onPress, onLongPress }: Props) {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
-  rowWrap: {
-    marginHorizontal: -20,
-  },
-  row: {
-    paddingLeft: 20,
-    paddingRight: 28,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginRight: 8,
-  },
-  number: {
-    fontSize: 96,
-    lineHeight: 96,
-    fontWeight: '900',
-    color: colors.isDark ? 'rgba(255,255,255,0.16)' : 'rgba(13,18,32,0.14)',
-    marginRight: -18,
-  },
-  poster: {
-    width: 108,
-    height: 162,
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  posterImage: {
-    width: '100%',
-    height: '100%',
-  },
-  posterFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-  posterFallbackText: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    rowWrap: {
+      marginHorizontal: -20,
+    },
+    row: {
+      paddingLeft: 20,
+      paddingRight: 28,
+    },
+    card: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      marginRight: 8,
+    },
+    number: {
+      fontSize: 96,
+      lineHeight: 96,
+      fontWeight: "900",
+      color: colors.isDark ? "rgba(255,255,255,0.16)" : "rgba(13,18,32,0.14)",
+      marginRight: -18,
+    },
+    poster: {
+      width: 108,
+      height: 162,
+      borderRadius: 14,
+      overflow: "hidden",
+      backgroundColor: colors.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    posterImage: {
+      width: "100%",
+      height: "100%",
+    },
+    posterFallback: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+    },
+    posterFallbackText: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: "700",
+    },
+  });

@@ -1,1 +1,2 @@
-import{FriendTasteScreen}from'../../src/features/games/ui/FriendTasteScreen';export default FriendTasteScreen;
+import { FriendTasteScreen } from "../../src/features/games/ui/FriendTasteScreen";
+export default FriendTasteScreen;

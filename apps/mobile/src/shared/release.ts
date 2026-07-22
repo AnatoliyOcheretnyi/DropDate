@@ -12,5 +12,5 @@ export type {
   PersonRole,
   PersonFollow,
   PersonPick,
-} from '../../../../libs/shared/src/release';
-export { getReleaseStatusLabel } from '../../../../libs/shared/src/release';
+} from "../../../../libs/shared/src/release";
+export { getReleaseStatusLabel } from "../../../../libs/shared/src/release";

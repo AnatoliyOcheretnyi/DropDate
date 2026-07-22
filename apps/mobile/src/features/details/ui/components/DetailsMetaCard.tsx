@@ -1,16 +1,17 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
 
-import type { Details } from '../../../../shared/types/release';
-import { colors } from '../../../../shared/theme/colors';
-import { copy } from '../../../../shared/strings';
-import { formatFullDate } from '../../../../shared/utils/date';
+import type { Details } from "../../../../shared/types/release";
+import { colors } from "../../../../shared/theme/colors";
+import { copy } from "../../../../shared/strings";
+import { formatFullDate } from "../../../../shared/utils/date";
 
 type Props = {
   details: Details;
 };
 
 export function DetailsMetaCard({ details }: Props) {
-  const formatDate = (value?: string) => formatFullDate(value) ?? copy.misc.dash;
+  const formatDate = (value?: string) =>
+    formatFullDate(value) ?? copy.misc.dash;
 
   return (
     <View style={styles.metaCard}>
@@ -26,20 +27,28 @@ export function DetailsMetaCard({ details }: Props) {
       </View>
       {details.nextAirDate ? (
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{copy.details.labels.nextEpisode}</Text>
-          <Text style={styles.metaValue}>{formatDate(details.nextAirDate)}</Text>
+          <Text style={styles.metaLabel}>
+            {copy.details.labels.nextEpisode}
+          </Text>
+          <Text style={styles.metaValue}>
+            {formatDate(details.nextAirDate)}
+          </Text>
         </View>
       ) : null}
       {details.lastAirDate ? (
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{copy.details.labels.lastEpisode}</Text>
-          <Text style={styles.metaValue}>{formatDate(details.lastAirDate)}</Text>
+          <Text style={styles.metaLabel}>
+            {copy.details.labels.lastEpisode}
+          </Text>
+          <Text style={styles.metaValue}>
+            {formatDate(details.lastAirDate)}
+          </Text>
         </View>
       ) : null}
       {details.genres?.length ? (
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{copy.details.labels.genres}</Text>
-          <Text style={styles.metaValue}>{details.genres.join(', ')}</Text>
+          <Text style={styles.metaValue}>{details.genres.join(", ")}</Text>
         </View>
       ) : null}
     </View>
@@ -52,26 +61,26 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: "rgba(0,0,0,0.35)",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: "rgba(255,255,255,0.08)",
     gap: 10,
   },
   metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 12,
   },
   metaLabel: {
     color: colors.textMuted,
     fontSize: 12,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 2,
   },
   metaValue: {
     color: colors.text,
     fontSize: 13,
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
   },
 });

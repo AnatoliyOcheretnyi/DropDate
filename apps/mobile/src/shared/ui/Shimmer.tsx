@@ -1,8 +1,14 @@
-import { useEffect, useMemo } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { useEffect, useMemo } from "react";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
-import { useTheme } from '../theme/ThemeProvider';
+import { useTheme } from "../theme/ThemeProvider";
 
 type ShimmerProps = {
   width: number | `${number}%`;
@@ -19,7 +25,7 @@ export function Shimmer({ width, height, radius = 14, style }: ShimmerProps) {
     progress.value = withRepeat(
       withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
       -1,
-      true
+      true,
     );
   }, [progress]);
 
@@ -28,7 +34,12 @@ export function Shimmer({ width, height, radius = 14, style }: ShimmerProps) {
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius: radius, backgroundColor: colors.elevated },
+        {
+          width,
+          height,
+          borderRadius: radius,
+          backgroundColor: colors.elevated,
+        },
         animatedStyle,
         style,
       ]}
@@ -37,7 +48,10 @@ export function Shimmer({ width, height, radius = 14, style }: ShimmerProps) {
 }
 
 export function PosterRowSkeleton({ count = 4 }: { count?: number }) {
-  const items = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
+  const items = useMemo(
+    () => Array.from({ length: count }, (_, i) => i),
+    [count],
+  );
   return (
     <View style={styles.row}>
       {items.map((i) => (
@@ -49,7 +63,7 @@ export function PosterRowSkeleton({ count = 4 }: { count?: number }) {
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 14,
   },
 });

@@ -1,4 +1,4 @@
-export const formatFullDate = (value?: string, locale: string = 'uk-UA') => {
+export const formatFullDate = (value?: string, locale: string = "uk-UA") => {
   if (!value) {
     return null;
   }
@@ -7,8 +7,8 @@ export const formatFullDate = (value?: string, locale: string = 'uk-UA') => {
     return value;
   }
   return new Intl.DateTimeFormat(locale, {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   }).format(parsed);
 };

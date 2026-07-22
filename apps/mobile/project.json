@@ -31,6 +31,19 @@
         "command": "npx expo lint",
         "cwd": "apps/mobile"
       }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn typecheck",
+        "cwd": "apps/mobile"
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn format:check:mobile"
+      }
     }
   },
   "tags": []

@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors } from '../../../../shared/theme/colors';
-import { copy } from '../../../../shared/strings';
+import { colors } from "../../../../shared/theme/colors";
+import { copy } from "../../../../shared/strings";
 
 type Props = {
   onSignIn: () => void;
@@ -27,7 +27,7 @@ export function WelcomeActionPanel({ onSignIn, onContinueAsGuest }: Props) {
 
 const styles = StyleSheet.create({
   actionPanel: {
-    width: '100%',
+    width: "100%",
     padding: 20,
     borderRadius: 24,
     borderWidth: 1,
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   panelTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   panelLead: {
     color: colors.textMuted,
@@ -52,11 +52,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderRadius: 999,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   primaryText: {
-    color: '#04140f',
-    fontWeight: '700',
+    color: "#04140f",
+    fontWeight: "700",
     fontSize: 16,
   },
   secondary: {
@@ -64,11 +64,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 999,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   secondaryText: {
     color: colors.text,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 15,
   },
 });

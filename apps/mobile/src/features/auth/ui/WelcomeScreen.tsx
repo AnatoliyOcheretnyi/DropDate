@@ -1,11 +1,11 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from "react-native";
 
-import { colors } from '../../../shared/theme/colors';
-import { copy } from '../../../shared/strings';
-import { AuthBackdrop } from './AuthBackdrop';
-import { AuthHero } from './components/AuthHero';
-import { WelcomeActionPanel } from './components/WelcomeActionPanel';
-import { useWelcomeScreen } from '../hooks/useWelcomeScreen';
+import { colors } from "../../../shared/theme/colors";
+import { copy } from "../../../shared/strings";
+import { AuthBackdrop } from "./AuthBackdrop";
+import { AuthHero } from "./components/AuthHero";
+import { WelcomeActionPanel } from "./components/WelcomeActionPanel";
+import { useWelcomeScreen } from "../hooks/useWelcomeScreen";
 
 export default function WelcomeScreen() {
   const { handleSignIn, handleContinueAsGuest } = useWelcomeScreen();
@@ -34,6 +34,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
 });

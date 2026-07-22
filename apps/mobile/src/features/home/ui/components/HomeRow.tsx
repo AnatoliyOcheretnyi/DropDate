@@ -1,9 +1,9 @@
-import { useCallback } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { useCallback } from "react";
+import { StyleSheet, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 
-import type { Suggestion } from '../../../../shared/types/release';
-import { PosterCard } from '../../../../shared/ui/PosterCard';
+import type { Suggestion } from "../../../../shared/types/release";
+import { PosterCard } from "../../../../shared/ui/PosterCard";
 
 type Props = {
   items: Suggestion[];
@@ -13,7 +13,13 @@ type Props = {
   isSaved: (item: Suggestion) => boolean;
 };
 
-export function HomeRow({ items, onPress, onAdd, onLongPress, isSaved }: Props) {
+export function HomeRow({
+  items,
+  onPress,
+  onAdd,
+  onLongPress,
+  isSaved,
+}: Props) {
   const renderItem = useCallback(
     ({ item }: { item: Suggestion }) => (
       <PosterCard
@@ -24,7 +30,7 @@ export function HomeRow({ items, onPress, onAdd, onLongPress, isSaved }: Props) 
         isSaved={isSaved(item)}
       />
     ),
-    [isSaved, onAdd, onLongPress, onPress]
+    [isSaved, onAdd, onLongPress, onPress],
   );
 
   return (

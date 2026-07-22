@@ -1,19 +1,20 @@
-import { useCallback, useMemo } from 'react';
-import { RefreshControl, StyleSheet, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
+import { useCallback, useMemo } from "react";
+import { RefreshControl, StyleSheet, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { useRouter } from "expo-router";
 
-import { ListPickerModal } from '../../../shared/ui/ListPickerModal';
-import { useTheme } from '../../../shared/theme/ThemeProvider';
-import { AnimatedSection } from '../../../shared/ui/AnimatedScreen';
-import { NotificationBell } from '../../../shared/ui/NotificationBell';
-import type { Suggestion } from '../../../shared/types/release';
-import { HomeSpotlight } from './components/HomeSpotlight';
-import { HomeQuickActions } from './components/HomeQuickActions';
-import { HomeTasteChips } from './components/HomeTasteChips';
-import { HomeMoodTeaser } from './components/HomeMoodTeaser';
-import { HomeSection } from './components/HomeSection';
-import { useHomeScreen } from '../hooks/useHomeScreen';
+import { ListPickerModal } from "../../../shared/ui/ListPickerModal";
+import { useTheme } from "../../../shared/theme/ThemeProvider";
+import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
+import { NotificationBell } from "../../../shared/ui/NotificationBell";
+import type { Suggestion } from "../../../shared/types/release";
+import { HomeSpotlight } from "./components/HomeSpotlight";
+import { HomeQuickActions } from "./components/HomeQuickActions";
+import { HomeTasteChips } from "./components/HomeTasteChips";
+import { HomeMoodTeaser } from "./components/HomeMoodTeaser";
+import { HomeSection } from "./components/HomeSection";
+import { HomePersonalFeed } from "./components/HomePersonalFeed";
+import { useHomeScreen } from "../hooks/useHomeScreen";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -38,11 +39,11 @@ export default function HomeScreen() {
     (item: Suggestion) => {
       router.push(`/title/${item.mediaType}/${item.id}`);
     },
-    [router]
+    [router],
   );
 
   const handleSearch = useCallback(() => {
-    router.push('/search');
+    router.push("/search");
   }, [router]);
 
   const ListHeader = useMemo(
@@ -57,12 +58,13 @@ export default function HomeScreen() {
           isSaved={isSaved}
         />
         <HomeQuickActions />
+        <HomePersonalFeed />
         <View style={styles.taste}>
           <HomeTasteChips />
         </View>
       </View>
     ),
-    [spotlight, supporting, handlePress, onAdd, handleSearch, isSaved]
+    [spotlight, supporting, handlePress, onAdd, handleSearch, isSaved],
   );
 
   return (

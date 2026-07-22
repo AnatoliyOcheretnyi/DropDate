@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
-import { AppState } from 'react-native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { focusManager, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from "react";
+import { AppState } from "react-native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { focusManager, QueryClientProvider } from "@tanstack/react-query";
 
-import { useAuthStore } from '../src/features/auth/store/authStore';
-import { queryClient } from '../src/shared/api/queryClient';
-import { BackendWakeOverlay } from '../src/shared/ui/BackendWakeOverlay';
-import { ThemeProvider, useTheme } from '../src/shared/theme/ThemeProvider';
+import { useAuthStore } from "../src/features/auth/store/authStore";
+import { queryClient } from "../src/shared/api/queryClient";
+import { BackendWakeOverlay } from "../src/shared/ui/BackendWakeOverlay";
+import { ThemeProvider, useTheme } from "../src/shared/theme/ThemeProvider";
+import { AchievementUnlockOverlay } from "../src/features/achievements/ui/AchievementUnlockOverlay";
 
 function AppBootstrap() {
   const initAuth = useAuthStore((state) => state.init);
@@ -17,8 +18,8 @@ function AppBootstrap() {
   }, [initAuth]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      focusManager.setFocused(state === 'active');
+    const subscription = AppState.addEventListener("change", (state) => {
+      focusManager.setFocused(state === "active");
     });
     return () => subscription.remove();
   }, []);
@@ -36,24 +37,45 @@ function RootNavigator() {
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="auth/verify" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="title/[mediaType]/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="title/[mediaType]/[id]"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="mood" options={{ headerShown: false }} />
         <Stack.Screen name="match" options={{ headerShown: false }} />
         <Stack.Screen name="games" options={{ headerShown: false }} />
         <Stack.Screen name="games/wheel" options={{ headerShown: false }} />
-        <Stack.Screen name="games/friend-taste" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="games/friend-taste"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="games/akinator" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="friends" options={{ headerShown: false }} />
-        <Stack.Screen name="friends/activity" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="friends/activity"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="friend/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="achievements" options={{ headerShown: false }} />
         <Stack.Screen name="calendar" options={{ headerShown: false }} />
         <Stack.Screen name="people" options={{ headerShown: false }} />
         <Stack.Screen name="person/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="bridge" options={{ headerShown: false }} />
+        <Stack.Screen name="changelog" options={{ headerShown: false }} />
+        <Stack.Screen name="taste" options={{ headerShown: false }} />
+        <Stack.Screen name="similar" options={{ headerShown: false }} />
+        <Stack.Screen name="shared-lists" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="shared-list/[id]"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="shared/[token]" options={{ headerShown: false }} />
+        <Stack.Screen name="profile-dev" options={{ headerShown: false }} />
       </Stack>
       <BackendWakeOverlay />
-      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+      <AchievementUnlockOverlay />
+      <StatusBar style={scheme === "light" ? "dark" : "light"} />
     </>
   );
 }

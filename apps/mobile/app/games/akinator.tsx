@@ -1,1 +1,2 @@
-import{AkinatorScreen}from'../../src/features/games/ui/AkinatorScreen';export default AkinatorScreen;
+import { AkinatorScreen } from "../../src/features/games/ui/AkinatorScreen";
+export default AkinatorScreen;

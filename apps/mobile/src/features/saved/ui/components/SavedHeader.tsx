@@ -1,14 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 
-import { colors } from '../../../../shared/theme/colors';
-import { copy } from '../../../../shared/strings';
-import type { ListType } from '../../../../shared/types/lists';
+import { colors } from "../../../../shared/theme/colors";
+import { copy } from "../../../../shared/strings";
+import type { ListType } from "../../../../shared/types/lists";
 
 type Stat = {
   value: string | number;
   label: string;
-  tone?: 'warm' | 'cool';
+  tone?: "warm" | "cool";
 };
 
 type Props = {
@@ -19,16 +19,33 @@ type Props = {
     middle: Stat;
     right: Stat;
   };
+  sort: "default" | "rating" | "alpha" | "release";
+  onChangeSort: (value: "default" | "rating" | "alpha" | "release") => void;
 };
 
-export function SavedHeader({ activeList, onChangeList, stats }: Props) {
+export function SavedHeader({
+  activeList,
+  onChangeList,
+  stats,
+  sort,
+  onChangeSort,
+}: Props) {
   return (
     <View style={styles.headerWrap}>
       <Text style={styles.header}>{copy.header.savedList}</Text>
       <View style={styles.rowWrap}>
         <FlashList
           horizontal
-          data={['follow', 'watchlist', 'favorite', 'watched', 'disliked'] as ListType[]}
+          data={
+            [
+              "follow",
+              "watchlist",
+              "favorite",
+              "liked",
+              "watched",
+              "disliked",
+            ] as ListType[]
+          }
           keyExtractor={(item) => item}
           renderItem={({ item }) => {
             const isActive = item === activeList;
@@ -37,7 +54,12 @@ export function SavedHeader({ activeList, onChangeList, stats }: Props) {
                 style={[styles.tab, isActive ? styles.tabActive : null]}
                 onPress={() => onChangeList(item)}
               >
-                <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    isActive ? styles.tabTextActive : null,
+                  ]}
+                >
                   {copy.lists[item]}
                 </Text>
               </Pressable>
@@ -50,6 +72,25 @@ export function SavedHeader({ activeList, onChangeList, stats }: Props) {
           ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
         />
       </View>
+      <View style={styles.sortRow}>
+        {(["default", "rating", "alpha", "release"] as const).map((value) => (
+          <Pressable
+            key={value}
+            style={[styles.sortChip, sort === value && styles.sortActive]}
+            onPress={() => onChangeSort(value)}
+          >
+            <Text style={styles.sortText}>
+              {value === "default"
+                ? "За списком"
+                : value === "rating"
+                  ? "Оцінка"
+                  : value === "alpha"
+                    ? "А–Я"
+                    : "Дата"}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.statsRow}>
         <View style={[styles.statCard, styles.statLeft]}>
           <Text style={styles.statValue}>{stats.left.value}</Text>
@@ -59,7 +100,7 @@ export function SavedHeader({ activeList, onChangeList, stats }: Props) {
           style={[
             styles.statCard,
             styles.statMiddle,
-            stats.middle.tone === 'warm' ? styles.statWarm : null,
+            stats.middle.tone === "warm" ? styles.statWarm : null,
           ]}
         >
           <Text style={styles.statValue}>{stats.middle.value}</Text>
@@ -80,7 +121,7 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 26,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
   },
   rowWrap: {
@@ -112,9 +153,18 @@ const styles = StyleSheet.create({
     width: 8,
   },
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
+  sortRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  sortChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+  },
+  sortActive: { borderWidth: 1, borderColor: colors.accent },
+  sortText: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
   statCard: {
     flex: 1,
     paddingVertical: 14,
@@ -135,11 +185,11 @@ const styles = StyleSheet.create({
     flex: 0.9,
   },
   statWarm: {
-    borderColor: 'rgba(255,200,120,0.55)',
+    borderColor: "rgba(255,200,120,0.55)",
   },
   statValue: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
   },
   statLabel: {

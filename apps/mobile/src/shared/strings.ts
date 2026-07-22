@@ -1,1 +1,1 @@
-export { copy } from '../../../../libs/shared/src/strings';
+export { copy } from "../../../../libs/shared/src/strings";

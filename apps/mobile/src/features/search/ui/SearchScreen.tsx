@@ -1,15 +1,21 @@
-import { useCallback } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
+import { useCallback } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { useRouter } from "expo-router";
 
-import { PosterCard } from '../../../shared/ui/PosterCard';
-import { NotificationBell } from '../../../shared/ui/NotificationBell';
-import { colors } from '../../../shared/theme/colors';
-import { copy } from '../../../shared/strings';
-import type { Suggestion } from '../../../shared/types/release';
-import { SearchHeader } from './components/SearchHeader';
-import { useSearchScreen } from '../hooks/useSearchScreen';
+import { PosterCard } from "../../../shared/ui/PosterCard";
+import { NotificationBell } from "../../../shared/ui/NotificationBell";
+import { colors } from "../../../shared/theme/colors";
+import { copy } from "../../../shared/strings";
+import type { Suggestion } from "../../../shared/types/release";
+import { SearchHeader } from "./components/SearchHeader";
+import { useSearchScreen } from "../hooks/useSearchScreen";
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -18,6 +24,8 @@ export default function SearchScreen() {
     setQuery,
     filter,
     setFilter,
+    sort,
+    setSort,
     filteredResults,
     isLoading,
     page,
@@ -31,7 +39,7 @@ export default function SearchScreen() {
     (item: Suggestion) => {
       router.push(`/title/${item.mediaType}/${item.id}`);
     },
-    [router]
+    [router],
   );
 
   const renderItem = useCallback(
@@ -44,7 +52,7 @@ export default function SearchScreen() {
         isSaved={isSuggestionSaved(item)}
       />
     ),
-    [handleAdd, handlePress, isSuggestionSaved]
+    [handleAdd, handlePress, isSuggestionSaved],
   );
 
   return (
@@ -61,6 +69,8 @@ export default function SearchScreen() {
             onChangeQuery={setQuery}
             filter={filter}
             onChangeFilter={setFilter}
+            sort={sort}
+            onChangeSort={setSort}
           />
         }
         ListEmptyComponent={
@@ -111,7 +121,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   loadMore: {
-    alignSelf: 'center',
+    alignSelf: "center",
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
