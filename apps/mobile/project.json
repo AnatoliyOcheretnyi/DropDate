@@ -14,15 +14,13 @@
     "android": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npx expo run:android",
-        "cwd": "apps/mobile"
+        "command": "bash scripts/mobile-native.sh android"
       }
     },
     "ios": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npx expo run:ios",
-        "cwd": "apps/mobile"
+        "command": "bash scripts/mobile-native.sh ios"
       }
     },
     "lint": {

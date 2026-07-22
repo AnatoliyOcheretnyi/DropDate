@@ -17,6 +17,8 @@
     "dev:frontend": "nx run frontend:dev",
     "dev:backend": "nx run backend:serve",
     "dev:mobile": "bash scripts/mobile-dev.sh",
+    "mobile:ios": "bash scripts/mobile-native.sh ios",
+    "mobile:android": "bash scripts/mobile-native.sh android",
     "db:migrate": "cd apps/backend && go run ./cmd/migrate",
     "release:front:major": "bash scripts/release-local.sh frontend major",
     "release:front:minor": "bash scripts/release-local.sh frontend minor",
