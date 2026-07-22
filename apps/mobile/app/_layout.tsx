@@ -7,6 +7,7 @@ import { focusManager, QueryClientProvider } from "@tanstack/react-query";
 import { useAuthStore } from "../src/features/auth/store/authStore";
 import { queryClient } from "../src/shared/api/queryClient";
 import { BackendWakeOverlay } from "../src/shared/ui/BackendWakeOverlay";
+import { ToastProvider } from "../src/shared/ui/Toast";
 import { ThemeProvider, useTheme } from "../src/shared/theme/ThemeProvider";
 import { AchievementUnlockOverlay } from "../src/features/achievements/ui/AchievementUnlockOverlay";
 
@@ -64,6 +65,8 @@ function RootNavigator() {
         <Stack.Screen name="bridge" options={{ headerShown: false }} />
         <Stack.Screen name="changelog" options={{ headerShown: false }} />
         <Stack.Screen name="taste" options={{ headerShown: false }} />
+        <Stack.Screen name="browse" options={{ headerShown: false }} />
+        <Stack.Screen name="collection/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="similar" options={{ headerShown: false }} />
         <Stack.Screen name="shared-lists" options={{ headerShown: false }} />
         <Stack.Screen
@@ -84,7 +87,9 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <RootNavigator />
+        <ToastProvider>
+          <RootNavigator />
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

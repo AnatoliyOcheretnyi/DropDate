@@ -12,7 +12,15 @@ import { useTheme } from "../theme/ThemeProvider";
 import type { Palette } from "../theme/palette";
 import { MotionPressable } from "./MotionPressable";
 
-export function NotificationBell() {
+type Props = {
+  /**
+   * `false` renders just the button, for screens that own their own top bar
+   * layout (Home). Default keeps the legacy floating placement.
+   */
+  floating?: boolean;
+};
+
+export function NotificationBell({ floating = true }: Props = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -29,11 +37,10 @@ export function NotificationBell() {
 
   if (!authenticated) return null;
   const count = query.data?.unreadCount ?? 0;
-  return (
-    <View
-      style={[styles.position, { top: Math.max(insets.top + 8, 18) }]}
-      pointerEvents="box-none"
-    >
+  // The badge is a sibling, not a child: MotionPressable clips its children so
+  // the counter would lose the part that overhangs the button's corner.
+  const button = (
+    <View style={styles.anchor}>
       <MotionPressable
         style={styles.button}
         onPress={() => router.push("/notifications")}
@@ -46,12 +53,23 @@ export function NotificationBell() {
           size={22}
           color={colors.text}
         />
-        {count ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{count > 99 ? "99+" : count}</Text>
-          </View>
-        ) : null}
       </MotionPressable>
+      {count ? (
+        <View style={styles.badge} pointerEvents="none">
+          <Text style={styles.badgeText}>{count > 99 ? "99+" : count}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  if (!floating) return button;
+
+  return (
+    <View
+      style={[styles.position, { top: Math.max(insets.top + 8, 18) }]}
+      pointerEvents="box-none"
+    >
+      {button}
     </View>
   );
 }
@@ -59,6 +77,7 @@ export function NotificationBell() {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     position: { position: "absolute", right: 20, zIndex: 50 },
+    anchor: { width: 44, height: 44 },
     button: {
       width: 44,
       height: 44,
@@ -75,17 +94,21 @@ const makeStyles = (colors: Palette) =>
     },
     badge: {
       position: "absolute",
-      top: -5,
-      right: -5,
-      minWidth: 19,
-      height: 19,
-      paddingHorizontal: 4,
+      top: -6,
+      right: -6,
+      minWidth: 20,
+      height: 20,
+      paddingHorizontal: 5,
       borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.accent,
       borderWidth: 2,
       borderColor: colors.background,
+      // Keeps the counter above the button on Android, where elevation on the
+      // button would otherwise paint it over a plain sibling.
+      zIndex: 2,
+      elevation: 6,
     },
     badgeText: {
       color: colors.isDark ? "#04140f" : "#ffffff",

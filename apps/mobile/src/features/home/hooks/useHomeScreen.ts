@@ -1,22 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
-import type {
-  Details,
-  ReleaseInfo,
-  Suggestion,
-} from "../../../shared/types/release";
+import type { Suggestion } from "../../../shared/types/release";
 import { apiRequest } from "../../../shared/api/client";
 import { queryKeys } from "../../../shared/api/queryKeys";
-import {
-  buildFallbackRelease,
-  interleaveSuggestions,
-} from "../../../shared/utils/release";
-import { useSaved } from "../../saved/hooks/useSaved";
+import { interleaveSuggestions } from "../../../shared/utils/release";
+import { useListPicker } from "../../saved/hooks/useListPicker";
 import { copy } from "../../../shared/strings";
-import type { ListType } from "../../../shared/types/lists";
 import { useAuthStore } from "../../auth/store/authStore";
 import { getRecommendations } from "../../recommendations/api/recommendations";
+import type { CollectionId } from "../../collection/api/collection";
 
 type HomePayload = {
   upcoming: {
@@ -33,11 +26,6 @@ type HomePayload = {
   };
 };
 
-type DetailsPayload = {
-  details: Details;
-  release?: ReleaseInfo;
-};
-
 export type HomeSection = {
   id: string;
   title: string;
@@ -45,17 +33,15 @@ export type HomeSection = {
   variant?: "rail" | "ranked";
   items: Suggestion[];
   reasons?: string[];
+  /** Matches a key in `collectionConfig`; drives the "Усі" button. */
+  collectionId?: CollectionId;
 };
 
 export function useHomeScreen() {
   const isAuthenticated = useAuthStore((state) =>
     Boolean(state.user && state.accessToken),
   );
-  const { isSuggestionSaved, getListTypes, setListTypes, findByTmdbId } =
-    useSaved();
-  const queryClient = useQueryClient();
-  const [pickerItem, setPickerItem] = useState<Suggestion | null>(null);
-  const [pickerVisible, setPickerVisible] = useState(false);
+  const picker = useListPicker();
 
   const homeQuery = useQuery<Partial<HomePayload>>({
     queryKey: queryKeys.home(18),
@@ -114,6 +100,7 @@ export function useHomeScreen() {
               title: "Рекомендовано для тебе",
               kicker: "На основі улюблених і переглянутих",
               items: personalized,
+              collectionId: "personalized" as const,
               reasons: (recommendationsQuery.data?.items ?? [])
                 .map((item) => item.reason.text)
                 .filter((x): x is string => Boolean(x))
@@ -126,25 +113,29 @@ export function useHomeScreen() {
         title: copy.sections.upcoming,
         kicker: "Календар релізів",
         items: upcoming,
+        collectionId: "upcoming" as const,
       },
       {
         id: "popularMovies",
         title: copy.sections.popularMovies,
         kicker: "Топ-10 · що дивляться зараз",
-        variant: "ranked",
+        variant: "ranked" as const,
         items: popularMovies,
+        collectionId: "popularMovies" as const,
       },
       {
         id: "popularSeries",
         title: copy.sections.popularSeries,
         kicker: "Серіальний потік",
         items: popularSeries,
+        collectionId: "popularSeries" as const,
       },
       {
         id: "topRated",
         title: copy.sections.topRated,
         kicker: "Високі оцінки",
         items: topRated,
+        collectionId: "topRated" as const,
       },
     ],
     [
@@ -174,82 +165,38 @@ export function useHomeScreen() {
   const spotlight = spotlightPool[0] ?? null;
   const supporting = useMemo(() => spotlightPool.slice(1, 7), [spotlightPool]);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const refetch = useCallback(async () => {
-    await Promise.all([
-      homeQuery.refetch(),
-      isAuthenticated ? recommendationsQuery.refetch() : Promise.resolve(),
-    ]);
+    // Own the flag instead of reading `homeQuery.isRefetching`: the spinner
+    // has to stay up until the recommendations leg settles too.
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        homeQuery.refetch(),
+        isAuthenticated ? recommendationsQuery.refetch() : Promise.resolve(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [homeQuery, isAuthenticated, recommendationsQuery]);
-
-  const openPicker = useCallback((item: Suggestion) => {
-    setPickerItem(item);
-    setPickerVisible(true);
-  }, []);
-
-  const closePicker = useCallback(() => {
-    setPickerVisible(false);
-  }, []);
-
-  const applyListTypes = useCallback(
-    async (listTypes: ListType[]) => {
-      if (!pickerItem) {
-        return;
-      }
-      const existing = findByTmdbId(pickerItem.id, pickerItem.mediaType);
-      if (existing) {
-        await setListTypes(pickerItem, listTypes, {
-          release: existing,
-          details: existing.details,
-        });
-        return;
-      }
-      try {
-        const payload = await queryClient.fetchQuery<DetailsPayload>({
-          queryKey: ["details", pickerItem.mediaType, pickerItem.id],
-          queryFn: async () => {
-            return apiRequest<DetailsPayload>(
-              `/details?tmdbId=${pickerItem.id}&mediaType=${pickerItem.mediaType}`,
-            );
-          },
-          staleTime: 1000 * 60 * 10,
-        });
-
-        if (!payload.details) {
-          return;
-        }
-        const release =
-          payload.release ||
-          buildFallbackRelease(
-            payload.details as Details,
-            pickerItem.mediaType,
-          );
-        if (!release) {
-          return;
-        }
-        await setListTypes(pickerItem, listTypes, {
-          release,
-          details: payload.details,
-        });
-      } catch {
-        // ignore network failures for now
-      }
-    },
-    [findByTmdbId, pickerItem, queryClient, setListTypes],
-  );
 
   return {
     sections,
     spotlight,
     supporting,
     isLoading: homeQuery.isLoading,
-    isRefreshing: homeQuery.isRefetching,
+    // Only a hard failure with nothing cached is worth blocking the screen —
+    // a stale catalogue from MMKV still beats an error page.
+    isError: homeQuery.isError && !homeQuery.data,
+    error: homeQuery.error,
+    isRefreshing,
     refetch,
-    onAdd: openPicker,
-    isSaved: isSuggestionSaved,
-    pickerItem,
-    pickerVisible,
-    closePicker,
-    applyListTypes,
-    getListTypes,
+    onAdd: picker.openPicker,
+    isSaved: picker.isSaved,
+    pickerItem: picker.pickerItem,
+    pickerVisible: picker.pickerVisible,
+    closePicker: picker.closePicker,
+    applyListTypes: picker.applyListTypes,
+    getListTypes: picker.getListTypes,
   };
 }

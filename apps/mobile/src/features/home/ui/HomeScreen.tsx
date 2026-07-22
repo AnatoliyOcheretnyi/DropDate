@@ -1,29 +1,50 @@
-import { useCallback, useMemo } from "react";
-import { RefreshControl, StyleSheet, View } from "react-native";
+import { useCallback, useRef } from "react";
+import {
+  RefreshControl,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
 import { ListPickerModal } from "../../../shared/ui/ListPickerModal";
 import { useTheme } from "../../../shared/theme/ThemeProvider";
 import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
-import { NotificationBell } from "../../../shared/ui/NotificationBell";
+import { ScreenState } from "../../../shared/ui/ScreenState";
 import type { Suggestion } from "../../../shared/types/release";
+import { useAuthStore } from "../../auth/store/authStore";
 import { HomeSpotlight } from "./components/HomeSpotlight";
+import { HomeGreeting } from "./components/HomeGreeting";
 import { HomeQuickActions } from "./components/HomeQuickActions";
-import { HomeTasteChips } from "./components/HomeTasteChips";
+import { HomeTasteTeaser } from "./components/HomeTasteTeaser";
 import { HomeMoodTeaser } from "./components/HomeMoodTeaser";
 import { HomeSection } from "./components/HomeSection";
 import { HomePersonalFeed } from "./components/HomePersonalFeed";
-import { useHomeScreen } from "../hooks/useHomeScreen";
+import { HomeTopBar, HOME_TOP_BAR_HEIGHT } from "./components/HomeTopBar";
+import {
+  useHomeScreen,
+  type HomeSection as Section,
+} from "../hooks/useHomeScreen";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
+  // Anchors the intro animation so recycled cells don't replay it mid-scroll.
+  const mountedAt = useRef(Date.now()).current;
+  const username = useAuthStore((state) => state.user?.username);
+
   const {
     sections,
     spotlight,
     supporting,
     isLoading,
+    isError,
     isRefreshing,
     refetch,
     onAdd,
@@ -46,60 +67,113 @@ export default function HomeScreen() {
     router.push("/search");
   }, [router]);
 
-  const ListHeader = useMemo(
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollY.value = event.nativeEvent.contentOffset.y;
+    },
+    [scrollY],
+  );
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: Section; index: number }) => (
+      <AnimatedSection index={index} mountedAt={mountedAt}>
+        <HomeSection
+          title={item.title}
+          kicker={item.kicker}
+          variant={item.variant}
+          items={item.items}
+          isLoading={isLoading}
+          onPress={handlePress}
+          onAdd={onAdd}
+          onLongPress={onAdd}
+          isSaved={isSaved}
+          reasons={item.reasons}
+          onSeeAll={
+            item.collectionId
+              ? () => router.push(`/collection/${item.collectionId}`)
+              : undefined
+          }
+        />
+      </AnimatedSection>
+    ),
+    [handlePress, isLoading, isSaved, mountedAt, onAdd, router],
+  );
+
+  const renderHeader = useCallback(
     () => (
       <View style={styles.header}>
+        <HomeGreeting name={username} onSearch={handleSearch} />
+        {/* Returning users come back to continue something — keep it first. */}
+        <HomePersonalFeed />
         <HomeSpotlight
           spotlight={spotlight}
           supporting={supporting}
           onSelect={handlePress}
           onLongPress={onAdd}
-          onSearch={handleSearch}
           isSaved={isSaved}
+          isLoading={isLoading}
         />
         <HomeQuickActions />
-        <HomePersonalFeed />
-        <View style={styles.taste}>
-          <HomeTasteChips />
-        </View>
+        <HomeTasteTeaser />
       </View>
     ),
-    [spotlight, supporting, handlePress, onAdd, handleSearch, isSaved],
+    [
+      handlePress,
+      handleSearch,
+      isLoading,
+      isSaved,
+      onAdd,
+      spotlight,
+      supporting,
+      username,
+    ],
   );
+
+  const renderFooter = useCallback(
+    () => (
+      <View style={styles.footer}>
+        <HomeMoodTeaser />
+      </View>
+    ),
+    [],
+  );
+
+  if (isError) {
+    return (
+      <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
+        <ScreenState
+          title="Не вдалося завантажити"
+          message="Перевір зʼєднання — ми спробуємо ще раз."
+          onRetry={() => void refetch()}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
-      <NotificationBell />
+      <HomeTopBar scrollY={scrollY} />
       <FlashList
         data={sections}
         keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <AnimatedSection index={index}>
-            <HomeSection
-              title={item.title}
-              kicker={item.kicker}
-              variant={item.variant}
-              items={item.items}
-              isLoading={isLoading}
-              onPress={handlePress}
-              onAdd={onAdd}
-              onLongPress={onAdd}
-              isSaved={isSaved}
-              reasons={item.reasons}
-            />
-          </AnimatedSection>
-        )}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={<HomeMoodTeaser />}
+        renderItem={renderItem}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
         ItemSeparatorComponent={Separator}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={{
+          ...styles.container,
+          paddingTop: insets.top + HOME_TOP_BAR_HEIGHT + 8,
+        }}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={refetch}
             tintColor={colors.accent}
             colors={[colors.accent]}
+            progressViewOffset={insets.top + HOME_TOP_BAR_HEIGHT}
           />
         }
       />
@@ -122,16 +196,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 148,
   },
   header: {
-    gap: 22,
+    gap: 24,
     marginBottom: 24,
   },
-  taste: {
-    gap: 8,
+  footer: {
+    gap: 20,
+    marginTop: 26,
   },
   separator: {
     height: 26,

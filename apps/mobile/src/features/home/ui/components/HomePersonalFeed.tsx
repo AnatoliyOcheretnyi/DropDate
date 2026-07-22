@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../../../../shared/theme/ThemeProvider";
@@ -45,6 +46,9 @@ export function HomePersonalFeed() {
             <Image
               source={{ uri: pick.posterUrl }}
               style={styles.dailyPoster}
+              contentFit="cover"
+              transition={220}
+              cachePolicy="memory-disk"
             />
           ) : null}
           <View style={styles.grow}>
@@ -114,6 +118,9 @@ export function HomePersonalFeed() {
                   <Image
                     source={{ uri: item.posterUrl }}
                     style={styles.poster}
+                    contentFit="cover"
+                    transition={220}
+                    cachePolicy="memory-disk"
                   />
                 ) : null}
                 <View style={styles.grow}>
@@ -184,7 +191,7 @@ const makeStyles = (c: Palette) =>
       borderColor: c.border,
       backgroundColor: c.card,
     },
-    dailyPoster: { width: 92, borderRadius: 15 },
+    dailyPoster: { width: 92, height: 138, borderRadius: 15 },
     grow: { flex: 1 },
     kicker: {
       color: c.accent,

@@ -1,6 +1,4 @@
-import { useCallback } from "react";
-import { StyleSheet, View } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 import type { Suggestion } from "../../../../shared/types/release";
 import { PosterCard } from "../../../../shared/ui/PosterCard";
@@ -13,6 +11,9 @@ type Props = {
   isSaved: (item: Suggestion) => boolean;
 };
 
+/** Rails are short and fixed-size, so a plain ScrollView beats virtualisation. */
+const MAX_ITEMS = 20;
+
 export function HomeRow({
   items,
   onPress,
@@ -20,45 +21,42 @@ export function HomeRow({
   onLongPress,
   isSaved,
 }: Props) {
-  const renderItem = useCallback(
-    ({ item }: { item: Suggestion }) => (
-      <PosterCard
-        item={item}
-        onPress={onPress}
-        onAdd={onAdd}
-        onLongPress={onLongPress}
-        isSaved={isSaved(item)}
-      />
-    ),
-    [isSaved, onAdd, onLongPress, onPress],
-  );
-
   return (
     <View style={styles.rowWrap}>
-      <FlashList
+      <ScrollView
         horizontal
-        data={items}
-        keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-        renderItem={renderItem}
-        nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
-        removeClippedSubviews={false}
         contentContainerStyle={styles.row}
-        ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-      />
+        // Snapping makes flicks land on a card edge instead of mid-poster.
+        decelerationRate="fast"
+        snapToInterval={POSTER_WIDTH + GAP}
+        snapToAlignment="start"
+      >
+        {items.slice(0, MAX_ITEMS).map((item) => (
+          <PosterCard
+            key={`${item.mediaType}-${item.id}`}
+            item={item}
+            onPress={onPress}
+            onAdd={onAdd}
+            onLongPress={onLongPress}
+            isSaved={isSaved(item)}
+          />
+        ))}
+      </ScrollView>
     </View>
   );
 }
+
+const POSTER_WIDTH = 120;
+const GAP = 14;
 
 const styles = StyleSheet.create({
   rowWrap: {
     marginHorizontal: -20,
   },
   row: {
+    gap: GAP,
     paddingHorizontal: 20,
     paddingRight: 28,
-  },
-  rowSeparator: {
-    width: 14,
   },
 });

@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { Dimensions, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "../../../../shared/theme/ThemeProvider";
 import type { Palette } from "../../../../shared/theme/palette";
@@ -10,21 +9,22 @@ import { copy } from "../../../../shared/strings";
 import type { Suggestion } from "../../../../shared/types/release";
 import { MotionPressable } from "../../../../shared/ui/MotionPressable";
 import { PosterCard } from "../../../../shared/ui/PosterCard";
+import { SpotlightSkeleton } from "../../../../shared/ui/Shimmer";
 
 type Props = {
   spotlight: Suggestion | null;
   supporting: Suggestion[];
   onSelect: (item: Suggestion) => void;
   onLongPress: (item: Suggestion) => void;
-  onSearch: () => void;
   isSaved: (item: Suggestion) => boolean;
+  isLoading: boolean;
 };
 
 const SUPPORT_GAP = 12;
 const SCREEN_PADDING = 20;
-const supportWidth =
-  (Dimensions.get("window").width - SCREEN_PADDING * 2 - SUPPORT_GAP * 2) / 3;
-const SUPPORTING_SIZE = { width: supportWidth, height: supportWidth * 1.5 };
+/** Poster art is 2:3; anything taller than this crops faces off the top. */
+const HERO_RATIO = 1.32;
+const HERO_MAX_HEIGHT = 460;
 
 const mediaLabel = (item: Suggestion) =>
   `${item.mediaType === "movie" ? copy.mediaType.movie : copy.mediaType.series}${item.year ? ` · ${item.year}` : ""}`;
@@ -34,44 +34,46 @@ export function HomeSpotlight({
   supporting,
   onSelect,
   onLongPress,
-  onSearch,
   isSaved,
+  isLoading,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // Read live, not at module scope: split view, rotation and foldables all
+  // change this after the bundle has been evaluated.
+  const { width } = useWindowDimensions();
+
+  const contentWidth = width - SCREEN_PADDING * 2;
+  const supportWidth = (contentWidth - SUPPORT_GAP * 2) / 3;
+  const supportingSize = useMemo(
+    () => ({ width: supportWidth, height: supportWidth * 1.5 }),
+    [supportWidth],
+  );
+  const heroHeight = Math.min(contentWidth * HERO_RATIO, HERO_MAX_HEIGHT);
+
+  if (isLoading && !spotlight) {
+    return <SpotlightSkeleton heroHeight={heroHeight} />;
+  }
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.head}>
-        <View style={styles.headCopy}>
-          <Text style={styles.eyebrow}>Зараз на радарі</Text>
-          <Text style={styles.title}>Нові релізи</Text>
-        </View>
-      </View>
-
-      <MotionPressable
-        style={styles.searchPill}
-        onPress={onSearch}
-        accessibilityLabel={copy.header.searchOpenLabel}
-      >
-        <Ionicons name="search" size={18} color={colors.textMuted} />
-        <Text style={styles.searchText}>{copy.header.searchPlaceholder}</Text>
-      </MotionPressable>
-
       {spotlight ? (
         <MotionPressable
-          style={styles.feature}
+          style={[styles.feature, { height: heroHeight }]}
           onPress={() => onSelect(spotlight)}
           onLongPress={() => onLongPress(spotlight)}
           haptic="none"
-          accessibilityLabel={spotlight.title}
+          accessibilityLabel={`Головна премʼєра: ${spotlight.title}. ${mediaLabel(spotlight)}`}
         >
           {spotlight.posterUrl ? (
             <Image
               source={{ uri: spotlight.posterUrl }}
               style={styles.featureImage}
               contentFit="cover"
+              contentPosition="top"
               transition={280}
+              cachePolicy="memory-disk"
+              priority="high"
               recyclingKey={`${spotlight.mediaType}-${spotlight.id}`}
             />
           ) : (
@@ -108,7 +110,7 @@ export function HomeSpotlight({
               onPress={onSelect}
               onLongPress={onLongPress}
               isSaved={isSaved(item)}
-              size={SUPPORTING_SIZE}
+              size={supportingSize}
             />
           ))}
         </View>
@@ -122,43 +124,7 @@ const makeStyles = (colors: Palette) =>
     wrap: {
       gap: 16,
     },
-    head: {
-      flexDirection: "row",
-      alignItems: "flex-end",
-      justifyContent: "space-between",
-    },
-    headCopy: {
-      gap: 4,
-    },
-    eyebrow: {
-      textTransform: "uppercase",
-      letterSpacing: 3,
-      color: colors.accent,
-      fontSize: 12,
-      fontWeight: "800",
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: "900",
-      color: colors.text,
-    },
-    searchPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingHorizontal: 16,
-      height: 50,
-      borderRadius: 16,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    searchText: {
-      color: colors.textMuted,
-      fontSize: 15,
-    },
     feature: {
-      height: 420,
       borderRadius: 26,
       overflow: "hidden",
       backgroundColor: colors.card,
@@ -198,7 +164,7 @@ const makeStyles = (colors: Palette) =>
       backgroundColor: colors.accent,
     },
     badgeText: {
-      color: colors.isDark ? "#04140f" : "#04140f",
+      color: "#04140f",
       fontSize: 12,
       fontWeight: "800",
     },
@@ -208,12 +174,12 @@ const makeStyles = (colors: Palette) =>
       fontWeight: "900",
     },
     featureMeta: {
-      color: "rgba(255,255,255,0.8)",
+      color: "rgba(255,255,255,0.85)",
       fontSize: 14,
       fontWeight: "600",
     },
     supportingRow: {
       flexDirection: "row",
-      gap: 12,
+      gap: SUPPORT_GAP,
     },
   });

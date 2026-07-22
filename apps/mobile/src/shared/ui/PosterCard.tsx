@@ -10,6 +10,9 @@ import { copy } from "../strings";
 import type { Suggestion } from "../types/release";
 import { MotionPressable } from "./MotionPressable";
 
+/** Neutral dark placeholder so posters fade in instead of popping in. */
+const POSTER_BLURHASH = "L03[?wxu00WB00j[00j[00WB00j[";
+
 type Props = {
   item: Suggestion;
   onPress: (item: Suggestion) => void;
@@ -52,6 +55,9 @@ function PosterCardComponent({
           style={styles.image}
           contentFit="cover"
           transition={220}
+          cachePolicy="memory-disk"
+          placeholder={{ blurhash: POSTER_BLURHASH }}
+          placeholderContentFit="cover"
           recyclingKey={`${item.mediaType}-${item.id}`}
         />
       ) : (
@@ -69,7 +75,13 @@ function PosterCardComponent({
           <Text style={styles.savedText}>{copy.actions.added}</Text>
         </View>
       ) : onAdd ? (
-        <Pressable style={styles.addButton} onPress={handleAdd} hitSlop={8}>
+        <Pressable
+          style={styles.addButton}
+          onPress={handleAdd}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Додати «${item.title}» у список`}
+        >
           <Text style={styles.addText}>+</Text>
         </Pressable>
       ) : null}

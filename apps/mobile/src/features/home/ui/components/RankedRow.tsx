@@ -1,6 +1,5 @@
-import { useCallback, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { useMemo } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import { useTheme } from "../../../../shared/theme/ThemeProvider";
@@ -19,48 +18,44 @@ export function RankedRow({ items, onPress, onLongPress }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const ranked = useMemo(() => items.slice(0, 10), [items]);
 
-  const renderItem = useCallback(
-    ({ item, index }: { item: Suggestion; index: number }) => (
-      <MotionPressable
-        style={styles.card}
-        onPress={() => onPress(item)}
-        onLongPress={() => onLongPress(item)}
-        haptic="none"
-        accessibilityLabel={`${index + 1}. ${item.title}`}
-      >
-        <Text style={styles.number}>{index + 1}</Text>
-        <View style={styles.poster}>
-          {item.posterUrl ? (
-            <Image
-              source={{ uri: item.posterUrl }}
-              style={styles.posterImage}
-              contentFit="cover"
-              transition={220}
-              recyclingKey={`${item.mediaType}-${item.id}`}
-            />
-          ) : (
-            <View style={styles.posterFallback}>
-              <Text style={styles.posterFallbackText}>
-                {item.title.slice(0, 1)}
-              </Text>
-            </View>
-          )}
-        </View>
-      </MotionPressable>
-    ),
-    [onLongPress, onPress, styles],
-  );
-
   return (
     <View style={styles.rowWrap}>
-      <FlashList
+      <ScrollView
         horizontal
-        data={ranked}
-        keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-        renderItem={renderItem}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
-      />
+      >
+        {ranked.map((item, index) => (
+          <MotionPressable
+            key={`${item.mediaType}-${item.id}`}
+            style={styles.card}
+            onPress={() => onPress(item)}
+            onLongPress={() => onLongPress(item)}
+            haptic="none"
+            accessibilityLabel={`${index + 1}. ${item.title}`}
+          >
+            <Text style={styles.number}>{index + 1}</Text>
+            <View style={styles.poster}>
+              {item.posterUrl ? (
+                <Image
+                  source={{ uri: item.posterUrl }}
+                  style={styles.posterImage}
+                  contentFit="cover"
+                  transition={220}
+                  cachePolicy="memory-disk"
+                  recyclingKey={`${item.mediaType}-${item.id}`}
+                />
+              ) : (
+                <View style={styles.posterFallback}>
+                  <Text style={styles.posterFallbackText}>
+                    {item.title.slice(0, 1)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </MotionPressable>
+        ))}
+      </ScrollView>
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Details,
@@ -23,12 +23,14 @@ const listsOf = (x?: ListType[]) =>
 export function useSaved() {
   const user = useAuthStore((s) => s.user);
   const authed = useAuthStore((s) => Boolean(s.user && s.accessToken));
-  const guest = useSavedStore();
+  // Subscribe to the guest slices we actually read; subscribing to the whole
+  // store re-rendered every consumer on any unrelated store write.
+  const guestSaved = useSavedStore((s) => s.saved);
+  const guestIsLoading = useSavedStore((s) => s.isLoading);
   const client = useQueryClient();
-  const refreshGuest = guest.refreshFromAuth;
   useEffect(() => {
-    if (!authed) void refreshGuest();
-  }, [authed, refreshGuest]);
+    if (!authed) void useSavedStore.getState().refreshFromAuth();
+  }, [authed]);
   const query = useQuery({
     queryKey: queryKeys.saved,
     queryFn: ({ signal }) => fetchSaved(signal),
@@ -39,11 +41,28 @@ export function useSaved() {
         undefined)
       : undefined,
   });
-  const saved = authed ? (query.data ?? []) : guest.saved;
+  const saved = useMemo(
+    () => (authed ? (query.data ?? []) : guestSaved),
+    [authed, guestSaved, query.data],
+  );
   useEffect(() => {
     if (user && query.data)
       storageSetJSON("dropdate_saved_cache_" + user.id, query.data);
   }, [query.data, user]);
+
+  // O(1) lookups + a stable identity for the read selectors below. Without
+  // this every consumer got fresh `isSuggestionSaved`/`getListTypes` closures
+  // on each render, which broke `memo()` on every poster card downstream.
+  const index = useMemo(() => {
+    const map = new Map<string, SavedItem>();
+    for (const item of saved) map.set(item.id, item);
+    return map;
+  }, [saved]);
+
+  // Mutations need the freshest list without re-creating their identity.
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+
   const setServer = (next: SavedItem[]) =>
     client.setQueryData(queryKeys.saved, next);
   const addRelease = async (
@@ -55,10 +74,11 @@ export function useSaved() {
     },
     types: ListType[] = ["follow"],
   ) => {
-    if (!authed) return guest.addRelease(release, meta, types);
-    const before = saved;
+    if (!authed)
+      return useSavedStore.getState().addRelease(release, meta, types);
+    const before = savedRef.current;
     const id = idOf(meta.tmdbId, meta.mediaType);
-    const current = saved.find((x) => x.id === id);
+    const current = savedRef.current.find((x) => x.id === id);
     const nextTypes = Array.from(
       new Set([...(current?.listTypes ?? []), ...listsOf(types)]),
     );
@@ -75,8 +95,8 @@ export function useSaved() {
         };
     setServer(
       current
-        ? saved.map((x) => (x.id === id ? optimistic : x))
-        : [...saved, optimistic],
+        ? savedRef.current.map((x) => (x.id === id ? optimistic : x))
+        : [...savedRef.current, optimistic],
     );
     try {
       for (const type of types) {
@@ -100,20 +120,20 @@ export function useSaved() {
     }
   };
   const removeRelease = async (id: string, type?: ListType) => {
-    const existing = saved.find((x) => x.id === id);
+    const existing = savedRef.current.find((x) => x.id === id);
     if (!existing) return;
-    if (!authed) return guest.removeRelease(id, type);
-    const before = saved;
+    if (!authed) return useSavedStore.getState().removeRelease(id, type);
+    const before = savedRef.current;
     setServer(
       type
-        ? saved
+        ? savedRef.current
             .map((x) =>
               x.id === id
                 ? { ...x, listTypes: x.listTypes.filter((t) => t !== type) }
                 : x,
             )
             .filter((x) => x.listTypes.length)
-        : saved.filter((x) => x.id !== id),
+        : savedRef.current.filter((x) => x.id !== id),
     );
     try {
       await deleteSaved(existing.tmdbId, existing.mediaType, type);
@@ -128,10 +148,10 @@ export function useSaved() {
     type: ListType,
     stats: { userRating?: number; watchCount?: number; lastWatchedAt?: string },
   ) => {
-    if (!authed) return guest.updateStats(item, type, stats);
-    const before = saved;
+    if (!authed) return useSavedStore.getState().updateStats(item, type, stats);
+    const before = savedRef.current;
     setServer(
-      saved.map((x) =>
+      savedRef.current.map((x) =>
         x.id === idOf(item.id, item.mediaType) ? { ...x, ...stats } : x,
       ),
     );
@@ -148,7 +168,9 @@ export function useSaved() {
     types: ListType[],
     meta?: { release?: ReleaseInfo; details?: Details },
   ) => {
-    const existing = saved.find((x) => x.id === idOf(item.id, item.mediaType));
+    const existing = savedRef.current.find(
+      (x) => x.id === idOf(item.id, item.mediaType),
+    );
     const current = existing?.listTypes ?? [];
     const add = types.filter((x) => !current.includes(x));
     const remove = current.filter((x) => !types.includes(x));
@@ -161,20 +183,28 @@ export function useSaved() {
     for (const type of remove)
       await removeRelease(idOf(item.id, item.mediaType), type);
   };
-  const findByTmdbId = (id: number, type: Suggestion["mediaType"]) =>
-    saved.find((x) => x.id === idOf(id, type));
-  const getListTypes = (item: Suggestion) =>
-    findByTmdbId(item.id, item.mediaType)?.listTypes ?? [];
+  const findByTmdbId = useCallback(
+    (id: number, type: Suggestion["mediaType"]) => index.get(idOf(id, type)),
+    [index],
+  );
+  const getListTypes = useCallback(
+    (item: Suggestion) =>
+      index.get(idOf(item.id, item.mediaType))?.listTypes ?? [],
+    [index],
+  );
+  const isSuggestionSaved = useCallback(
+    (item: Suggestion) => index.has(idOf(item.id, item.mediaType)),
+    [index],
+  );
   return {
     saved,
-    isLoading: authed ? query.isLoading : guest.isLoading,
+    isLoading: authed ? query.isLoading : guestIsLoading,
     addRelease,
     removeRelease,
     updateStats,
     setListTypes,
     findByTmdbId,
     getListTypes,
-    isSuggestionSaved: (item: Suggestion) =>
-      Boolean(findByTmdbId(item.id, item.mediaType)),
+    isSuggestionSaved,
   };
 }
