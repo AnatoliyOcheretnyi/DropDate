@@ -85,7 +85,7 @@ jobs:
         run: yarn nx run backend:race --skipNxCache
       - name: Check mobile
         if: needs.plan.outputs.mobile_bump != ''
-        run: yarn nx run mobile:lint --skipNxCache
+        run: yarn nx run-many -t lint,typecheck -p mobile --nxBail --skipNxCache
 
   deploy:
     needs: [plan, checks]
@@ -136,9 +136,22 @@ jobs:
     if: needs.plan.outputs.requested == 'true'
     runs-on: ubuntu-latest
     steps:
+      # GITHUB_TOKEN authenticates pushes as github-actions[bot]. Repository
+      # role bypasses apply to their user/app actor, so use a token owned by a
+      # maintainer (or release bot) that is present in the ruleset bypass list.
+      - name: Require release push credential
+        shell: bash
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PUSH_TOKEN" ]; then
+            echo "::error::Missing RELEASE_PUSH_TOKEN. Add a fine-grained PAT with Contents: read/write whose owner can bypass the main-branch ruleset."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN }}
       - name: Sync release commit base
         shell: bash
         run: |
