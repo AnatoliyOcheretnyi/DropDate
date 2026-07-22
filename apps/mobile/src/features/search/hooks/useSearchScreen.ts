@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/release';
 import { apiRequest } from '../../../shared/api/client';
 import { buildFallbackRelease } from '../../../shared/utils/release';
-import { useSaved } from '../../saved/store/savedStore';
+import { useSaved } from '../../saved/hooks/useSaved';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
 type SearchPayload = {

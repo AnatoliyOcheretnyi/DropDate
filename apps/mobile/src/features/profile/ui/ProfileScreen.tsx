@@ -12,15 +12,16 @@ import { useProfileScreen } from '../hooks/useProfileScreen';
 import { MotionPressable } from '../../../shared/ui/MotionPressable';
 import { ThemeToggle } from '../../../shared/ui/ThemeToggle';
 import { NotificationBell } from '../../../shared/ui/NotificationBell';
-import { useSavedStore } from '../../saved/store/savedStore';
+import { useSaved } from '../../saved/hooks/useSaved';
 import { useTasteStore } from '../store/tasteStore';
 import { TasteRanker } from './components/TasteRanker';
+import { UsernameEditor } from './components/UsernameEditor';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const saved = useSavedStore((state) => state.saved);
+  const { saved } = useSaved();
   const taste = useTasteStore();
   const {
     user,
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>{copy.auth.profile}</Text>
       <ProfileCard initials={initials} email={user?.email} verified={user?.verified} />
+      {user ? <UsernameEditor /> : null}
       <View style={styles.stats}><View style={styles.stat}><Text style={styles.statValue}>{saved.length}</Text><Text style={styles.statLabel}>У списках</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.listTypes.includes('watched')).length}</Text><Text style={styles.statLabel}>Переглянуто</Text></View><View style={styles.stat}><Text style={styles.statValue}>{saved.filter(x=>x.mediaType==='tv').length}</Text><Text style={styles.statLabel}>Серіали</Text></View></View>
       <ThemeToggle />
       {user ? <View style={styles.menu}>

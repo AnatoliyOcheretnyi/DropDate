@@ -12,7 +12,8 @@ import { FeatureScreen } from '../../../shared/ui/FeatureScreen';
 import { MotionPressable } from '../../../shared/ui/MotionPressable';
 import { ScreenState } from '../../../shared/ui/ScreenState';
 import { AchievementsList } from '../../achievements/ui/AchievementsList';
-import { useSavedStore, type SavedItem } from '../../saved/store/savedStore';
+import type { SavedItem } from '../../saved/store/savedStore';
+import { useSaved } from '../../saved/hooks/useSaved';
 import { getFriendSaved, getFriends } from '../api/friends';
 
 const listTabs: { key: ListType; label: string }[] = [
@@ -25,7 +26,7 @@ export function FriendProfileScreen() {
   const { id = '' } = useLocalSearchParams<{ id: string }>(); const router = useRouter();
   const { colors } = useTheme(); const styles = useMemo(() => makeStyles(colors), [colors]);
   const [view, setView] = useState<'lists' | 'awards'>('lists'); const [list, setList] = useState<ListType>('watchlist');
-  const mine = useSavedStore(state => state.saved);
+  const { saved: mine } = useSaved();
   const friends = useQuery({ queryKey: queryKeys.friends, queryFn: ({ signal }) => getFriends(signal), staleTime: 30_000 });
   const saved = useQuery({ queryKey: queryKeys.friendSaved(id), queryFn: ({ signal }) => getFriendSaved(id, signal), enabled: Boolean(id), staleTime: 30_000 });
   const friendship = friends.data?.friends.find(item => item.user.id === id);

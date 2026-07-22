@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 
 import type { ListType } from '../../../shared/types/lists';
 import { copy } from '../../../shared/strings';
-import { useSaved, type SavedItem } from '../store/savedStore';
+import type { SavedItem } from '../store/savedStore';
+import { useSaved } from './useSaved';
 
 type Section = {
   id: string;

@@ -6,7 +6,7 @@ import type { Details, ReleaseInfo, Suggestion } from '../../../shared/types/rel
 import { apiRequest } from '../../../shared/api/client';
 import { queryKeys } from '../../../shared/api/queryKeys';
 import { buildFallbackRelease } from '../../../shared/utils/release';
-import { useSaved } from '../../saved/store/savedStore';
+import { useSaved } from '../../saved/hooks/useSaved';
 import { copy } from '../../../shared/strings';
 
 type DetailsPayload = {

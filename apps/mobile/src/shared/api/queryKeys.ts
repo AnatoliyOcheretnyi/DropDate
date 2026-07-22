@@ -20,4 +20,7 @@ export const queryKeys = {
   episodeMetadata: (tmdbId: number, season: number) => ['episodes', 'metadata', tmdbId, season] as const,
   socialActivity: ['social', 'activity'] as const,
   sharedLists: ['social', 'lists'] as const,
+  gameStats: ['games', 'stats'] as const,
+  gameLeaderboard: ['games', 'leaderboard'] as const,
+  gameChallenges: ['games', 'challenges'] as const,
 } as const;

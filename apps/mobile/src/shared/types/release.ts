@@ -4,6 +4,8 @@ export type {
   ReleaseStatus,
   ReleaseType,
   Details,
+  WatchAvailability,
+  WatchProvider,
   CastMember,
   CrewMember,
   Person,

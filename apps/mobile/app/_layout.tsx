@@ -1,28 +1,27 @@
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClientProvider } from '@tanstack/react-query';
 
 import { useAuthStore } from '../src/features/auth/store/authStore';
-import { useSavedStore } from '../src/features/saved/store/savedStore';
 import { queryClient } from '../src/shared/api/queryClient';
 import { BackendWakeOverlay } from '../src/shared/ui/BackendWakeOverlay';
 import { ThemeProvider, useTheme } from '../src/shared/theme/ThemeProvider';
 
 function AppBootstrap() {
   const initAuth = useAuthStore((state) => state.init);
-  const user = useAuthStore((state) => state.user);
-  const isGuest = useAuthStore((state) => state.isGuest);
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const refreshSaved = useSavedStore((state) => state.refreshFromAuth);
 
   useEffect(() => {
     void initAuth();
   }, [initAuth]);
 
   useEffect(() => {
-    void refreshSaved();
-  }, [accessToken, isGuest, refreshSaved, user]);
+    const subscription = AppState.addEventListener('change', (state) => {
+      focusManager.setFocused(state === 'active');
+    });
+    return () => subscription.remove();
+  }, []);
 
   return null;
 }
@@ -41,6 +40,9 @@ function RootNavigator() {
         <Stack.Screen name="mood" options={{ headerShown: false }} />
         <Stack.Screen name="match" options={{ headerShown: false }} />
         <Stack.Screen name="games" options={{ headerShown: false }} />
+        <Stack.Screen name="games/wheel" options={{ headerShown: false }} />
+        <Stack.Screen name="games/friend-taste" options={{ headerShown: false }} />
+        <Stack.Screen name="games/akinator" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="friends" options={{ headerShown: false }} />
         <Stack.Screen name="friends/activity" options={{ headerShown: false }} />
