@@ -13,6 +13,11 @@ export const STATUS_LISTS: ListType[] = [
   "disliked",
 ];
 
+// A title is either something you plan to watch (`watchlist`) or something you
+// already have a verdict on (a status list) — never both. `follow` is
+// orthogonal (release alerts) and coexists with any of them.
+const EXCLUSIVE_LISTS: ListType[] = ["watchlist", ...STATUS_LISTS];
+
 export type ListMeta = {
   type: ListType;
   label: string;
@@ -86,21 +91,23 @@ export const LIST_META: ListMeta[] = [
 ];
 
 /**
- * Computes the next selection when a single list chip is toggled, preserving
- * the mutual-exclusivity rule for status lists.
+ * Computes the next selection when a single list chip is toggled. Adding an
+ * exclusive list (watchlist or a status) drops the others in that group, so
+ * moving "want to watch" → "liked" actually moves it instead of leaving the
+ * title in both. `follow` is never evicted.
  */
 export function toggleListType(
   selected: ListType[],
-  type: ListType
+  type: ListType,
 ): ListType[] {
   const active = selected.includes(type);
   if (active) {
     return selected.filter((entry) => entry !== type);
   }
+  const isExclusive = EXCLUSIVE_LISTS.includes(type);
   return [
     ...selected.filter(
-      (entry) =>
-        !STATUS_LISTS.includes(type) || !STATUS_LISTS.includes(entry)
+      (entry) => !isExclusive || !EXCLUSIVE_LISTS.includes(entry),
     ),
     type,
   ];

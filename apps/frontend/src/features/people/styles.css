@@ -107,6 +107,10 @@
 }
 
 .person-card__photo {
+  /* CoverImage renders a next/image with `fill`, which is positioned against
+     the nearest positioned ancestor. Without this the avatar escaped the 74px
+     box and stretched across the whole grid. */
+  position: relative;
   width: 74px;
   height: 74px;
   border-radius: 50%;

@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NotificationsResponse } from "../types/notifications";
 import { requestApi, webApi } from "../../../shared/api/http";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
@@ -13,7 +9,10 @@ import { useAuth } from "../../../shared/state/auth";
 import { useSavedStore } from "../../saved/store/savedStore";
 import { hasFollowItems } from "../../saved/utils/savedState";
 
-const emptyState = { items: [], unreadCount: 0 } satisfies NotificationsResponse;
+const emptyState = {
+  items: [],
+  unreadCount: 0,
+} satisfies NotificationsResponse;
 
 export function useNotifications() {
   const { user, accessToken } = useAuth();
@@ -60,7 +59,7 @@ export function useNotifications() {
             "content-type": "application/json",
             authorization: `Bearer ${accessToken}`,
           },
-        }
+        },
       );
     },
     onSuccess: () => {
@@ -70,10 +69,10 @@ export function useNotifications() {
         (previous) => ({
           items:
             previous?.items.map((item) =>
-              item.readAt ? item : { ...item, readAt }
+              item.readAt ? item : { ...item, readAt },
             ) ?? [],
           unreadCount: 0,
-        })
+        }),
       );
     },
   });
@@ -94,10 +93,12 @@ export function useNotifications() {
   }, [enabled, markAllReadMutation]);
 
   return {
-    items: enabled ? notificationsQuery.data?.items ?? [] : emptyState.items,
-    unreadCount: enabled
-      ? notificationsQuery.data?.unreadCount ?? 0
-      : emptyState.unreadCount,
+    // Show whatever the query has fetched, even if `enabled` momentarily
+    // flips false (e.g. the saved store empties for a beat during a token
+    // refresh or reconcile). Gating the *display* on `enabled` made an open
+    // notifications popover blank out a couple seconds after opening.
+    items: notificationsQuery.data?.items ?? emptyState.items,
+    unreadCount: notificationsQuery.data?.unreadCount ?? emptyState.unreadCount,
     isLoading: notificationsQuery.isLoading || markAllReadMutation.isPending,
     refresh,
     markAllRead,
