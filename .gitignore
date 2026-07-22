@@ -31,5 +31,5 @@ apps/mobile/.env.local
 npm-debug.log*
 yarn-error.log*
 
-.claude/worktrees
-.claude/settings.local.json
+# Claude Code workspace config stays local
+.claude/
