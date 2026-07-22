@@ -253,16 +253,23 @@ func (s *Service) DailyState(ctx context.Context, userID string) (DailyState, er
 	if err != nil {
 		return DailyState{}, err
 	}
-	if len(result.Items) == 0 {
+	pool := result.Items
+	if len(pool) == 0 {
+		// A new user, or one who has disliked their way through the personal
+		// pool, would otherwise get no pick and the card would vanish. Fall
+		// back to a broad popular pool so a pick is always present.
+		pool = s.dailyFallbackPool(ctx, userID)
+	}
+	if len(pool) == 0 {
 		return DailyState{Date: date, Action: "none"}, nil
 	}
-	poolSize := len(result.Items)
+	poolSize := len(pool)
 	if poolSize > 8 {
 		poolSize = 8
 	}
 	digest := sha256.Sum256([]byte(userID + ":" + date))
 	index := int(binary.BigEndian.Uint64(digest[:8]) % uint64(poolSize))
-	pick := result.Items[index]
+	pick := pool[index]
 	if pick.Reason.Text == "" {
 		pick.Reason.Text = dailyReason(pick.Reason)
 	}
@@ -304,6 +311,58 @@ func (s *Service) SetDailyAction(ctx context.Context, userID, date, action strin
 	state.Revealed = revealed
 	state.Action = normalized
 	return state, nil
+}
+
+// dailyFallbackPool returns a broad, high-quality set of titles to draw the
+// daily pick from when the personalized pool is empty. Titles the user has
+// already saved or disliked are filtered out so the pick still feels fresh.
+// Returns nil (never an error) so a TMDB hiccup degrades to "no pick" exactly
+// as before rather than failing the whole daily request.
+func (s *Service) dailyFallbackPool(ctx context.Context, userID string) []Item {
+	discoverer, ok := s.candidates.(discoverReader)
+	if !ok {
+		return nil
+	}
+
+	exclusions := map[string]bool{}
+	if rows, err := s.saved.SeedRows(ctx, userID); err == nil {
+		exclusions = buildExclusions(rows)
+	}
+	if feedback, err := s.dailyFeedback(ctx, userID, 200); err == nil {
+		for _, item := range feedback {
+			if item.Action == "disliked" {
+				exclusions[candidateKey(item.TMDBID, item.MediaType)] = true
+			}
+		}
+	}
+
+	var pool []Item
+	for _, mediaType := range []string{"movie", "tv"} {
+		items, err := discoverer.Discover(ctx, release.DiscoverParams{
+			MediaType:      mediaType,
+			SortBy:         "popularity.desc",
+			VoteCountGTE:   200,
+			VoteAverageGTE: 6.5,
+		})
+		if err != nil {
+			continue
+		}
+		for _, item := range items {
+			key := candidateKey(item.TMDBID, item.MediaType)
+			if exclusions[key] {
+				continue
+			}
+			pool = append(pool, Item{
+				TMDBID:    item.TMDBID,
+				MediaType: item.MediaType,
+				Title:     item.Title,
+				Year:      item.Year,
+				PosterURL: item.PosterURL,
+				Reason:    Reason{PrimarySource: "popular"},
+			})
+		}
+	}
+	return pool
 }
 
 func (s *Service) applyDailyFeedback(ctx context.Context, userID string, exclusions *map[string]bool, seeds *[]seed) {
@@ -348,6 +407,8 @@ func dailyReason(reason Reason) string {
 		return "Відібрано за мотивами сильних фільмів із вашого списку перегляду."
 	case "taste":
 		return "Враховує твій рейтинг жанрів і країн, але залишає простір для відкриття."
+	case "popular":
+		return "Зараз про це говорять — гучний реліз, який варто не проґавити."
 	default:
 		return "Персональний вибір дня на основі вашого кінематографічного смаку."
 	}
