@@ -4,6 +4,9 @@
   "affected": {
     "defaultBase": "main"
   },
+  "tui": {
+    "autoExit": true
+  },
   "namedInputs": {
     "default": ["{projectRoot}/**/*"],
     "production": ["default"]
