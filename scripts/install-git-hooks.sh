@@ -7,4 +7,5 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 git config core.hooksPath .githooks
-echo "Git hooks enabled from .githooks."
+git config pull.rebase true
+echo "Git hooks enabled from .githooks; git pull will rebase local commits."
