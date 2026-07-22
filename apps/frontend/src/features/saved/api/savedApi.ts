@@ -1,6 +1,6 @@
 "use client";
 
-import { requestApi, webApi } from "../../../shared/api/http";
+import { requestApi } from "../../../shared/api/http";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import type { UnlockedAchievement } from "../../../shared/lib/achievements";
 import type { ListType, SavedRelease } from "../../../shared/types/releases";
@@ -10,6 +10,35 @@ export type BulkRefreshResult = {
   info?: ReleaseInfo;
   error?: string;
 };
+
+async function requestSavedMutation<T>(
+  url: string,
+  init: RequestInit
+): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+    keepalive: true,
+    headers: {
+      accept: "application/json",
+      ...init.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response
+      .json()
+      .catch(() => null) as { message?: string; error?: string } | null;
+    throw new Error(
+      payload?.message || payload?.error || `Saved mutation failed (${response.status})`
+    );
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return response.json() as Promise<T>;
+}
 
 export async function fetchSavedRemote(
   accessToken: string,
@@ -42,15 +71,17 @@ export async function createSavedRemote(
     listType: ListType;
   }
 ): Promise<UnlockedAchievement[]> {
-  const response = await webApi.post<{
+  const response = await requestSavedMutation<{
     unlockedAchievements?: UnlockedAchievement[];
-  }>("/api/saved", payload, {
+  }>("/api/saved", {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
+    body: JSON.stringify(payload),
   });
-  return response.data?.unlockedAchievements ?? [];
+  return response.unlockedAchievements ?? [];
 }
 
 export async function removeSavedRemote(
@@ -68,7 +99,8 @@ export async function removeSavedRemote(
     params.set("listType", payload.listType);
   }
 
-  await webApi.delete(`/api/saved/items?${params.toString()}`, {
+  await requestSavedMutation<void>(`/api/saved/items?${params.toString()}`, {
+    method: "DELETE",
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 }
@@ -84,11 +116,13 @@ export async function patchSavedStatsRemote(
     lastWatchedAt?: string;
   }
 ) {
-  await webApi.patch("/api/saved/items", payload, {
+  await requestSavedMutation<void>("/api/saved/items", {
+    method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
+    body: JSON.stringify(payload),
   });
 }
 

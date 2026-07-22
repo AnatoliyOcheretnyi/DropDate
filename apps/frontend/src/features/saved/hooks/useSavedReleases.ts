@@ -31,6 +31,7 @@ import {
   type ListType,
   type SavedRelease,
 } from "../../../shared/types/releases";
+import { enqueueSavedWrite } from "../utils/savedWriteQueue";
 
 function useSavedSyncEvents() {
   const { clear } = useSavedStoreSnapshot();
@@ -118,6 +119,25 @@ export function useSavedReleases() {
     }
   }, [queryClient, user?.id]);
 
+  const reconcileSavedFromServer = useCallback(() => {
+    if (!user?.id) {
+      return;
+    }
+    void queryClient.invalidateQueries({
+      queryKey: webQueryKeys.saved(user.id),
+    });
+  }, [queryClient, user?.id]);
+
+  const writeKey = useCallback(
+    (payload: {
+      tmdbId: number;
+      mediaType: Suggestion["mediaType"];
+      listType: ListType;
+    }) =>
+      `${user?.id ?? "guest"}:${payload.mediaType}:${payload.tmdbId}:${payload.listType}`,
+    [user?.id]
+  );
+
   const addRemoteMutation = useMutation({
     mutationFn: async (payload: {
       tmdbId: number;
@@ -132,8 +152,14 @@ export function useSavedReleases() {
       if (!accessToken) {
         return;
       }
-      const unlocked = await createSavedRemote(accessToken, payload);
-      publishUnlocks(unlocked);
+      return enqueueSavedWrite(
+        writeKey(payload),
+        async () => {
+          const unlocked = await createSavedRemote(accessToken, payload);
+          publishUnlocks(unlocked);
+        },
+        reconcileSavedFromServer
+      );
     },
     onSettled: () => {
       invalidateSavedSideEffects();
@@ -149,7 +175,16 @@ export function useSavedReleases() {
       if (!accessToken) {
         return;
       }
-      await removeSavedRemote(accessToken, payload);
+      if (!payload.listType) {
+        await removeSavedRemote(accessToken, payload);
+        reconcileSavedFromServer();
+        return;
+      }
+      return enqueueSavedWrite(
+        writeKey({ ...payload, listType: payload.listType }),
+        () => removeSavedRemote(accessToken, payload),
+        reconcileSavedFromServer
+      );
     },
     onSettled: () => {
       invalidateSavedSideEffects();
@@ -168,16 +203,32 @@ export function useSavedReleases() {
       if (!accessToken) {
         return;
       }
-      await patchSavedStatsRemote(accessToken, payload);
+      return enqueueSavedWrite(
+        writeKey(payload),
+        () => patchSavedStatsRemote(accessToken, payload),
+        reconcileSavedFromServer
+      );
     },
   });
 
   const persist = useCallback(
     (updater: (items: SavedRelease[]) => SavedRelease[]) => {
       lastLocalMutationAtRef.current = Date.now();
-      updateSaved(updater);
+      if (user?.id) {
+        void queryClient.cancelQueries({
+          queryKey: webQueryKeys.saved(user.id),
+        });
+      }
+      updateSaved((items) => {
+        const next = updater(items);
+        if (user?.id) {
+          queryClient.setQueryData(webQueryKeys.saved(user.id), next);
+          lastRemoteRef.current = next;
+        }
+        return next;
+      });
     },
-    [updateSaved]
+    [queryClient, updateSaved, user?.id]
   );
 
   const addRelease = useCallback(

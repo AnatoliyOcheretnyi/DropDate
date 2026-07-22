@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -247,43 +248,27 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 			lastWatched = &parsed
 		}
 	}
-	var runtimeMinutes *int
-	var episodeCount *int
-	var tmdbRating *float64
-	if s.releases != nil && payload.TMDBID > 0 && payload.MediaType != "" {
-		if details, err := s.releases.Details(r.Context(), payload.TMDBID, payload.MediaType); err == nil {
-			if details.Runtime > 0 {
-				value := details.Runtime
-				runtimeMinutes = &value
-			}
-			if details.EpisodeCount > 0 {
-				value := details.EpisodeCount
-				episodeCount = &value
-			}
-			if details.VoteAverage > 0 {
-				value := details.VoteAverage
-				tmdbRating = &value
-			}
-		}
+	input := saved.UpsertInput{
+		UserID:      userID,
+		TMDBID:      payload.TMDBID,
+		MediaType:   payload.MediaType,
+		Title:       strings.TrimSpace(payload.Title),
+		NextRelease: nextRelease,
+		Status:      payload.Status,
+		PosterURL:   strings.TrimSpace(payload.PosterURL),
+		BackdropURL: strings.TrimSpace(payload.BackdropURL),
+		ListType:    strings.TrimSpace(payload.ListType),
+		UserRating:  payload.UserRating,
+		WatchCount:  payload.WatchCount,
+		LastWatched: lastWatched,
 	}
 
-	item, err := s.saved.Upsert(r.Context(), saved.UpsertInput{
-		UserID:         userID,
-		TMDBID:         payload.TMDBID,
-		MediaType:      payload.MediaType,
-		Title:          strings.TrimSpace(payload.Title),
-		NextRelease:    nextRelease,
-		Status:         payload.Status,
-		PosterURL:      strings.TrimSpace(payload.PosterURL),
-		BackdropURL:    strings.TrimSpace(payload.BackdropURL),
-		ListType:       strings.TrimSpace(payload.ListType),
-		UserRating:     payload.UserRating,
-		WatchCount:     payload.WatchCount,
-		LastWatched:    lastWatched,
-		RuntimeMinutes: runtimeMinutes,
-		EpisodeCount:   episodeCount,
-		TMDBRating:     tmdbRating,
-	})
+	// A saved-list click is a durable user action. Persist it before any
+	// optional metadata lookup and let the short database write finish even if
+	// the browser navigates away or reloads immediately after the click.
+	writeContext, cancelWrite := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+	defer cancelWrite()
+	item, err := s.saved.Upsert(writeContext, input)
 	if err != nil {
 		if errors.Is(err, saved.ErrInvalidMediaType) {
 			writeError(w, http.StatusBadRequest, "invalid mediaType")
@@ -292,6 +277,30 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 		s.logger.Printf("saved upsert failed: %v", err)
 		writeError(w, http.StatusInternalServerError, "failed to save title")
 		return
+	}
+
+	// Metadata improves statistics but must never gate the saved-list write.
+	// Enrich the already-persisted row only when the external lookup succeeds.
+	if s.releases != nil {
+		if details, detailsErr := s.releases.Details(r.Context(), payload.TMDBID, payload.MediaType); detailsErr == nil {
+			if details.Runtime > 0 {
+				value := details.Runtime
+				input.RuntimeMinutes = &value
+			}
+			if details.EpisodeCount > 0 {
+				value := details.EpisodeCount
+				input.EpisodeCount = &value
+			}
+			if details.VoteAverage > 0 {
+				value := details.VoteAverage
+				input.TMDBRating = &value
+			}
+			if enriched, enrichErr := s.saved.Upsert(writeContext, input); enrichErr != nil {
+				s.logger.Printf("saved metadata enrichment failed: %v", enrichErr)
+			} else {
+				item = enriched
+			}
+		}
 	}
 
 	s.invalidateRecommendations(userID)

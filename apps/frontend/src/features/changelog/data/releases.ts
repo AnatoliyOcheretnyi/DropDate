@@ -13,8 +13,8 @@ export const changelogEntries: ChangelogEntry[] = [
   {
     version: "1.13.x",
     releasedAt: "22 липня 2026",
-    frontendVersion: "1.13.0",
-    backendVersion: "1.12.0",
+    frontendVersion: "1.13.1",
+    backendVersion: "1.12.1",
     title: "Новий трекінг серіалів, люди кіно та живіші соціальні поради",
     summary:
       "Оновили ключові сценарії title details та ігор: епізоди стали наочнішими, поради друзям — компактнішими, а ігрова зала отримала нові режими про акторів і режисерів.",
