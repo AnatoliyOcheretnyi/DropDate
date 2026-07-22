@@ -24,6 +24,9 @@ export function HomePersonalFeed() {
     queryKey: queryKeys.dailyPick,
     queryFn: ({ signal }) => getDailyPick(signal),
     enabled: authed,
+    // Cache for the day: once you've made a choice on this device it stays put
+    // and does not flip to another device's choice mid-session. A cold start
+    // still fetches fresh.
     staleTime: 43_200_000,
   });
   const continuing = useQuery({

@@ -13,17 +13,20 @@ export function FeatureScreen({
   title,
   subtitle,
   children,
+  /** Forwarded to AnimatedScreenContent; disable on lists that reflow on tap. */
+  animateLayout = true,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  animateLayout?: boolean;
 }) {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <SafeAreaView style={styles.safe}>
-      <AnimatedScreenContent>
+      <AnimatedScreenContent animateLayout={animateLayout}>
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"

@@ -14,13 +14,28 @@ import Animated, {
  */
 const INTRO_WINDOW_MS = 1200;
 
-export function AnimatedScreenContent({ children }: { children: ReactNode }) {
+export function AnimatedScreenContent({
+  children,
+  /**
+   * The whole-screen layout spring looks great on static screens but janks on
+   * lists whose height changes as the user acts (e.g. marking a notification
+   * read removes the "read all" button). Such screens pass `false`.
+   */
+  animateLayout = true,
+}: {
+  children: ReactNode;
+  animateLayout?: boolean;
+}) {
   return (
     <Animated.View
       entering={FadeIn.duration(260).reduceMotion(ReduceMotion.System)}
-      layout={LinearTransition.springify()
-        .damping(20)
-        .reduceMotion(ReduceMotion.System)}
+      layout={
+        animateLayout
+          ? LinearTransition.springify()
+              .damping(20)
+              .reduceMotion(ReduceMotion.System)
+          : undefined
+      }
       style={styles.fill}
     >
       {children}
