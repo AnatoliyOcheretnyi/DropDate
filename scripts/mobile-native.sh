@@ -34,24 +34,17 @@ fi
 
 cd "$MOBILE_DIR"
 
-# Keep one long-lived Metro server in the foreground of this terminal so the
-# app stays connected after the native build finishes. `expo run` on its own
-# hands the bundler off and exits, leaving no active server. Instead we:
-#   1. start Metro ourselves (backgrounded),
-#   2. run the native build with --no-bundler so it reuses that Metro,
-#   3. wait on Metro so the script stays alive until you Ctrl+C.
-echo "Starting Metro dev server..."
-npx expo start --dev-client &
-METRO_PID=$!
-
-# Tear Metro down on exit / Ctrl+C so we never leave an orphaned bundler.
-cleanup() {
-  kill "$METRO_PID" 2>/dev/null || true
-}
-trap cleanup EXIT INT TERM
-
-echo "Running a clean $PLATFORM native build against that server..."
+# We want one command that builds the native app AND leaves an active Metro
+# server in this terminal. Metro must run in the *foreground* — backgrounding
+# it (`expo start &`) makes it stop the moment it tries to read stdin
+# (SIGTTIN), which is why the server kept dying. So:
+#   1. build + install the native app with --no-bundler (no server yet),
+#   2. hand the terminal over to Metro via `exec`, so it becomes the process
+#      and stays until you press Ctrl+C.
+echo "Running a clean $PLATFORM native build (bundler starts after)..."
 npx expo "run:$PLATFORM" --no-build-cache --no-bundler "$@"
 
-echo "Build installed. Metro is still running — press Ctrl+C to stop."
-wait "$METRO_PID"
+echo ""
+echo "Native app installed. Starting Metro — it stays here until Ctrl+C."
+echo "If the app shows a connection error, reload it once Metro is ready."
+exec npx expo start --dev-client
