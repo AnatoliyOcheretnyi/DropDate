@@ -259,6 +259,21 @@ export function useTitleDetails() {
     ]
   );
 
+  const handleRecommendationListChange = useCallback(
+    (suggestion: Suggestion, next: ListType[]) => {
+      const fallback: ReleaseInfo = {
+        title: suggestion.title,
+        type: suggestion.mediaType === "movie" ? "movie" : "series",
+        nextRelease: "",
+        source: "tmdb",
+        posterUrl: suggestion.posterUrl,
+        status: "released",
+      };
+      setSuggestionLists(suggestion, next, fallback);
+    },
+    [setSuggestionLists]
+  );
+
   useEffect(() => {
     if (!statusListType) {
       setLocalRating(undefined);
@@ -361,6 +376,7 @@ export function useTitleDetails() {
     handleListChange,
     handleNav,
     handleRatingChange,
+    handleRecommendationListChange,
     handleSearchClose,
     handleSearchSubmit,
     handleSearchToggle,

@@ -858,7 +858,7 @@
   }
 }
 
-.games-progress {
+.games-progress-bar {
   margin-top: 0.8rem;
   height: 6px;
   border-radius: 999px;
@@ -866,7 +866,7 @@
   overflow: hidden;
 }
 
-.games-progress span {
+.games-progress-bar span {
   display: block;
   height: 100%;
   border-radius: 999px;
@@ -1727,4 +1727,4 @@
   }
 }
 .games-challenge{display:grid;grid-template-columns:1fr auto auto auto;gap:.6rem;align-items:center;margin:1rem 0 2rem;padding:1.2rem;border:1px solid var(--border);border-radius:1.2rem;background:var(--surface-2)}.games-challenge h2{margin:.2rem 0;font-family:var(--font-display)}.games-challenge select,.games-challenge button{padding:.7rem;border:1px solid var(--border);border-radius:.7rem;background:var(--surface-1);color:var(--text)}@media(max-width:850px){.games-challenge{grid-template-columns:1fr}}
-.games-progress{display:grid;grid-template-columns:.7fr 1.3fr;gap:1rem;margin:1rem 0 2rem;padding:1.2rem;border:1px solid var(--border);border-radius:1.2rem;background:var(--surface-2)}.games-progress>div{display:flex;flex-direction:column;gap:.35rem}.games-progress>div strong{font-family:var(--font-display);font-size:1.5rem;color:var(--accent-strong)}.games-progress>div span{color:var(--text-muted)}.games-progress ol{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}.games-progress li{display:grid;grid-template-columns:24px 1fr auto;gap:.6rem;padding:.35rem}.games-progress li b{color:var(--accent-strong)}@media(max-width:700px){.games-progress{grid-template-columns:1fr}}
+.games-progress-summary{display:grid;grid-template-columns:.7fr 1.3fr;gap:1rem;margin:1rem 0 2rem;padding:1.2rem;border:1px solid var(--border);border-radius:1.2rem;background:var(--surface-2)}.games-progress-summary>div{display:flex;flex-direction:column;gap:.35rem}.games-progress-summary>div strong{font-family:var(--font-display);font-size:1.5rem;color:var(--accent-strong)}.games-progress-summary>div span{color:var(--text-muted)}.games-progress-summary ol{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}.games-progress-summary li{display:grid;grid-template-columns:24px 1fr auto;gap:.6rem;padding:.35rem}.games-progress-summary li b{color:var(--accent-strong)}@media(max-width:700px){.games-progress-summary{grid-template-columns:1fr}}

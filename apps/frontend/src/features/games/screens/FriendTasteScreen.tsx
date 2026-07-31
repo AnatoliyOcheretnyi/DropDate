@@ -277,7 +277,7 @@ export function FriendTasteScreen() {
               </span>
               <span>Вгадано: {score}</span>
             </div>
-            <div className="games-progress" aria-hidden="true">
+            <div className="games-progress-bar" aria-hidden="true">
               <span
                 style={{
                   width: `${((index + (revealed ? 1 : 0)) / Math.max(1, pairs.length)) * 100}%`,

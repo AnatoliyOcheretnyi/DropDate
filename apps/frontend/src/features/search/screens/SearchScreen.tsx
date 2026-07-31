@@ -20,6 +20,7 @@ export function SearchScreen() {
     getListTypes,
     handleLoadMore,
     handleNav,
+    handleResultListChange,
     handleSearchClose,
     handleSearchSubmit,
     handleSearchToggle,
@@ -169,6 +170,7 @@ export function SearchScreen() {
           isLoading={isLoading}
           onSelect={handleSelect}
           getListTypes={getListTypes}
+          onChangeLists={handleResultListChange}
           title={copy.sections.searchResults}
           emptyLabel={
             currentQuery

@@ -67,7 +67,46 @@ func (s *Server) episodesContinueHandler(w http.ResponseWriter, r *http.Request)
 		writeError(w, 500, "continue failed")
 		return
 	}
-	writeJSON(w, 200, map[string]any{"items": items})
+	// Continue() finds the first unwatched number from persisted progress. That
+	// number still has to be checked against TMDB: max(watched)+1 is not
+	// necessarily a real episode when the user has finished a season or series.
+	validated := items[:0]
+	for _, item := range items {
+		episodes, err := s.releases.SeasonEpisodes(r.Context(), item.TMDBID, item.SeasonNumber)
+		if err != nil {
+			// Metadata is an external dependency. Preserve the existing item on a
+			// transient failure instead of making the whole rail disappear.
+			validated = append(validated, item)
+			continue
+		}
+		exists := false
+		for _, episode := range episodes {
+			if episode.EpisodeNumber == item.EpisodeNumber {
+				exists = true
+				break
+			}
+		}
+		if exists {
+			validated = append(validated, item)
+			continue
+		}
+
+		// A completed season may still continue at episode one of the next one.
+		nextSeason, err := s.releases.SeasonEpisodes(r.Context(), item.TMDBID, item.SeasonNumber+1)
+		if err != nil {
+			validated = append(validated, item)
+			continue
+		}
+		for _, episode := range nextSeason {
+			if episode.EpisodeNumber == 1 {
+				item.SeasonNumber++
+				item.EpisodeNumber = 1
+				validated = append(validated, item)
+				break
+			}
+		}
+	}
+	writeJSON(w, 200, map[string]any{"items": validated})
 }
 
 func (s *Server) episodesMetadataHandler(w http.ResponseWriter, r *http.Request) {

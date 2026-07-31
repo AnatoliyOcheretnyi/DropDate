@@ -31,6 +31,7 @@ export function TitleDetailsScreen() {
     handleListChange,
     handleNav,
     handleRatingChange,
+    handleRecommendationListChange,
     handleSearchClose,
     handleSearchSubmit,
     handleSearchToggle,
@@ -188,6 +189,7 @@ export function TitleDetailsScreen() {
                     router.push(`/title/${item.mediaType}/${item.id}`)
                   }
                   getListTypes={getListTypes}
+                  onChangeLists={handleRecommendationListChange}
                   title={copy.sections.similarTitles}
                 />
               </section>

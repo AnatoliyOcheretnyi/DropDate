@@ -218,7 +218,7 @@ export function BattleScreen() {
               </span> : null}
             </div>
             {!endless ? (
-              <div className="games-progress" aria-hidden="true">
+              <div className="games-progress-bar" aria-hidden="true">
                 <span
                   style={{
                     width: `${(((questionNumber - 1) + (isRevealed ? 1 : 0)) / Math.max(1, totalQuestions)) * 100}%`,

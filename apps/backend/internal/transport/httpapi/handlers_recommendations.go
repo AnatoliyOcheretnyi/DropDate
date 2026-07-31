@@ -131,6 +131,61 @@ func (s *Server) handleDailyRecommendationPost(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusOK, result)
 }
 
+type recFeedbackRequest struct {
+	TMDBID    int    `json:"tmdbId"`
+	MediaType string `json:"mediaType"`
+	Title     string `json:"title"`
+	Action    string `json:"action"` // liked | disliked | none
+}
+
+// recommendationsFeedbackHandler records a thumbs-up/down left on a
+// recommendation card. It never mutates the user's saved lists — the signal
+// feeds only the recommendation engine. The feed is purged immediately so the
+// next fetch reflects the verdict (a dislike disappears, a like reshapes it).
+func (s *Server) recommendationsFeedbackHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	userID, err := s.requireUserID(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.recommendations == nil {
+		writeError(w, http.StatusServiceUnavailable, "recommendations unavailable")
+		return
+	}
+	if r.Method == http.MethodGet {
+		items, err := s.recommendations.Feedback(r.Context(), userID)
+		if err != nil {
+			s.logger.Printf("recommendation feedback load failed: %v", err)
+			writeError(w, http.StatusInternalServerError, "feedback failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+		return
+	}
+	var payload recFeedbackRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if err := s.recommendations.SetFeedback(
+		r.Context(), userID, payload.TMDBID, payload.MediaType, payload.Title, payload.Action,
+	); err != nil {
+		if err == recommendations.ErrInvalidFeedback {
+			writeError(w, http.StatusBadRequest, "invalid feedback")
+			return
+		}
+		s.logger.Printf("recommendation feedback failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "feedback failed")
+		return
+	}
+	s.recommendations.PurgeUser(userID)
+	writeJSON(w, http.StatusOK, map[string]string{"action": payload.Action})
+}
+
 func (s *Server) similarRecommendationsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)

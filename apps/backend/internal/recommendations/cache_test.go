@@ -80,3 +80,24 @@ func TestMarkDirtyDoesNotExtendWindow(t *testing.T) {
 		t.Fatal("expected miss: first change must bound staleness, later changes must not extend it")
 	}
 }
+
+func TestMarkDirtyPurgesAfterImpactfulActionThreshold(t *testing.T) {
+	svc := NewService(nil, nil, nil, nil)
+	svc.SetRefreshDebounce(time.Hour)
+
+	const user = "user-burst"
+	const limit = 12
+	svc.StoreAI(user, limit, Result{Meta: Meta{SeedCount: 4}})
+
+	for range dirtyActionThreshold - 1 {
+		svc.MarkDirty(user)
+	}
+	if _, ok := svc.CachedAI(user, limit); !ok {
+		t.Fatal("expected cache to survive until the impactful-action threshold")
+	}
+
+	svc.MarkDirty(user)
+	if _, ok := svc.CachedAI(user, limit); ok {
+		t.Fatal("expected the threshold action to purge the cache immediately")
+	}
+}

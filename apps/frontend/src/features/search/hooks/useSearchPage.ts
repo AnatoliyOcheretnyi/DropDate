@@ -9,7 +9,8 @@ import {
 } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Suggestion } from "../../../shared/lib/release";
+import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
+import type { ListType } from "../../../shared/types/releases";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
@@ -28,7 +29,8 @@ export function useSearchPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { saved, isSuggestionSaved, getListTypes } = useSavedReleases();
+  const { saved, isSuggestionSaved, getListTypes, setSuggestionLists } =
+    useSavedReleases();
 
   const handleClearSelection = useCallback(() => {
     setSelectedSuggestion(null);
@@ -141,6 +143,21 @@ export function useSearchPage() {
     void searchQuery.fetchNextPage();
   };
 
+  const handleResultListChange = useCallback(
+    (suggestion: Suggestion, next: ListType[]) => {
+      const fallback: ReleaseInfo = {
+        title: suggestion.title,
+        type: suggestion.mediaType === "movie" ? "movie" : "series",
+        nextRelease: "",
+        source: "tmdb",
+        posterUrl: suggestion.posterUrl,
+        status: "released",
+      };
+      setSuggestionLists(suggestion, next, fallback);
+    },
+    [setSuggestionLists]
+  );
+
   return {
     allResults: results,
     blurTimeoutRef,
@@ -151,6 +168,7 @@ export function useSearchPage() {
     getListTypes,
     handleLoadMore,
     handleNav,
+    handleResultListChange,
     handleSearchClose,
     handleSearchSubmit,
     handleSearchToggle,

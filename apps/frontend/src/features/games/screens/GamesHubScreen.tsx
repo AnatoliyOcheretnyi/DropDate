@@ -244,7 +244,7 @@ export function GamesHubScreen() {
           </button>
         ))}
       {user ? (
-        <section className="games-progress">
+        <section className="games-progress-summary">
           <div>
             <p className="eyebrow">Твій прогрес</p>
             <strong>{progress.data?.dailyStreak ?? 0} днів поспіль</strong>

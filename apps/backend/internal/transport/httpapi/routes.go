@@ -30,6 +30,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/friends/achievements", s.friendAchievementsHandler)
 	mux.HandleFunc("/people/follows", s.peopleFollowsHandler)
 	mux.HandleFunc("/recommendations/me", s.recommendationsHandler)
+	mux.HandleFunc("/recommendations/feedback", s.recommendationsFeedbackHandler)
 	mux.HandleFunc("/recommendations/daily", s.dailyRecommendationHandler)
 	mux.HandleFunc("/recommendations/similar", s.similarRecommendationsHandler)
 	mux.HandleFunc("/taste", s.tasteHandler)

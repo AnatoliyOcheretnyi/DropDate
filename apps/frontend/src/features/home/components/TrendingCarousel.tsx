@@ -5,6 +5,10 @@ import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { copy } from "../../../shared/lib/strings";
 import { PosterCard } from "../../../shared/ui/PosterCard";
+import type {
+  RecommendationFeedback,
+  RecommendationFeedbackAction,
+} from "../hooks/useRecommendations";
 
 type Props = {
   title: string;
@@ -14,6 +18,8 @@ type Props = {
   onSelect: (suggestion: Suggestion) => void;
   getListTypes: (suggestion: Suggestion) => ListType[];
   onChangeLists?: (suggestion: Suggestion, next: ListType[]) => void;
+  feedback?: Record<string, RecommendationFeedback>;
+  onFeedback?: (suggestion: Suggestion, action: RecommendationFeedbackAction) => void;
 };
 
 function TrendingCarouselComponent({
@@ -24,6 +30,8 @@ function TrendingCarouselComponent({
   onSelect,
   getListTypes,
   onChangeLists,
+  feedback,
+  onFeedback,
 }: Props) {
   if (!isLoading && items.length === 0) {
     return null;
@@ -47,15 +55,64 @@ function TrendingCarouselComponent({
               {items.map((item) => {
                 const listTypes = getListTypes(item);
 
+                const feedbackKey = `${item.mediaType}:${item.id}`;
+                const savedFeedback = feedback?.[feedbackKey];
                 return (
-                  <PosterCard
+                  <div
+                    className={`recommendation-card${savedFeedback ? ` has-feedback feedback-${savedFeedback}` : ""}`}
+                    key={feedbackKey}
+                  >
+                    <PosterCard
                     key={`${item.mediaType}-${item.id}`}
                     item={item}
                     listTypes={listTypes}
                     imageSizes="(max-width: 900px) 40vw, 176px"
                     onSelect={onSelect}
                     onChangeLists={onChangeLists}
-                  />
+                    />
+                    {onFeedback ? (
+                      <div className="recommendation-feedback" aria-label={`Оцінити рекомендацію «${item.title}»`}>
+                        {savedFeedback ? (
+                          <button
+                            type="button"
+                            className="cancel-feedback"
+                            aria-label="Скасувати оцінку"
+                            title="Скасувати й обрати ще раз"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onFeedback(item, "none");
+                            }}
+                          ><span aria-hidden="true">×</span></button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              aria-pressed="false"
+                              aria-label="Цікаво"
+                              title="Цікаво"
+                              onClick={(event) => { event.stopPropagation(); onFeedback(item, "liked"); }}
+                            >👍</button>
+                            <button
+                              type="button"
+                              aria-pressed="false"
+                              aria-label="Не моє"
+                              title="Не моє"
+                              onClick={(event) => { event.stopPropagation(); onFeedback(item, "disliked"); }}
+                            >👎</button>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                    {savedFeedback ? (
+                      <div
+                        className={`recommendation-feedback-saved ${savedFeedback}`}
+                        role="status"
+                      >
+                        <span aria-hidden="true">✓</span>
+                        Збережено: {savedFeedback === "liked" ? "цікаво" : "не моє"}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

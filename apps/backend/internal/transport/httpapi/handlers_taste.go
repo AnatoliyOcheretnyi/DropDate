@@ -90,22 +90,9 @@ func (s *Server) tasteOnboardingHandler(w http.ResponseWriter, r *http.Request) 
 	case http.MethodGet:
 		status, err := s.taste.OnboardingStatus(r.Context(), userID)
 		if err != nil {
+			s.logger.Printf("taste onboarding status failed: %v", err)
 			writeError(w, http.StatusInternalServerError, "status failed")
 			return
-		}
-		if status.Stage == "titles" && s.recommendations != nil {
-			if result, recErr := s.recommendations.Generate(r.Context(), userID, 24); recErr == nil {
-				status.Titles = make([]taste.TitleFeedback, 0, len(result.Items))
-				for _, item := range result.Items {
-					status.Titles = append(status.Titles, taste.TitleFeedback{
-						TMDBID:    item.TMDBID,
-						MediaType: item.MediaType,
-						Title:     item.Title,
-						PosterURL: item.PosterURL,
-						Year:      item.Year,
-					})
-				}
-			}
 		}
 		writeJSON(w, http.StatusOK, status)
 	case http.MethodPost:

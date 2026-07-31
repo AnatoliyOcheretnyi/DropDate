@@ -15,8 +15,7 @@ var catalogs = map[string][]string{
 }
 
 const (
-	TargetComparisons  = 8
-	TargetTitleSignals = 12
+	TargetComparisons = 8
 )
 
 type Item struct {
@@ -42,17 +41,17 @@ type TitleFeedback struct {
 }
 
 type OnboardingStatus struct {
-	Stage                string         `json:"stage"`
-	Completed            bool           `json:"completed"`
-	GenreComparisons     int            `json:"genreComparisons"`
-	CountryComparisons   int            `json:"countryComparisons"`
-	TitleFeedbackCount   int            `json:"titleFeedbackCount"`
-	TargetComparisons    int            `json:"targetComparisons"`
-	TargetTitleFeedback  int            `json:"targetTitleFeedback"`
-	SnoozedUntil         *time.Time     `json:"snoozedUntil,omitempty"`
-	GenresCompletedAt    *time.Time     `json:"genresCompletedAt,omitempty"`
-	CountriesCompletedAt *time.Time     `json:"countriesCompletedAt,omitempty"`
-	TitlesCompletedAt    *time.Time     `json:"titlesCompletedAt,omitempty"`
+	Stage                string          `json:"stage"`
+	Completed            bool            `json:"completed"`
+	GenreComparisons     int             `json:"genreComparisons"`
+	CountryComparisons   int             `json:"countryComparisons"`
+	TitleFeedbackCount   int             `json:"titleFeedbackCount"`
+	TargetComparisons    int             `json:"targetComparisons"`
+	TargetTitleFeedback  int             `json:"targetTitleFeedback"`
+	SnoozedUntil         *time.Time      `json:"snoozedUntil,omitempty"`
+	GenresCompletedAt    *time.Time      `json:"genresCompletedAt,omitempty"`
+	CountriesCompletedAt *time.Time      `json:"countriesCompletedAt,omitempty"`
+	TitlesCompletedAt    *time.Time      `json:"titlesCompletedAt,omitempty"`
 	Titles               []TitleFeedback `json:"titles,omitempty"`
 }
 
@@ -119,7 +118,7 @@ func (s *Service) RecordTitleFeedback(ctx context.Context, userID string, feedba
 func (s *Service) OnboardingStatus(ctx context.Context, userID string) (OnboardingStatus, error) {
 	var status OnboardingStatus
 	status.TargetComparisons = TargetComparisons
-	status.TargetTitleFeedback = TargetTitleSignals
+	status.TargetTitleFeedback = 0
 
 	var (
 		stage                string
@@ -152,14 +151,9 @@ func (s *Service) OnboardingStatus(ctx context.Context, userID string) (Onboardi
 	if err != nil {
 		return status, err
 	}
-	titleCount, err := s.titleFeedbackCount(ctx, userID)
-	if err != nil {
-		return status, err
-	}
-
 	status.GenreComparisons = genreCount
 	status.CountryComparisons = countryCount
-	status.TitleFeedbackCount = titleCount
+	status.TitleFeedbackCount = 0
 
 	now := time.Now().UTC()
 	promotedStage := "genre"
@@ -170,15 +164,9 @@ func (s *Service) OnboardingStatus(ctx context.Context, userID string) (Onboardi
 		}
 	}
 	if genreCount >= TargetComparisons && countryCount >= TargetComparisons {
-		promotedStage = "titles"
+		promotedStage = "completed"
 		if !countriesCompletedAt.Valid {
 			countriesCompletedAt = sql.NullTime{Time: now, Valid: true}
-		}
-	}
-	if titleCount >= TargetTitleSignals {
-		promotedStage = "completed"
-		if !titlesCompletedAt.Valid {
-			titlesCompletedAt = sql.NullTime{Time: now, Valid: true}
 		}
 		if !completedAt.Valid {
 			completedAt = sql.NullTime{Time: now, Valid: true}
@@ -187,22 +175,10 @@ func (s *Service) OnboardingStatus(ctx context.Context, userID string) (Onboardi
 	if completedAt.Valid {
 		promotedStage = "completed"
 	}
-	if stage == "" || stage == "completed" && !completedAt.Valid {
-		stage = promotedStage
-	}
-	if promotedStage != "genre" && stage == "genre" {
-		stage = promotedStage
-	}
-	if promotedStage == "completed" {
-		stage = "completed"
-	}
-
-	if stage == "country" && genreCount < TargetComparisons {
-		stage = "genre"
-	}
-	if stage == "titles" && countryCount < TargetComparisons {
-		stage = "country"
-	}
+	// The counters are the source of truth. Keeping the persisted stage when it
+	// was "country" used to leave users stuck there after completing the country
+	// comparisons (the UI could consequently show values such as 23/8).
+	stage = promotedStage
 
 	if genresCompletedAt.Valid {
 		value := genresCompletedAt.Time.UTC()

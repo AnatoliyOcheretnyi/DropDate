@@ -93,8 +93,20 @@ function HomeScreenContent({ sections }: Props) {
   const {
     items: recommendations,
     isLoading: isRecommendationsLoading,
+    feedback: recommendationFeedback,
+    sendFeedback: sendRecommendationFeedback,
   } = useRecommendations();
   const { pick: dailyPick, state: dailyPickState, isUpdating: isUpdatingDailyPick, reveal: revealDailyPick, setAction: setDailyPickAction } = useDailyPick();
+  const recommendationsWithoutDailyPick = useMemo(
+    () =>
+      dailyPick
+        ? recommendations.filter(
+            (item) =>
+              item.id !== dailyPick.tmdbId || item.mediaType !== dailyPick.mediaType
+          )
+        : recommendations,
+    [dailyPick, recommendations]
+  );
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
@@ -263,16 +275,18 @@ function HomeScreenContent({ sections }: Props) {
 
       {shouldShowTrending && (
         <>
-          {recommendations.length > 0 && (
+          {recommendationsWithoutDailyPick.length > 0 && (
             <Reveal>
               <TrendingCarousel
                 title={copy.sections.recommendations}
                 kicker="На основі ваших улюблених і переглянутих"
-                items={recommendations}
+                items={recommendationsWithoutDailyPick}
                 isLoading={isRecommendationsLoading}
                 onSelect={handleGallerySelect}
                 getListTypes={getListTypes}
                 onChangeLists={handleChangeLists}
+                feedback={recommendationFeedback}
+                onFeedback={(item, action) => void sendRecommendationFeedback(item, action)}
               />
             </Reveal>
           )}

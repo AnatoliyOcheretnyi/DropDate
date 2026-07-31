@@ -68,9 +68,14 @@ type DailyResult struct {
 type seed struct {
 	tmdbID    int
 	mediaType string
-	weight    int
-	source    string
-	recent    bool
+	// weight may be negative: such seeds pull matching candidates down
+	// instead of promoting them (disliked titles, low user ratings).
+	weight int
+	source string
+	recent bool
+	// title of the seed itself, used to write a human-readable reason
+	// ("Схоже на «…»") for the candidates it produces.
+	title string
 }
 
 func (s seed) key() string {

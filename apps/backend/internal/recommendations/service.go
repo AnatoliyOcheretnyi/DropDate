@@ -20,21 +20,37 @@ import (
 const (
 	// Seed weights, per spec.
 	weightFavorite      = 5
+	weightLikedList     = 4
 	weightWatchedRated  = 4
 	weightWatched       = 2
 	weightWatchlistHigh = 1
+	// weightRecLiked is a thumbs-up left directly on a recommendation card.
+	weightRecLiked = 3
+	// Negative seeds: candidates similar to these get pushed down.
+	weightDislikedSeed = -3
+	weightWatchedLow   = -2
 
-	strongRatingThreshold  = 8
+	strongRatingThreshold = 8
+	// A user rating at or below this marks the title as an anti-seed.
+	lowRatingThreshold     = 4
 	watchlistRatingFloor   = 7.5
 	recentSeedWindow       = 30 * 24 * time.Hour
 	overlapBonusPerSeed    = 2
 	recencyBonus           = 1
 	candidatesPerSeed      = 12
 	maxSeeds               = 10
+	maxNegativeSeeds       = 6
 	maxConcurrentSeedFetch = 4
-	defaultLimit           = 18
-	maxLimit               = 30
-	defaultCacheTTL        = 6 * time.Hour
+	// diversityCapPerSeed bounds how many items in the final list may owe
+	// their primary signal to the same seed, so one favorite cannot flood
+	// the whole feed with lookalikes.
+	diversityCapPerSeed = 4
+	defaultLimit        = 18
+	maxLimit            = 30
+	defaultCacheTTL     = 6 * time.Hour
+	// dirtyActionThreshold: after this many impactful actions inside the
+	// debounce window the cache is purged immediately instead of waiting.
+	dirtyActionThreshold = 10
 	// defaultRefreshDebounce is how long after a saved-list change we keep
 	// serving the cached feed before regenerating. Bounds staleness while
 	// avoiding a fresh model call on every edit.
@@ -63,6 +79,9 @@ type Service struct {
 	// regenerated. Set on a saved-list change (debounced), cleared once the
 	// grace window elapses and the caches are purged.
 	dirty map[string]time.Time
+	// dirtyCount tracks how many impactful actions happened since the feed
+	// was last (re)generated; crossing dirtyActionThreshold purges at once.
+	dirtyCount map[string]int
 }
 
 func (s *Service) SetTasteReader(reader tasteReader) { s.taste = reader }
@@ -89,6 +108,7 @@ func NewService(savedSvc savedReader, candidateSvc candidateReader, db *sql.DB, 
 		refreshDebounce: defaultRefreshDebounce,
 		cache:           make(map[string]cacheEntry),
 		dirty:           make(map[string]time.Time),
+		dirtyCount:      make(map[string]int),
 	}
 }
 
@@ -103,7 +123,9 @@ func (s *Service) SetRefreshDebounce(d time.Duration) {
 
 // MarkDirty schedules a refresh of the user's cached feeds. The first change
 // starts the debounce window; subsequent changes within it do not extend it, so
-// staleness is bounded by refreshDebounce from the first edit.
+// staleness is bounded by refreshDebounce from the first edit. A burst of
+// changes (dirtyActionThreshold within the window) purges immediately — a user
+// actively curating their lists should see the feed react right away.
 func (s *Service) MarkDirty(userID string) {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
@@ -111,9 +133,26 @@ func (s *Service) MarkDirty(userID string) {
 		s.purgeUserLocked(userID)
 		return
 	}
+	s.dirtyCount[userID]++
+	if s.dirtyCount[userID] >= dirtyActionThreshold {
+		s.purgeUserLocked(userID)
+		delete(s.dirty, userID)
+		delete(s.dirtyCount, userID)
+		return
+	}
 	if _, ok := s.dirty[userID]; !ok {
 		s.dirty[userID] = s.now().Add(s.refreshDebounce)
 	}
+}
+
+// PurgeUser drops every cached feed for the user right away. Used by actions
+// that must be reflected on the very next fetch (e.g. "не моє" on a card).
+func (s *Service) PurgeUser(userID string) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	s.purgeUserLocked(userID)
+	delete(s.dirty, userID)
+	delete(s.dirtyCount, userID)
 }
 
 // CachedAI returns a cached AI-enhanced feed if one is fresh.
@@ -161,8 +200,12 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 	}
 
 	exclusions := buildExclusions(rows)
+	if record, dailyErr := s.loadDailyRecord(ctx, userID, todayUTC(s.now())); dailyErr == nil {
+		exclusions[candidateKey(record.Pick.TMDBID, record.Pick.MediaType)] = true
+	}
 	seeds := selectSeeds(rows, s.now())
 	s.applyDailyFeedback(ctx, userID, &exclusions, &seeds)
+	s.applyRecFeedback(ctx, userID, &exclusions, &seeds)
 	if len(seeds) == 0 && s.taste == nil {
 		s.logf("recommendations no seeds user=%s rows=%d", userID, len(rows))
 		s.saveCache(userID, limit, "", empty)
@@ -249,11 +292,7 @@ func (s *Service) DailyState(ctx context.Context, userID string) (DailyState, er
 		return DailyState{}, err
 	}
 
-	result, err := s.Generate(ctx, userID, 12)
-	if err != nil {
-		return DailyState{}, err
-	}
-	pool := result.Items
+	pool := s.dailyContrastPool(ctx, userID, date)
 	if len(pool) == 0 {
 		// A new user, or one who has disliked their way through the personal
 		// pool, would otherwise get no pick and the card would vanish. Fall
@@ -282,6 +321,95 @@ func (s *Service) DailyState(ctx context.Context, userID string) (DailyState, er
 		Revealed: false,
 		Action:   "none",
 	}, nil
+}
+
+// dailyContrastPool deliberately uses a separate discovery path from the
+// regular recommendation ranking. It stays near the user's calibrated taste,
+// but picks a secondary strong genre so the result feels like a safe discovery
+// instead of a duplicate from the main feed.
+func (s *Service) dailyContrastPool(ctx context.Context, userID, date string) []Item {
+	discoverer, ok := s.candidates.(discoverReader)
+	if !ok || s.taste == nil || s.saved == nil {
+		return nil
+	}
+
+	genres, err := s.taste.Rankings(ctx, userID, "genre")
+	if err != nil {
+		return nil
+	}
+	countries, _ := s.taste.Rankings(ctx, userID, "country")
+	eligibleGenres := make([]int, 0, 3)
+	for _, item := range genres {
+		if item.Comparisons < 2 || tasteGenreIDs[item.ID] == 0 {
+			continue
+		}
+		eligibleGenres = append(eligibleGenres, tasteGenreIDs[item.ID])
+		if len(eligibleGenres) == 3 {
+			break
+		}
+	}
+	if len(eligibleGenres) == 0 {
+		return nil
+	}
+
+	digest := sha256.Sum256([]byte(userID + ":contrast:" + date))
+	genreIndex := 0
+	if len(eligibleGenres) > 1 {
+		genreIndex = 1 + int(digest[8])%(len(eligibleGenres)-1)
+	}
+	mediaType := "movie"
+	if digest[9]%2 == 1 {
+		mediaType = "tv"
+	}
+	params := release.DiscoverParams{
+		MediaType:      mediaType,
+		WithGenres:     []int{eligibleGenres[genreIndex]},
+		SortBy:         "vote_average.desc",
+		VoteCountGTE:   80,
+		VoteAverageGTE: 6.5,
+		Page:           1 + int(digest[10])%2,
+	}
+	if mediaType == "tv" {
+		params.VoteCountGTE = 40
+	}
+	for _, item := range countries {
+		if item.Comparisons >= 2 {
+			params.WithOriginCountry = []string{item.ID}
+			break
+		}
+	}
+
+	exclusions := map[string]bool{}
+	if rows, rowsErr := s.saved.SeedRows(ctx, userID); rowsErr == nil {
+		exclusions = buildExclusions(rows)
+	}
+	if feedback, feedbackErr := s.Feedback(ctx, userID); feedbackErr == nil {
+		for _, row := range feedback {
+			exclusions[candidateKey(row.TMDBID, row.MediaType)] = true
+		}
+	}
+	if feedback, feedbackErr := s.dailyFeedback(ctx, userID, 200); feedbackErr == nil {
+		for _, row := range feedback {
+			exclusions[candidateKey(row.TMDBID, row.MediaType)] = true
+		}
+	}
+
+	discovered, err := discoverer.Discover(ctx, params)
+	if err != nil {
+		return nil
+	}
+	pool := make([]Item, 0, len(discovered))
+	for _, item := range discovered {
+		if exclusions[candidateKey(item.TMDBID, item.MediaType)] {
+			continue
+		}
+		pool = append(pool, Item{
+			TMDBID: item.TMDBID, MediaType: item.MediaType, Title: item.Title,
+			Year: item.Year, PosterURL: item.PosterURL,
+			Reason: Reason{PrimarySource: "contrast", Text: "Трохи поза твоїм звичним вибором, але збігається з твоїм смаком за жанром і країною."},
+		})
+	}
+	return pool
 }
 
 func (s *Service) SetDailyAction(ctx context.Context, userID, date, action string, revealed bool) (DailyState, error) {
@@ -332,6 +460,13 @@ func (s *Service) dailyFallbackPool(ctx context.Context, userID string) []Item {
 		for _, item := range feedback {
 			if item.Action == "disliked" {
 				exclusions[candidateKey(item.TMDBID, item.MediaType)] = true
+			}
+		}
+	}
+	if feedback, err := s.Feedback(ctx, userID); err == nil {
+		for _, row := range feedback {
+			if row.Action == "disliked" {
+				exclusions[candidateKey(row.TMDBID, row.MediaType)] = true
 			}
 		}
 	}
@@ -409,6 +544,8 @@ func dailyReason(reason Reason) string {
 		return "Враховує твій рейтинг жанрів і країн, але залишає простір для відкриття."
 	case "popular":
 		return "Зараз про це говорять — гучний реліз, який варто не проґавити."
+	case "contrast":
+		return "Трохи поза твоїм звичним вибором, але збігається з твоїм смаком за жанром і країною."
 	default:
 		return "Персональний вибір дня на основі вашого кінематографічного смаку."
 	}
@@ -424,8 +561,17 @@ func buildExclusions(rows []saved.Title) map[string]bool {
 }
 
 // selectSeeds picks the strongest saved titles as recommendation sources,
-// deduplicated by title and capped at maxSeeds, ordered by weight then recency.
+// deduplicated by title. Positive seeds (capped at maxSeeds) promote their
+// lookalikes; negative seeds (capped at maxNegativeSeeds) demote theirs. When
+// the same title carries contradictory signals the stronger one (by absolute
+// weight) wins.
 func selectSeeds(rows []saved.Title, now time.Time) []seed {
+	abs := func(v int) int {
+		if v < 0 {
+			return -v
+		}
+		return v
+	}
 	best := make(map[string]seed)
 	for _, row := range rows {
 		weight, source, ok := seedWeight(row)
@@ -442,9 +588,10 @@ func selectSeeds(rows []saved.Title, now time.Time) []seed {
 			weight:    weight,
 			source:    source,
 			recent:    recent,
+			title:     row.Title,
 		}
 		existing, exists := best[candidate.key()]
-		if !exists || candidate.weight > existing.weight {
+		if !exists || abs(candidate.weight) > abs(existing.weight) {
 			// Preserve recency if any contributing row is recent.
 			candidate.recent = candidate.recent || (exists && existing.recent)
 			best[candidate.key()] = candidate
@@ -454,42 +601,74 @@ func selectSeeds(rows []saved.Title, now time.Time) []seed {
 		}
 	}
 
-	seeds := make([]seed, 0, len(best))
+	var positive, negative []seed
 	for _, value := range best {
-		seeds = append(seeds, value)
-	}
-	sort.SliceStable(seeds, func(i, j int) bool {
-		if seeds[i].weight != seeds[j].weight {
-			return seeds[i].weight > seeds[j].weight
+		if value.weight < 0 {
+			negative = append(negative, value)
+		} else {
+			positive = append(positive, value)
 		}
-		if seeds[i].recent != seeds[j].recent {
-			return seeds[i].recent
-		}
-		return seeds[i].tmdbID < seeds[j].tmdbID
-	})
-	if len(seeds) > maxSeeds {
-		seeds = seeds[:maxSeeds]
 	}
-	return seeds
+	sortSeeds := func(seeds []seed) {
+		sort.SliceStable(seeds, func(i, j int) bool {
+			if abs(seeds[i].weight) != abs(seeds[j].weight) {
+				return abs(seeds[i].weight) > abs(seeds[j].weight)
+			}
+			if seeds[i].recent != seeds[j].recent {
+				return seeds[i].recent
+			}
+			return seeds[i].tmdbID < seeds[j].tmdbID
+		})
+	}
+	sortSeeds(positive)
+	sortSeeds(negative)
+	if len(positive) > maxSeeds {
+		positive = positive[:maxSeeds]
+	}
+	if len(negative) > maxNegativeSeeds {
+		negative = negative[:maxNegativeSeeds]
+	}
+	return append(positive, negative...)
 }
 
 // seedWeight returns the seed weight and source label for a saved row, or
-// ok=false if the row is not eligible as a seed.
+// ok=false if the row is not eligible as a seed. The user's own rating is the
+// primary signal wherever present; TMDB's rating is only a fallback for
+// unrated watchlist entries. Negative weights mark anti-seeds: titles whose
+// lookalikes should be pushed *down* in the feed.
 func seedWeight(row saved.Title) (int, string, bool) {
 	listType := rowListType(row)
+	rating := 0
+	if row.UserRating != nil {
+		rating = *row.UserRating
+	}
 	switch listType {
 	case "favorite":
 		return weightFavorite, "favorite", true
+	case "liked":
+		return weightLikedList, "liked", true
 	case "watched":
-		if row.UserRating != nil && *row.UserRating >= strongRatingThreshold {
+		if rating > 0 && rating <= lowRatingThreshold {
+			return weightWatchedLow, "watched", true
+		}
+		if rating >= strongRatingThreshold {
 			return weightWatchedRated, "watched", true
 		}
 		return weightWatched, "watched", true
 	case "watchlist":
+		// The user's own rating (e.g. rated after moving lists) beats TMDB's.
+		if rating >= strongRatingThreshold {
+			return weightWatchedRated, "watchlist", true
+		}
+		if rating > 0 && rating <= lowRatingThreshold {
+			return 0, "", false
+		}
 		if row.TMDBRating != nil && *row.TMDBRating >= watchlistRatingFloor {
 			return weightWatchlistHigh, "watchlist", true
 		}
 		return 0, "", false
+	case "disliked":
+		return weightDislikedSeed, "disliked", true
 	default:
 		return 0, "", false
 	}
@@ -510,6 +689,10 @@ type mergedCandidate struct {
 	recent        bool
 	primarySource string
 	primaryWeight int
+	// Strongest positive seed that produced this candidate — used for the
+	// human-readable reason and the per-seed diversity cap.
+	primarySeedKey   string
+	primarySeedTitle string
 }
 
 // collectCandidates fans out TMDB recommendation requests across seeds with
@@ -555,12 +738,19 @@ func (s *Service) collectCandidates(ctx context.Context, seeds []seed) (map[stri
 				entry = &mergedCandidate{suggestion: suggestion}
 				merged[key] = entry
 			}
-			entry.seedCount++
+			// Negative seeds only subtract weight — they must not count as
+			// endorsements (seedCount drives the overlap bonus) nor claim the
+			// candidate's "reason" slot.
+			if res.seed.weight > 0 {
+				entry.seedCount++
+			}
 			entry.weightSum += res.seed.weight
-			entry.recent = entry.recent || res.seed.recent
+			entry.recent = entry.recent || (res.seed.recent && res.seed.weight > 0)
 			if res.seed.weight > entry.primaryWeight {
 				entry.primaryWeight = res.seed.weight
 				entry.primarySource = res.seed.source
+				entry.primarySeedKey = res.seed.key()
+				entry.primarySeedTitle = res.seed.title
 			}
 		}
 	}
@@ -568,11 +758,14 @@ func (s *Service) collectCandidates(ctx context.Context, seeds []seed) (map[stri
 }
 
 // rankCandidates applies exclusions, scores, and sorts candidates into the
-// final ranked list, truncated to limit.
+// final ranked list, truncated to limit. Candidates whose score was dragged to
+// zero or below by negative seeds are dropped entirely, and no single seed may
+// claim more than diversityCapPerSeed slots so the feed stays varied.
 func rankCandidates(candidates map[string]*mergedCandidate, exclusions map[string]bool, limit int) []Item {
 	type scored struct {
-		item  Item
-		score int
+		item    Item
+		score   int
+		seedKey string
 	}
 	scoredItems := make([]scored, 0, len(candidates))
 	for key, candidate := range candidates {
@@ -586,8 +779,13 @@ func rankCandidates(candidates map[string]*mergedCandidate, exclusions map[strin
 		if candidate.recent {
 			score += recencyBonus
 		}
+		if score <= 0 {
+			// Anti-seeds outweighed the endorsements — not worth showing.
+			continue
+		}
 		scoredItems = append(scoredItems, scored{
-			score: score,
+			score:   score,
+			seedKey: candidate.primarySeedKey,
 			item: Item{
 				TMDBID:    candidate.suggestion.ID,
 				MediaType: candidate.suggestion.MediaType,
@@ -597,6 +795,11 @@ func rankCandidates(candidates map[string]*mergedCandidate, exclusions map[strin
 				Reason: Reason{
 					SeedCount:     candidate.seedCount,
 					PrimarySource: candidate.primarySource,
+					Text: seedReasonText(
+						candidate.primarySource,
+						candidate.primarySeedTitle,
+						candidate.seedCount,
+					),
 				},
 			},
 		})
@@ -612,14 +815,60 @@ func rankCandidates(candidates map[string]*mergedCandidate, exclusions map[strin
 		return scoredItems[i].item.TMDBID < scoredItems[j].item.TMDBID
 	})
 
-	if len(scoredItems) > limit {
-		scoredItems = scoredItems[:limit]
-	}
-	items := make([]Item, 0, len(scoredItems))
+	// Two passes: capped fill first, then backfill with the overflow so the
+	// list still reaches `limit` when one seed dominates the pool.
+	perSeed := make(map[string]int)
+	items := make([]Item, 0, limit)
+	var overflow []Item
 	for _, entry := range scoredItems {
+		if len(items) >= limit {
+			break
+		}
+		if entry.seedKey != "" && perSeed[entry.seedKey] >= diversityCapPerSeed {
+			overflow = append(overflow, entry.item)
+			continue
+		}
+		perSeed[entry.seedKey]++
 		items = append(items, entry.item)
 	}
+	for _, item := range overflow {
+		if len(items) >= limit {
+			break
+		}
+		items = append(items, item)
+	}
 	return items
+}
+
+// seedReasonText writes the human-readable "why this" line for a candidate
+// based on its strongest seed. Kept short — it renders under the rail header.
+func seedReasonText(source, title string, seedCount int) string {
+	if title == "" {
+		return ""
+	}
+	quoted := "«" + title + "»"
+	base := ""
+	switch source {
+	case "favorite":
+		base = "Схоже на " + quoted + " з твоїх улюблених"
+	case "liked":
+		base = "Схоже на " + quoted + ", що тобі сподобалось"
+	case "watched":
+		base = "Схоже на " + quoted + ", що ти вже подивився"
+	case "watchlist":
+		base = "Схоже на " + quoted + " зі списку «хочу подивитись»"
+	case "daily_saved", "rec_liked":
+		base = "Схоже на " + quoted + ", що ти вподобав у рекомендаціях"
+	default:
+		base = "Схоже на " + quoted
+	}
+	// Dodge numeral declension: "ще один" / "ще кілька" covers both cases.
+	if seedCount == 2 {
+		base += " та ще один твій тайтл"
+	} else if seedCount > 2 {
+		base += " та ще кілька твоїх тайтлів"
+	}
+	return base + "."
 }
 
 func candidateKey(tmdbID int, mediaType string) string {
@@ -638,6 +887,7 @@ func (s *Service) lookupCache(userID string, limit int, variant string) (Result,
 	if deadline, ok := s.dirty[userID]; ok && !s.now().Before(deadline) {
 		s.purgeUserLocked(userID)
 		delete(s.dirty, userID)
+		delete(s.dirtyCount, userID)
 		return Result{}, false
 	}
 
@@ -666,6 +916,7 @@ func (s *Service) ClearCache() {
 	s.cacheMu.Lock()
 	s.cache = make(map[string]cacheEntry)
 	s.dirty = make(map[string]time.Time)
+	s.dirtyCount = make(map[string]int)
 	s.cacheMu.Unlock()
 }
 

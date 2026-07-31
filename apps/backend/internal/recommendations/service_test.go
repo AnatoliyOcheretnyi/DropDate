@@ -10,11 +10,20 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/taste"
 )
 
 type stubSaved struct {
 	rows []saved.Title
 	err  error
+}
+
+type stubTaste struct {
+	rankings map[string][]taste.Item
+}
+
+func (s stubTaste) Rankings(_ context.Context, _ string, kind string) ([]taste.Item, error) {
+	return s.rankings[kind], nil
 }
 
 func (s stubSaved) SeedRows(_ context.Context, _ string) ([]saved.Title, error) {
@@ -25,8 +34,13 @@ type stubCandidates struct {
 	// bySeed maps a seed tmdbID to the suggestions it returns.
 	bySeed map[int][]release.Suggestion
 	// failSeeds is the set of seed tmdbIDs whose fetch errors.
-	failSeeds map[int]bool
-	calls     int
+	failSeeds     map[int]bool
+	calls         int
+	discoverItems []release.DiscoverItem
+}
+
+func (s *stubCandidates) Discover(_ context.Context, _ release.DiscoverParams) ([]release.DiscoverItem, error) {
+	return s.discoverItems, nil
 }
 
 func (s *stubCandidates) Recommendations(_ context.Context, id int, _ string, _ int) ([]release.Suggestion, error) {
@@ -152,6 +166,72 @@ func TestSeedDedupKeepsHighestWeight(t *testing.T) {
 	}
 }
 
+func TestDislikedSeedDemotesLookalikes(t *testing.T) {
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	// A favorite and a disliked seed both recommend candidate 50; the disliked
+	// seed also uniquely recommends 60. 50's score is dragged below 60's, and
+	// 70 (from favorite only) stays on top.
+	saved := stubSaved{rows: []saved.Title{
+		{TMDBID: 1, MediaType: "movie", ListTypes: []string{"favorite"}, UpdatedAt: now},
+		{TMDBID: 2, MediaType: "movie", ListTypes: []string{"disliked"}, UpdatedAt: now},
+	}}
+	candidates := &stubCandidates{bySeed: map[int][]release.Suggestion{
+		1: {{ID: 70, MediaType: "movie", Title: "Pure"}, {ID: 50, MediaType: "movie", Title: "Mixed"}},
+		2: {{ID: 50, MediaType: "movie", Title: "Mixed"}, {ID: 60, MediaType: "movie", Title: "Only Disliked"}},
+	}}
+
+	svc := newTestService(saved, candidates)
+	result, err := svc.Generate(context.Background(), "user-neg", 18)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	// 60 comes only from the disliked seed (score -3) -> dropped.
+	// 50 = favorite(5) + disliked(-3) = 2, 70 = favorite(5) -> 70 first, 50 kept.
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 items (60 dropped), got %d: %+v", len(result.Items), result.Items)
+	}
+	if result.Items[0].TMDBID != 70 || result.Items[1].TMDBID != 50 {
+		t.Fatalf("expected order [70, 50], got [%d, %d]", result.Items[0].TMDBID, result.Items[1].TMDBID)
+	}
+}
+
+func TestDiversityCapSpreadsAcrossSeeds(t *testing.T) {
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	// Seed A yields six equally-scored lookalikes; seed B yields one. With the
+	// per-seed cap, B's single pick must surface within the top 5 instead of
+	// being buried under A's flood.
+	saved := stubSaved{rows: []saved.Title{
+		{TMDBID: 1, MediaType: "movie", ListTypes: []string{"favorite"}, UpdatedAt: now},
+		{TMDBID: 2, MediaType: "movie", ListTypes: []string{"favorite"}, UpdatedAt: now},
+	}}
+	candidates := &stubCandidates{bySeed: map[int][]release.Suggestion{
+		1: {
+			{ID: 10, MediaType: "movie", Title: "A1"}, {ID: 11, MediaType: "movie", Title: "A2"},
+			{ID: 12, MediaType: "movie", Title: "A3"}, {ID: 13, MediaType: "movie", Title: "A4"},
+			{ID: 14, MediaType: "movie", Title: "A5"}, {ID: 15, MediaType: "movie", Title: "A6"},
+		},
+		2: {{ID: 20, MediaType: "movie", Title: "B1"}},
+	}}
+
+	svc := newTestService(saved, candidates)
+	result, err := svc.Generate(context.Background(), "user-div", 5)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if len(result.Items) != 5 {
+		t.Fatalf("expected 5 items, got %d", len(result.Items))
+	}
+	found := false
+	for _, item := range result.Items {
+		if item.TMDBID == 20 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("diversity cap should surface seed B's pick (20): %+v", result.Items)
+	}
+}
+
 func TestGeneratePartialFailureStillReturns(t *testing.T) {
 	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
 	saved := stubSaved{rows: []saved.Title{
@@ -218,12 +298,16 @@ func TestGenerateCachesResult(t *testing.T) {
 func TestDailyIsStableForUserAndDate(t *testing.T) {
 	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
 	saved := stubSaved{rows: []saved.Title{{TMDBID: 1, MediaType: "movie", ListTypes: []string{"favorite"}, UpdatedAt: now}}}
-	candidates := &stubCandidates{bySeed: map[int][]release.Suggestion{1: {
-		{ID: 10, MediaType: "movie", Title: "One"},
-		{ID: 20, MediaType: "movie", Title: "Two"},
-		{ID: 30, MediaType: "movie", Title: "Three"},
-	}}}
+	candidates := &stubCandidates{discoverItems: []release.DiscoverItem{
+		{TMDBID: 10, MediaType: "movie", Title: "One"},
+		{TMDBID: 20, MediaType: "movie", Title: "Two"},
+		{TMDBID: 30, MediaType: "movie", Title: "Three"},
+	}}
 	svc := newTestService(saved, candidates)
+	svc.taste = stubTaste{rankings: map[string][]taste.Item{
+		"genre":   {{ID: "drama", Comparisons: 3}},
+		"country": {{ID: "GB", Comparisons: 3}},
+	}}
 	first, err := svc.Daily(context.Background(), "user-daily")
 	if err != nil {
 		t.Fatal(err)

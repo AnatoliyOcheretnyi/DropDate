@@ -21,24 +21,38 @@ export function TasteCalibrationCard() {
       ? "Почати з жанрів"
       : status.stage === "country"
         ? "Продовжити з країн"
-        : status.stage === "titles"
-          ? "Оцінити кілька тайтлів"
-          : "Оновити смак-профіль";
+        : "Смак-профіль налаштовано";
+
+  const description =
+    status.completed
+        ? "Твої відповіді вже впливають на персональні рекомендації. Їх можна оновити будь-коли."
+        : "Кілька швидких виборів допоможуть персоналізувати рекомендації.";
+
+  const actionLabel = status.completed
+    ? "Оновити відповіді"
+    : status.stage === "country"
+        ? "Обрати країни"
+        : "Обрати жанри";
+
+  const completed = (value: number, target: number) =>
+    `${Math.min(value, target)}/${target}`;
 
   return (
     <div className="taste-calibration-card">
       <div>
         <p className="trend-kicker">Калібрування смаку</p>
         <strong>{status.completed ? "Профіль смаку збережено" : stageLabel}</strong>
+        <p className="taste-calibration-card__description">{description}</p>
         <span>
-          Жанри {status.genreComparisons}/{status.targetComparisons} · Країни{" "}
-          {status.countryComparisons}/{status.targetComparisons} · Тайтли{" "}
-          {status.titleFeedbackCount}/{status.targetTitleFeedback}
+          Жанри {completed(status.genreComparisons, status.targetComparisons)} · Країни{" "}
+          {completed(status.countryComparisons, status.targetComparisons)}
         </span>
       </div>
-      <button type="button" onClick={() => router.push("/?taste=1")}>
-        {status.completed ? "Перекалібрувати" : "Продовжити"}
-      </button>
+      {!status.completed ? (
+        <button type="button" onClick={() => router.push("/?taste=1")}>
+          {actionLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

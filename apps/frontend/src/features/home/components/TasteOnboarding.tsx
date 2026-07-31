@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useTasteTournament } from "../../profile/hooks/useTasteTournament";
 import { useTasteOnboardingStatus } from "../hooks/useTasteOnboardingStatus";
 import type { TasteKind } from "../../profile/store/tasteStore";
-import { CoverImage } from "../../../shared/ui/CoverImage";
 import { track } from "../../../shared/lib/analytics";
 
 const labels: Record<TasteKind, Record<string, string>> = {
@@ -48,12 +47,18 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
   const forced = forceOpen || forcedByQuery;
   const genre = useTasteTournament("genre");
   const country = useTasteTournament("country");
-  const { status, isLoading, error, refetch, snooze, sendFeedback, complete, isSaving } =
-    useTasteOnboardingStatus();
+  const {
+    status,
+    isLoading,
+    error,
+    refetch,
+    snooze,
+    complete,
+    isSaving,
+  } = useTasteOnboardingStatus();
   const previousStageRef = useRef<string | null>(null);
   const trackedStartRef = useRef(false);
   const [celebration, setCelebration] = useState<Celebration>(null);
-  const [visibleTitles, setVisibleTitles] = useState(8);
 
   useEffect(() => {
     if (!status?.stage) {
@@ -66,9 +71,7 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
     }
     if (previous === "genre" && status.stage === "country") {
       setCelebration("genre");
-    } else if (previous === "country" && status.stage === "titles") {
-      setCelebration("country");
-    } else if (previous !== "completed" && status.stage === "completed") {
+    } else if (previous && previous !== "completed" && status.stage === "completed") {
       setCelebration("completed");
       track("taste_onboarding_completed");
     }
@@ -77,11 +80,11 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
 
   const currentKind = status?.stage === "country" ? "country" : "genre";
   const current = currentKind === "genre" ? genre : country;
-  const totalDone = (status?.genreComparisons ?? 0) + (status?.countryComparisons ?? 0);
-  const totalTarget = ((status?.targetComparisons ?? 8) * 2) + (status?.targetTitleFeedback ?? 12);
-  const titleProgress = status?.titleFeedbackCount ?? 0;
-  const titleTarget = status?.targetTitleFeedback ?? 12;
-  const titles = status?.titles ?? [];
+  const comparisonTarget = status?.targetComparisons ?? 8;
+  const totalDone =
+    Math.min(status?.genreComparisons ?? 0, comparisonTarget) +
+    Math.min(status?.countryComparisons ?? 0, comparisonTarget);
+  const totalTarget = (status?.targetComparisons ?? 8) * 2;
   const isSnoozed =
     !forced &&
     typeof status?.snoozedUntil === "string" &&
@@ -91,15 +94,9 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
     switch (status?.stage) {
       case "country":
         return {
-          eyebrow: "Крок 2 з 3",
+          eyebrow: "Крок 2 з 2",
           title: "Тепер визначимо країни",
-          body: "Жанри вже зловили. Ще кілька швидких виборів, щоб зберегти різноманіття без хаосу.",
-        };
-      case "titles":
-        return {
-          eyebrow: "Крок 3 з 3",
-          title: "Ще 20-30 швидких реакцій на тайтли",
-          body: "Лайк, дизлайк або хочу подивитись. Це найкращий контекст для персональних рекомендацій.",
+          body: "Жанри вже зловили. Ще кілька швидких виборів — і покажемо персональні рекомендації.",
         };
       case "completed":
         return {
@@ -109,9 +106,9 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
         };
       default:
         return {
-          eyebrow: "Крок 1 з 3",
+          eyebrow: "Крок 1 з 2",
           title: "Зробимо рекомендації твоїми",
-          body: "Почнемо з жанрів. Після цього окремо пройдемо країни, а далі підтвердимо смак на конкретних тайтлах.",
+          body: "Почнемо з жанрів, а потім уточнимо улюблені країни виробництва.",
         };
     }
   }, [status?.stage]);
@@ -144,9 +141,9 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
           }
         : celebration === "country"
           ? {
-              title: "Країни теж готові",
-              body: "Супер. Тепер покажемо конкретні тайтли, щоб точніше навчити рекомендації.",
-              action: "Перейти до тайтлів",
+            title: "Країни теж готові",
+            body: "Супер. Даних достатньо, щоб сформувати перші персональні рекомендації.",
+            action: "Завершити",
             }
           : {
               title: "Калібрування завершено",
@@ -186,13 +183,12 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
         <p className="eyebrow">{stageCopy.eyebrow}</p>
         <h2>{stageCopy.title}</h2>
         <p>{stageCopy.body}</p>
-        <div className="taste-onboarding__progress" aria-label={`Прогрес ${totalDone + titleProgress} із ${totalTarget}`}>
-          <span style={{ width: `${((totalDone + titleProgress) / totalTarget) * 100}%` }} />
+        <div className="taste-onboarding__progress" aria-label={`Прогрес ${totalDone} із ${totalTarget}`}>
+          <span style={{ width: `${(totalDone / totalTarget) * 100}%` }} />
         </div>
         <div className="taste-onboarding__summary">
-          <span>Жанри: {status.genreComparisons}/{status.targetComparisons}</span>
-          <span>Країни: {status.countryComparisons}/{status.targetComparisons}</span>
-          <span>Тайтли: {titleProgress}/{titleTarget}</span>
+          <span>Жанри: {Math.min(status.genreComparisons, status.targetComparisons)}/{status.targetComparisons}</span>
+          <span>Країни: {Math.min(status.countryComparisons, status.targetComparisons)}/{status.targetComparisons}</span>
         </div>
       </div>
 
@@ -213,58 +209,6 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
           >
             Однаково
           </button>
-        </div>
-      ) : null}
-
-      {status.stage === "titles" ? (
-        <div className="taste-onboarding__titles">
-          {titles.slice(0, visibleTitles).map((item) => (
-            <article key={`${item.mediaType}-${item.tmdbId}`} className="taste-onboarding__title-card">
-              <div className="taste-onboarding__title-poster">
-                {item.posterUrl ? (
-                  <CoverImage src={item.posterUrl} alt={item.title} sizes="120px" />
-                ) : (
-                  <span aria-hidden="true">{item.title.slice(0, 1)}</span>
-                )}
-              </div>
-              <div className="taste-onboarding__title-copy">
-                <strong>{item.title}</strong>
-                <small>{item.year || (item.mediaType === "movie" ? "Фільм" : "Серіал")}</small>
-              </div>
-              <div className="taste-onboarding__title-actions">
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => sendFeedback({ ...item, sentiment: "liked" })}
-                >
-                  👍 Подобається
-                </button>
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => sendFeedback({ ...item, sentiment: "watchlist" })}
-                >
-                  + Хочу
-                </button>
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => sendFeedback({ ...item, sentiment: "disliked" })}
-                >
-                  👎 Не моє
-                </button>
-              </div>
-            </article>
-          ))}
-          {titles.length > visibleTitles ? (
-            <button
-              type="button"
-              className="taste-onboarding__more"
-              onClick={() => setVisibleTitles((value) => value + 8)}
-            >
-              Показати ще
-            </button>
-          ) : null}
         </div>
       ) : null}
 

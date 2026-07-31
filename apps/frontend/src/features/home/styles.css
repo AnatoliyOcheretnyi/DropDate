@@ -218,6 +218,152 @@
   color: var(--accent-strong);
 }
 
+.recommendation-card {
+  position: relative;
+  width: 176px;
+  height: 250px;
+}
+
+.recommendation-card .poster-card {
+  width: 100%;
+}
+
+/* Apply persisted feedback inside PosterCard's own paint containment. Drawing
+   this on the outer wrapper gets covered by the card's isolated paint layer. */
+.recommendation-card.feedback-liked .poster-card::before {
+  background:
+    linear-gradient(180deg, rgba(20, 129, 96, 0.22), rgba(7, 76, 58, 0.68)),
+    linear-gradient(180deg, rgba(4, 8, 14, 0.02) 10%, rgba(4, 8, 14, 0.24) 55%, rgba(4, 8, 14, 0.88) 100%);
+}
+
+.recommendation-card.feedback-liked .poster-card::after {
+  border: 2px solid rgba(115, 240, 193, 0.88);
+  box-shadow: inset 0 0 42px rgba(82, 224, 174, 0.28);
+}
+
+.recommendation-card.feedback-disliked .poster-card::before {
+  background:
+    linear-gradient(180deg, rgba(151, 29, 47, 0.25), rgba(91, 12, 27, 0.72)),
+    linear-gradient(180deg, rgba(4, 8, 14, 0.02) 10%, rgba(4, 8, 14, 0.24) 55%, rgba(4, 8, 14, 0.88) 100%);
+}
+
+.recommendation-card.feedback-disliked .poster-card::after {
+  border: 2px solid rgba(255, 105, 105, 0.9);
+  box-shadow: inset 0 0 42px rgba(255, 80, 96, 0.3);
+}
+
+.recommendation-feedback {
+  position: absolute;
+  z-index: 6;
+  top: 0.55rem;
+  left: 50%;
+  display: flex;
+  gap: 0.35rem;
+  transform: translateX(-50%);
+}
+
+.recommendation-feedback button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(5, 10, 17, 0.82);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.recommendation-feedback button:hover,
+.recommendation-feedback button:focus-visible,
+.recommendation-feedback button.active {
+  transform: translateY(-2px);
+  border-color: var(--accent-strong);
+  background: rgba(20, 50, 48, 0.94);
+}
+
+.recommendation-feedback button.active.dislike {
+  border-color: rgba(255, 118, 118, 0.85);
+  background: rgba(75, 24, 30, 0.94);
+}
+
+.recommendation-feedback button.active {
+  animation: recommendation-feedback-pop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.35);
+  box-shadow: 0 0 0 4px rgba(115, 240, 193, 0.16);
+}
+
+.recommendation-feedback button.active.dislike {
+  box-shadow: 0 0 0 4px rgba(255, 118, 118, 0.14);
+}
+
+.recommendation-feedback button.cancel-feedback {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-color: rgba(255, 255, 255, 0.42);
+  color: #fff;
+  background: rgba(5, 10, 17, 0.88);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.recommendation-feedback button.cancel-feedback:hover,
+.recommendation-feedback button.cancel-feedback:focus-visible {
+  border-color: rgba(255, 255, 255, 0.78);
+  background: rgba(38, 45, 55, 0.96);
+}
+
+.recommendation-feedback-saved {
+  position: absolute;
+  z-index: 6;
+  right: 0.55rem;
+  bottom: 0.55rem;
+  left: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(115, 240, 193, 0.45);
+  border-radius: 0.7rem;
+  color: #eafff7;
+  background: rgba(13, 55, 47, 0.94);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.32);
+  font-size: 0.72rem;
+  font-weight: 800;
+  animation: recommendation-feedback-confirm 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+  pointer-events: none;
+}
+
+.recommendation-feedback-saved.disliked {
+  border-color: rgba(255, 118, 118, 0.45);
+  background: rgba(75, 24, 30, 0.95);
+}
+
+@keyframes recommendation-feedback-pop {
+  0% { transform: scale(0.78); }
+  65% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes recommendation-feedback-confirm {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recommendation-feedback button.active,
+  .recommendation-feedback-saved {
+    animation: none;
+  }
+}
+
 .trend-copy h3 {
   margin: 0;
   font-family: var(--font-display), var(--font-body), sans-serif;
@@ -954,6 +1100,9 @@
 .taste-onboarding__title-actions button,
 .taste-onboarding__primary,
 .taste-onboarding__more { padding: .55rem .82rem; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; background: rgba(255,255,255,.05); color: var(--text); font: inherit; font-size: .8rem; font-weight: 750; cursor: pointer; transition: border-color .18s ease, transform .18s ease, background .18s ease; }
+.taste-onboarding__titles-error { grid-column: 1 / -1; padding: 1rem; border: 1px solid rgba(255,118,118,.3); border-radius: 1rem; background: rgba(75,24,30,.28); }
+.taste-onboarding__titles-error p { margin: 0 0 .7rem; color: var(--text-muted); }
+.taste-onboarding__titles-error button { padding: .55rem .8rem; border: 1px solid rgba(255,255,255,.15); border-radius: .7rem; background: rgba(255,255,255,.07); color: var(--text); font: inherit; font-weight: 750; cursor: pointer; }
 .taste-onboarding__title-actions button:hover:not(:disabled),
 .taste-onboarding__primary:hover,
 .taste-onboarding__more:hover { border-color: var(--accent); transform: translateY(-1px); }
