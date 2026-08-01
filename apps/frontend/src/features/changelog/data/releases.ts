@@ -11,10 +11,10 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
-    version: "1.13.x · серпень",
+    version: "1.13.4 · серпень",
     releasedAt: "1 серпня 2026",
-    frontendVersion: "1.13.2",
-    backendVersion: "1.12.3",
+    frontendVersion: "1.13.4",
+    backendVersion: "1.12.4",
     title: "Розумніші рекомендації, коротше калібрування і точніший прогрес",
     summary:
       "Рекомендації навчилися пам’ятати прямий feedback, пік дня став окремим відкриттям, а калібрування смаку скоротилося до двох зрозумілих кроків.",

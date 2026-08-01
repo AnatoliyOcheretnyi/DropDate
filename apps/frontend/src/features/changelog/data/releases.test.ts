@@ -3,9 +3,12 @@ import { readFileSync } from "node:fs";
 import { changelogEntries } from "./releases";
 
 describe("changelogEntries", () => {
-  it("contains the current frontend release first", () => {
+  it("contains the next frontend patch release first", () => {
     const currentVersion = readFileSync("VERSION", "utf8").trim();
-    expect(changelogEntries[0].frontendVersion).toBe(currentVersion);
+    const [major, minor, patch] = currentVersion.split(".").map(Number);
+    const nextPatchVersion = `${major}.${minor}.${patch + 1}`;
+
+    expect(changelogEntries[0].frontendVersion).toBe(nextPatchVersion);
   });
 
   it("does not contain duplicate release labels", () => {
