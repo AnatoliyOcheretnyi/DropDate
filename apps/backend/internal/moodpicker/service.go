@@ -89,7 +89,10 @@ func (s *Service) NextStep(ctx context.Context, depth string, answers map[string
 			chosen = id
 		}
 	}
-	q := questions[chosen]
+	q, ok := questionFor(chosen, answers)
+	if !ok {
+		return NextResult{Done: true, Answered: len(answers), Meta: meta}, nil
+	}
 	return NextResult{Question: &q, Answered: len(answers), Meta: meta}, nil
 }
 
@@ -99,8 +102,12 @@ func (s *Service) aiPickNext(ctx context.Context, answers map[string]string, eli
 	allowed := make(map[string]bool, len(eligible))
 	candidates := make([]Question, 0, len(eligible))
 	for _, id := range eligible {
+		q, ok := questionFor(id, answers)
+		if !ok {
+			continue
+		}
 		allowed[id] = true
-		candidates = append(candidates, questions[id])
+		candidates = append(candidates, q)
 	}
 	id, err := s.aiNext.NextQuestionID(ctx, answeredContext(answers), candidates)
 	if err != nil {
@@ -115,7 +122,7 @@ func (s *Service) aiPickNext(ctx context.Context, answers map[string]string, eli
 
 // answeredContext builds a stable, labelled view of the answers for the AI.
 func answeredContext(answers map[string]string) []AnsweredQuestion {
-	order := []string{"mood", "scary_type", "think_type", "pace", "cry_type", "region", "time", "era", "company", "discovery"}
+	order := []string{"mood", "scary_type", "think_type", "pace", "cry_type", themeQuestionID, "region", "time", "era", "company", "discovery"}
 	out := make([]AnsweredQuestion, 0, len(answers))
 	seen := make(map[string]bool)
 	add := func(id string) {
@@ -304,6 +311,16 @@ var relaxers = []struct {
 			return false
 		}
 		p.WithGenres = nil
+		return true
+	}},
+	// The theme is the most explicit thing the user asked for, so it is the
+	// last constraint dropped: a thematic pick with the wrong runtime beats an
+	// on-spec pick about nothing in particular.
+	{"theme", func(p *release.DiscoverParams) bool {
+		if len(p.WithKeywords) == 0 {
+			return false
+		}
+		p.WithKeywords = nil
 		return true
 	}},
 }

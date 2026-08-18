@@ -31,6 +31,17 @@ func moodBranch() questionSlot {
 	}}
 }
 
+// themeSlot asks the thematic question, but only when the answers so far map to
+// a non-empty shortlist -- otherwise the step is skipped rather than shown empty.
+func themeSlot() questionSlot {
+	return questionSlot{resolve: func(answers map[string]string) string {
+		if len(themeIDsFor(answers)) == 0 {
+			return ""
+		}
+		return themeQuestionID
+	}}
+}
+
 // quickFlow is the short guided path; standardFlow is the full one. Slot order
 // encodes rule-based priority (used by the deterministic engine and as the AI
 // fallback).
@@ -38,6 +49,7 @@ var (
 	quickFlow = []questionSlot{
 		fixed("mood"),
 		moodBranch(),
+		themeSlot(),
 		fixed("region"),
 		fixed("time"),
 		fixed("discovery"),
@@ -45,6 +57,7 @@ var (
 	standardFlow = []questionSlot{
 		fixed("mood"),
 		moodBranch(),
+		themeSlot(),
 		fixed("region"),
 		fixed("time"),
 		fixed("era"),
@@ -70,7 +83,7 @@ func eligibleNextIDs(depth string, answers map[string]string) []string {
 		if id == "" || seen[id] {
 			continue
 		}
-		if _, ok := questions[id]; !ok {
+		if _, ok := questionFor(id, answers); !ok {
 			continue
 		}
 		if _, answered := answers[id]; answered {

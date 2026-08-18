@@ -214,6 +214,8 @@ func (p *tmdbSuggestionProvider) Discover(
 		MediaType:         params.MediaType,
 		WithGenres:        params.WithGenres,
 		WithoutGenres:     params.WithoutGenres,
+		WithKeywords:      params.WithKeywords,
+		WithoutKeywords:   params.WithoutKeywords,
 		OriginalLanguage:  params.OriginalLanguage,
 		WithOriginCountry: params.WithOriginCountry,
 		RuntimeLTE:        params.RuntimeLTE,

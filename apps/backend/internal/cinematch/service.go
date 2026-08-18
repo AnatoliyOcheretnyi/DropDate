@@ -85,6 +85,16 @@ func (s *Service) Picks(ctx context.Context, req PicksRequest) (PicksResult, err
 	params := resolveParams(req.Answers)
 
 	pool := s.collect(ctx, []release.DiscoverParams{params}, excluded)
+	if len(pool) == 0 && len(params.WithKeywords) > 0 {
+		// A theme narrows hard. Before giving it up, retry on the theme alone:
+		// staying on topic matters more than the era/tone/length trimmings.
+		pool = s.collect(ctx, []release.DiscoverParams{{
+			MediaType:    params.MediaType,
+			WithKeywords: params.WithKeywords,
+			SortBy:       "popularity.desc",
+			VoteCountGTE: 100,
+		}}, excluded)
+	}
 	if len(pool) == 0 {
 		// Fallback: drop filters but keep the chosen media + a low quality floor.
 		pool = s.collect(ctx, []release.DiscoverParams{

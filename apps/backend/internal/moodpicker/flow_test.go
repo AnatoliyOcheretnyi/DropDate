@@ -29,18 +29,36 @@ func TestNextStep_RulesBranching(t *testing.T) {
 		t.Fatalf("after mood=scary next must be scary_type, got %+v", res.Question)
 	}
 
-	// mood=cozy has no sub-branch -> next is region (first unconditional slot).
+	// mood=cozy has no sub-branch -> next is the theme step, narrowed to the
+	// themes that fit a cozy evening and always skippable via "any".
 	res, err = svc.NextStep(ctx, "quick", map[string]string{"mood": "cozy"}, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if res.Question == nil || res.Question.ID != themeQuestionID {
+		t.Fatalf("mood with no sub-branch must go to the theme step, got %+v", res.Question)
+	}
+	if len(res.Question.Options) == 0 || res.Question.Options[0].ID != "any" {
+		t.Fatalf("theme step must offer the skip option first, got %+v", res.Question.Options)
+	}
+	for _, opt := range res.Question.Options[1:] {
+		if !validOption(themeQuestionID, opt.ID) {
+			t.Fatalf("narrowed theme option %q is not a valid answer", opt.ID)
+		}
+	}
+
+	// After the theme is answered the flow returns to the unconditional slots.
+	res, err = svc.NextStep(ctx, "quick", map[string]string{"mood": "cozy", themeQuestionID: "food"}, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if res.Question == nil || res.Question.ID != "region" {
-		t.Fatalf("mood with no sub-branch must skip to region, got %+v", res.Question)
+		t.Fatalf("after the theme step next must be region, got %+v", res.Question)
 	}
 
 	// Fully answered quick flow -> Done.
 	full := map[string]string{
-		"mood": "scary", "scary_type": "psychological",
+		"mood": "scary", "scary_type": "psychological", themeQuestionID: "asylum",
 		"region": "asia", "time": "short", "discovery": "hidden",
 	}
 	res, err = svc.NextStep(ctx, "quick", full, false)

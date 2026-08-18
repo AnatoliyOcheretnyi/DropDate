@@ -1,9 +1,9 @@
 package cinematch
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 // questionFlow is the fixed, ordered narrowing flow. The media question comes
-// first; the client then filters by AppliesTo so a session is ~10 steps for both
+// first; the client then filters by AppliesTo so a session is ~11 steps for both
 // movies and series.
 var questionFlow = []Question{
 	{
@@ -26,6 +26,7 @@ var questionFlow = []Question{
 			{ID: "any", Label: "Будь-який", Emoji: "🎲"},
 		},
 	},
+	themeQuestion(),
 	{
 		ID: "note", Title: "Додати відтінок?", Type: "single", AppliesTo: "both",
 		Options: []Option{

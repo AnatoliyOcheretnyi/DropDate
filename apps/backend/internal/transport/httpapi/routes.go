@@ -55,6 +55,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/akinator/next", s.akinatorNextHandler)
 	mux.HandleFunc("/akinator/result", s.akinatorResultHandler)
 	mux.HandleFunc("/jobs/akinator", s.akinatorJobHandler)
+	mux.HandleFunc("/themes", s.themesHandler)
 	mux.HandleFunc("/mood/questions", s.moodQuestionsHandler)
 	mux.HandleFunc("/mood/next", s.moodNextHandler)
 	mux.HandleFunc("/mood/picks", s.moodPicksHandler)

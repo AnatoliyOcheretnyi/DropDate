@@ -199,6 +199,8 @@ type DiscoverParams struct {
 	MediaType         string
 	WithGenres        []int
 	WithoutGenres     []int
+	WithKeywords      []int
+	WithoutKeywords   []int
 	OriginalLanguage  string
 	WithOriginCountry []string
 	RuntimeLTE        int

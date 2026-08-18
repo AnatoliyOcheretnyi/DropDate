@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/themes"
 )
 
 // resolveParams folds the accumulated answers into a single /discover query for
@@ -23,6 +24,17 @@ func resolveParams(answers map[string]string) release.DiscoverParams {
 	}
 	if id, ok := noteGenre(media, answers["note"]); ok {
 		genres.add(id)
+	}
+
+	// The theme adds TMDB keywords -- the thematic layer above genres. Its genre
+	// hints are MOVIE genre ids, so they are applied only to movie queries; TV
+	// uses a different genre vocabulary and would silently match the wrong ones.
+	if theme, ok := themes.ByID(answers[themeQuestionID]); ok {
+		p.WithKeywords = theme.Keywords
+		if media == "movie" {
+			genres.add(theme.WithGenres...)
+			without.add(theme.WithoutGenres...)
+		}
 	}
 
 	switch answers["origin"] {
@@ -124,6 +136,10 @@ func resolveParams(answers map[string]string) release.DiscoverParams {
 }
 
 func reasonFor(answers map[string]string) string {
+	// The theme is the most specific answer, so it names the pick when present.
+	if theme, ok := themes.ByID(answers[themeQuestionID]); ok {
+		return theme.Label
+	}
 	if label := optionLabel("genre", answers["genre"]); label != "" && answers["genre"] != "any" {
 		return label
 	}

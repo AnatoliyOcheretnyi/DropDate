@@ -24,7 +24,8 @@ const DEFAULT_COUNT = 6;
 
 // Soft total for the progress indicator. The adaptive flow's length isn't known
 // up front, so we estimate by depth and never let it fall below the real step.
-const ESTIMATED_TOTAL: Record<string, number> = { quick: 5, standard: 7 };
+// Both paths include the mood sub-branch and the thematic step.
+const ESTIMATED_TOTAL: Record<string, number> = { quick: 6, standard: 8 };
 
 export function useMoodSession(accessToken?: string | null) {
   const [status, setStatus] = useState<MoodStatus>("config");

@@ -3,7 +3,7 @@ package moodpicker
 import "strings"
 
 // schemaVersion lets the client cache-bust if the question set changes.
-const schemaVersion = 2
+const schemaVersion = 3
 
 // DefaultDepth is used when a request omits or sends an unknown depth.
 const DefaultDepth = "standard"
@@ -131,6 +131,25 @@ var questions = map[string]Question{
 			{ID: "hidden", Label: "Приховані перлини", Emoji: "💎"},
 		},
 	},
+}
+
+// The theme step is contextual: the question served by the adaptive flow is
+// narrowed to the chosen mood, while the entry registered here is the union of
+// every catalog theme. Validation reads this map, so any theme a narrowed
+// question can offer is always accepted.
+func init() {
+	questions[themeQuestionID] = themeQuestionAll()
+}
+
+// questionFor returns the question to ask for an id, contextualised by the
+// answers so far. Only the theme step is contextual; every other question is
+// static, and an unknown or inapplicable id reports false.
+func questionFor(id string, answers map[string]string) (Question, bool) {
+	if id == themeQuestionID {
+		return themeQuestionFor(answers)
+	}
+	q, ok := questions[id]
+	return q, ok
 }
 
 // NormalizeDepth maps an input depth to a supported one, falling back to default.

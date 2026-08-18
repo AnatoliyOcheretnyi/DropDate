@@ -15,6 +15,8 @@ type DiscoverParams struct {
 	MediaType         string   // "movie" (default) or "tv"
 	WithGenres        []int    // OR-joined (any of)
 	WithoutGenres     []int    // excluded
+	WithKeywords      []int    // OR-joined (any of) -- the thematic layer
+	WithoutKeywords   []int    // excluded
 	OriginalLanguage  string   // ISO 639-1, e.g. "ja", "ko", "en"
 	WithOriginCountry []string // ISO 3166-1, OR-joined (any of), e.g. ["KR","JP"]
 	RuntimeLTE        int      // 0 = unset
@@ -84,6 +86,12 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 	}
 	if len(p.WithoutGenres) > 0 {
 		q.Set("without_genres", joinInts(p.WithoutGenres, ","))
+	}
+	if len(p.WithKeywords) > 0 {
+		q.Set("with_keywords", joinInts(p.WithKeywords, "|"))
+	}
+	if len(p.WithoutKeywords) > 0 {
+		q.Set("without_keywords", joinInts(p.WithoutKeywords, ","))
 	}
 	if p.OriginalLanguage != "" {
 		q.Set("with_original_language", p.OriginalLanguage)

@@ -231,3 +231,62 @@ func containsAll(values []int, targets ...int) bool {
 	}
 	return true
 }
+
+// TestResolveParams_Theme checks the thematic layer: keywords reach the query,
+// the theme's genre hints merge with the mood's own, and "any" filters nothing.
+func TestResolveParams_Theme(t *testing.T) {
+	params := resolveParams(map[string]string{"mood": "cry", themeQuestionID: "illness"})
+	if len(params.WithKeywords) == 0 {
+		t.Fatal("a theme must contribute TMDB keywords")
+	}
+	if !containsInt(params.WithoutGenres, genreHorror) {
+		t.Fatalf("the illness theme must exclude horror, got %v", params.WithoutGenres)
+	}
+	if containsInt(params.WithGenres, genreHorror) {
+		t.Fatalf("an excluded genre must not survive in with_genres, got %v", params.WithGenres)
+	}
+
+	skipped := resolveParams(map[string]string{"mood": "cry", themeQuestionID: "any"})
+	if len(skipped.WithKeywords) != 0 {
+		t.Fatalf("the skip answer must not filter by keyword, got %v", skipped.WithKeywords)
+	}
+}
+
+// TestThemeShortlistsAreValid guards the hand-written mood -> theme shortlists
+// against ids that no longer exist in the catalog.
+func TestThemeShortlistsAreValid(t *testing.T) {
+	check := func(source string, ids []string) {
+		t.Helper()
+		if len(ids) == 0 {
+			t.Fatalf("%s has an empty theme shortlist", source)
+		}
+		for _, id := range ids {
+			if !validOption(themeQuestionID, id) {
+				t.Fatalf("%s references unknown theme %q", source, id)
+			}
+		}
+	}
+	for mood, ids := range themesByMood {
+		check("mood "+mood, ids)
+	}
+	for branch, ids := range themesBySubBranch {
+		check("sub-branch "+branch, ids)
+	}
+}
+
+// TestThemeRelaxedLast keeps the relaxation ladder honest: the theme is the most
+// explicit thing the user asked for, so it must be the final constraint dropped.
+func TestThemeRelaxedLast(t *testing.T) {
+	if len(relaxers) == 0 || relaxers[len(relaxers)-1].name != "theme" {
+		t.Fatalf("theme must be the last relaxation step, got %v", relaxers[len(relaxers)-1].name)
+	}
+}
+
+func containsInt(values []int, target int) bool {
+	for _, v := range values {
+		if v == target {
+			return true
+		}
+	}
+	return false
+}

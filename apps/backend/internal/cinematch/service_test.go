@@ -163,7 +163,7 @@ func TestPicks_InvalidAnswer(t *testing.T) {
 	}
 }
 
-func TestQuestions_MediaFirstAndTenPerType(t *testing.T) {
+func TestQuestions_MediaFirstAndElevenPerType(t *testing.T) {
 	svc := NewService(&fakeCatalog{}, nil, nil)
 	items := svc.Questions().Items
 	if len(items) == 0 || items[0].ID != "media" {
@@ -178,11 +178,40 @@ func TestQuestions_MediaFirstAndTenPerType(t *testing.T) {
 		}
 		return n
 	}
-	if got := count("movie"); got != 10 {
-		t.Fatalf("movie flow should be 10 questions, got %d", got)
+	if got := count("movie"); got != 11 {
+		t.Fatalf("movie flow should be 11 questions, got %d", got)
 	}
-	if got := count("tv"); got != 10 {
-		t.Fatalf("tv flow should be 10 questions, got %d", got)
+	if got := count("tv"); got != 11 {
+		t.Fatalf("tv flow should be 11 questions, got %d", got)
+	}
+}
+
+// TestResolveParams_Theme checks that a theme contributes its TMDB keywords to
+// both media types, but its (movie-only) genre hints to movies alone.
+func TestResolveParams_Theme(t *testing.T) {
+	movie := resolveParams(map[string]string{"media": "movie", themeQuestionID: "illness"})
+	if len(movie.WithKeywords) == 0 {
+		t.Fatal("theme must contribute keywords to a movie query")
+	}
+	if !contains(movie.WithGenres, mvDrama) {
+		t.Fatalf("illness must sharpen to drama, got %v", movie.WithGenres)
+	}
+	if !contains(movie.WithoutGenres, mvHorror) {
+		t.Fatalf("illness must exclude horror, got %v", movie.WithoutGenres)
+	}
+
+	tv := resolveParams(map[string]string{"media": "tv", themeQuestionID: "illness"})
+	if len(tv.WithKeywords) != len(movie.WithKeywords) {
+		t.Fatalf("theme keywords must apply to tv too, got %v", tv.WithKeywords)
+	}
+	if len(tv.WithGenres) != 0 || len(tv.WithoutGenres) != 0 {
+		t.Fatalf("movie genre hints must not leak into a tv query, got with=%v without=%v", tv.WithGenres, tv.WithoutGenres)
+	}
+
+	// "any" is the skip answer and must leave the query untouched.
+	skipped := resolveParams(map[string]string{"media": "movie", themeQuestionID: "any"})
+	if len(skipped.WithKeywords) != 0 {
+		t.Fatalf("the skip answer must not filter by keyword, got %v", skipped.WithKeywords)
 	}
 }
 

@@ -125,7 +125,9 @@ export function useMoodSession() {
   return {
     ...state,
     step: state.history.length + 1,
-    total: Math.max(state.depth === "quick" ? 5 : 7, state.history.length + 1),
+    // Soft estimate: the adaptive flow includes the mood sub-branch and the
+    // thematic step, and never reads below the step actually reached.
+    total: Math.max(state.depth === "quick" ? 6 : 8, state.history.length + 1),
     start,
     answer,
     back,

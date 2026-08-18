@@ -12,8 +12,9 @@ import {
 export type MatchStatus = "config" | "asking" | "loading" | "results" | "error";
 
 const COUNT = 6;
-// Both the movie and tv flows are exactly this many steps.
-const TOTAL = 10;
+// Step count before the media type is chosen, when the real flow isn't known
+// yet. Once it is, the progress indicator counts the actual steps instead.
+const ESTIMATED_TOTAL = 11;
 const STORAGE_KEY = "dropdate:match-session";
 
 export function useMatchSession(accessToken?: string | null) {
@@ -160,7 +161,7 @@ export function useMatchSession(accessToken?: string | null) {
     status,
     current: flow[index],
     index,
-    total: TOTAL,
+    total: media ? flow.length : ESTIMATED_TOTAL,
     answers,
     picks,
     canRefine: index < flow.length,

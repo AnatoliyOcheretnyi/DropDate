@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/themes"
 )
 
 // resolveParams folds the guided answers into a single /discover query.
@@ -111,6 +112,15 @@ func resolveParams(answers map[string]string) release.DiscoverParams {
 		with.add(genreDrama)
 	}
 
+	// The theme is the thematic layer on top of genres: its TMDB keywords are
+	// what makes "про хворобу" different from "драма". Its genre hints follow
+	// the same precedence as everything else -- exclusions win.
+	if theme, ok := themes.ByID(answers[themeQuestionID]); ok {
+		p.WithKeywords = theme.Keywords
+		with.add(theme.WithGenres...)
+		without.add(theme.WithoutGenres...)
+	}
+
 	// Region maps to a broad set of origin countries (OR-joined by TMDB).
 	if countries := regionCountries[answers["region"]]; len(countries) > 0 {
 		p.WithOriginCountry = countries
@@ -145,7 +155,11 @@ var regionCountries = map[string][]string{
 
 // reasonFor builds a short tag explaining a pick, derived from the answers.
 func reasonFor(answers map[string]string) string {
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
+	// The theme is the most specific thing the user asked for, so it leads.
+	if theme, ok := themes.ByID(answers[themeQuestionID]); ok {
+		parts = append(parts, theme.Label)
+	}
 	if label := optionLabel("mood", answers["mood"]); label != "" {
 		parts = append(parts, label)
 	}
