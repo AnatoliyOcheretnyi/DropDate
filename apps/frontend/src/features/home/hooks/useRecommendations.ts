@@ -10,7 +10,13 @@ import { useAuth } from "../../../shared/state/auth";
 // Minimum items required before we surface the personalized row, per spec.
 const MIN_VISIBLE = 6;
 
-type RecommendationItem = {
+/**
+ * One recommendation as the backend sends it, explanation included. The
+ * discovery row renders `reason.text` verbatim -- an unexplained pick reads as
+ * an advert, so the reason travels with the item rather than being invented in
+ * the UI.
+ */
+export type RecommendationItem = {
   tmdbId: number;
   mediaType: "movie" | "tv";
   title: string;
@@ -152,10 +158,21 @@ export function useRecommendations() {
     [accessToken, feedback, feedbackQueryKey, queryClient]
   );
 
+  // Same gating as `items`, but keeping the explanation attached.
+  const itemsWithReasons =
+    enabled && (recommendationsQuery.data?.length ?? 0) >= MIN_VISIBLE
+      ? recommendationsQuery.data ?? []
+      : [];
+
   return {
     items,
+    itemsWithReasons,
     feedback,
     sendFeedback,
     isLoading: recommendationsQuery.isLoading,
+    isRefreshing: recommendationsQuery.isFetching,
+    refresh: () => {
+      void recommendationsQuery.refetch();
+    },
   };
 }

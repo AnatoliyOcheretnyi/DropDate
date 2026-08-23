@@ -46,17 +46,21 @@ const RETRY_SUGGESTIONS = GENRES.filter((chip) =>
 );
 
 function ChipRow({
+  label,
   items,
   selected,
   onToggle,
 }: {
+  label: string;
   items: Chip[];
   selected: Set<string>;
   onToggle: (id: string) => void;
 }) {
   return (
     <div className="taste-chips__row">
-      {items.map((chip) => {
+      <span className="taste-chips__row-label">{label}</span>
+      <div className="taste-chips__row-items">
+        {items.map((chip) => {
         const isActive = selected.has(chip.id);
         return (
           <button
@@ -73,8 +77,9 @@ function ChipRow({
             ) : null}
             <span>{chip.label}</span>
           </button>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -207,11 +212,17 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
     <section className="taste-chips trend-bleed">
       <div className="trend-inner">
         <div className="taste-chips__head">
-          <p className="trend-kicker">Під твій смак</p>
-          <h3>Обери жанр чи країну</h3>
+          <p className="browse__kicker">ПІД ТВІЙ СМАК</p>
+          <h2 className="browse__title">Обери жанр чи країну</h2>
         </div>
-        <ChipRow items={GENRES} selected={genres} onToggle={toggle(setGenres)} />
         <ChipRow
+          label="ЖАНРИ"
+          items={GENRES}
+          selected={genres}
+          onToggle={toggle(setGenres)}
+        />
+        <ChipRow
+          label="КРАЇНИ"
           items={COUNTRIES}
           selected={countries}
           onToggle={toggle(setCountries)}

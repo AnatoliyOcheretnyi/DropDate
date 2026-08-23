@@ -87,6 +87,7 @@ func (s *Server) episodesContinueHandler(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		if exists {
+			item.EpisodeCount = len(episodes)
 			validated = append(validated, item)
 			continue
 		}
@@ -101,6 +102,10 @@ func (s *Server) episodesContinueHandler(w http.ResponseWriter, r *http.Request)
 			if episode.EpisodeNumber == 1 {
 				item.SeasonNumber++
 				item.EpisodeNumber = 1
+				// Progress belongs to the season being counted, and this item has
+				// just rolled over to the next one.
+				item.WatchedCount = 0
+				item.EpisodeCount = len(nextSeason)
 				validated = append(validated, item)
 				break
 			}

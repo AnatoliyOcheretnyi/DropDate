@@ -5,19 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { AppPageShell } from "../../../widgets/AppPageShell";
-import { TrendingCarousel } from "../components/TrendingCarousel";
-import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
+import { useAuth } from "../../../shared/state/auth";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 import { useRecommendations } from "../hooks/useRecommendations";
 import { useHomeSections } from "../hooks/useHomeSections";
-import { HomeShowcase } from "../components/HomeShowcase";
-import { FeatureTiles } from "../components/FeatureTiles";
+import { HomeHero } from "../components/HomeHero";
+import { DiscoverySection } from "../components/DiscoverySection";
+import { HomeCalendar } from "../components/HomeCalendar";
+import { NewReleases } from "../components/NewReleases";
+import { UpcomingRail } from "../components/UpcomingRail";
+import { TopTen } from "../components/TopTen";
 import { TasteChips } from "../components/TasteChips";
-import { RankedRail } from "../components/RankedRail";
-import { MoodTeaser } from "../components/MoodTeaser";
 import { Reveal } from "../../../shared/ui/Reveal";
-import { DailyPickCard } from "../components/DailyPickCard";
+import { DailyPickCard, DailyPickEmpty } from "../components/DailyPickCard";
 import { useDailyPick } from "../hooks/useDailyPick";
 import { TasteOnboarding } from "../components/TasteOnboarding";
 import { ContinueWatching } from "../components/ContinueWatching";
@@ -76,6 +77,8 @@ function HomeScreenContent({ sections }: Props) {
 
   const { saved, isSuggestionSaved, getListTypes, setSuggestionLists } =
     useSavedReleases();
+  const { user } = useAuth();
+  const isSignedIn = Boolean(user);
 
   const handleChangeLists = useCallback(
     (suggestion: Suggestion, next: ListType[]) => {
@@ -91,22 +94,12 @@ function HomeScreenContent({ sections }: Props) {
     [setSuggestionLists]
   );
   const {
-    items: recommendations,
+    itemsWithReasons: recommendationsWithReasons,
     isLoading: isRecommendationsLoading,
-    feedback: recommendationFeedback,
-    sendFeedback: sendRecommendationFeedback,
+    isRefreshing: isRecommendationsRefreshing,
+    refresh: refreshRecommendations,
   } = useRecommendations();
-  const { pick: dailyPick, state: dailyPickState, isUpdating: isUpdatingDailyPick, reveal: revealDailyPick, setAction: setDailyPickAction } = useDailyPick();
-  const recommendationsWithoutDailyPick = useMemo(
-    () =>
-      dailyPick
-        ? recommendations.filter(
-            (item) =>
-              item.id !== dailyPick.tmdbId || item.mediaType !== dailyPick.mediaType
-          )
-        : recommendations,
-    [dailyPick, recommendations]
-  );
+  const { pick: dailyPick, state: dailyPickState, isLoading: isDailyPickLoading, isUpdating: isUpdatingDailyPick, reveal: revealDailyPick, setAction: setDailyPickAction } = useDailyPick();
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
@@ -177,10 +170,9 @@ function HomeScreenContent({ sections }: Props) {
     [sectionState]
   );
   const spotlight = heroItems[0] ?? null;
-  const supportingSpotlightItems = useMemo(
-    () => heroItems.slice(1, 7),
-    [heroItems]
-  );
+  // Everything the page already has loaded doubles as the "surprise me" pool,
+  // so the die roll is instant and never hits the network.
+  const surprisePool = useMemo(() => heroItems.slice(1), [heroItems]);
 
   return (
     <main className="page page--home">
@@ -213,15 +205,20 @@ function HomeScreenContent({ sections }: Props) {
         }}
       >
       <TasteOnboarding emphasis="overlay" />
-      <HomeShowcase
+      <HomeHero
         spotlight={spotlight}
-        supportingItems={supportingSpotlightItems}
-        onSearchOpen={handleSearchToggle}
-        onSelect={handleGallerySelect}
+        surprisePool={surprisePool}
+        isSuggestionSaved={isSuggestionSaved}
         getListTypes={getListTypes}
         onChangeLists={handleChangeLists}
       />
       <ContinueWatching />
+
+      {isSignedIn && !dailyPick && !isDailyPickLoading ? (
+        <Reveal>
+          <DailyPickEmpty />
+        </Reveal>
+      ) : null}
 
       {dailyPick ? (
         <Reveal>
@@ -262,7 +259,45 @@ function HomeScreenContent({ sections }: Props) {
       ) : null}
 
       <Reveal>
-        <FeatureTiles savedCount={saved.length} />
+        <DiscoverySection
+          recommendations={recommendationsWithReasons}
+          isLoading={isRecommendationsLoading}
+          onRefresh={refreshRecommendations}
+          isRefreshing={isRecommendationsRefreshing}
+          fallbackItems={sectionState.popularMovies}
+          onSelect={handleGallerySelect}
+        />
+      </Reveal>
+
+      <Reveal>
+        <HomeCalendar isSignedIn={isSignedIn} />
+      </Reveal>
+
+      <Reveal>
+        <UpcomingRail
+          items={sectionState.upcoming}
+          isLoading={isTrendingRefreshing}
+          getListTypes={getListTypes}
+          onChangeLists={handleChangeLists}
+          onSelect={handleGallerySelect}
+        />
+      </Reveal>
+
+      {shouldShowTrending ? (
+        <Reveal>
+          <NewReleases
+            movies={sectionState.popularMovies}
+            series={sectionState.popularSeries}
+            isLoading={isTrendingRefreshing}
+            getListTypes={getListTypes}
+            onChangeLists={handleChangeLists}
+            onSelect={handleGallerySelect}
+          />
+        </Reveal>
+      ) : null}
+
+      <Reveal>
+        <TopTen items={sectionState.popularMovies} onSelect={handleGallerySelect} />
       </Reveal>
 
       <Reveal>
@@ -273,69 +308,6 @@ function HomeScreenContent({ sections }: Props) {
         />
       </Reveal>
 
-      {shouldShowTrending && (
-        <>
-          {recommendationsWithoutDailyPick.length > 0 && (
-            <Reveal>
-              <TrendingCarousel
-                title={copy.sections.recommendations}
-                kicker="На основі ваших улюблених і переглянутих"
-                items={recommendationsWithoutDailyPick}
-                isLoading={isRecommendationsLoading}
-                onSelect={handleGallerySelect}
-                getListTypes={getListTypes}
-                onChangeLists={handleChangeLists}
-                feedback={recommendationFeedback}
-                onFeedback={(item, action) => void sendRecommendationFeedback(item, action)}
-              />
-            </Reveal>
-          )}
-          <Reveal>
-            <TrendingCarousel
-              title={copy.sections.upcoming}
-              kicker="Календар релізів"
-              items={sectionState.upcoming}
-              isLoading={isTrendingRefreshing}
-              onSelect={handleGallerySelect}
-              getListTypes={getListTypes}
-              onChangeLists={handleChangeLists}
-            />
-          </Reveal>
-          <Reveal>
-            <RankedRail
-              title={copy.sections.popularMovies}
-              kicker="Топ-10 · що дивляться зараз"
-              items={sectionState.popularMovies}
-              onSelect={handleGallerySelect}
-            />
-          </Reveal>
-          <Reveal>
-            <TrendingCarousel
-              title={copy.sections.popularSeries}
-              kicker="Серіальний потік"
-              items={sectionState.popularSeries}
-              isLoading={isTrendingRefreshing}
-              onSelect={handleGallerySelect}
-              getListTypes={getListTypes}
-              onChangeLists={handleChangeLists}
-            />
-          </Reveal>
-          <Reveal>
-            <TrendingCarousel
-              title={copy.sections.topRated}
-              kicker="Високі оцінки"
-              items={sectionState.topRated}
-              isLoading={isTrendingRefreshing}
-              onSelect={handleGallerySelect}
-              getListTypes={getListTypes}
-              onChangeLists={handleChangeLists}
-            />
-          </Reveal>
-          <Reveal>
-            <MoodTeaser />
-          </Reveal>
-        </>
-      )}
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </AppPageShell>
     </main>

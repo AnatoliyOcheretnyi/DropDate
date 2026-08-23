@@ -76,10 +76,16 @@ type ContinueItem struct {
 	SeasonNumber  int       `json:"seasonNumber"`
 	EpisodeNumber int       `json:"episodeNumber"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+	// WatchedCount is what the user has finished in SeasonNumber; EpisodeCount
+	// is how long that season runs. The rail draws a progress bar from the pair,
+	// so EpisodeCount is filled in by the transport layer, which already resolves
+	// the season against TMDB to validate EpisodeNumber.
+	WatchedCount int `json:"watchedCount"`
+	EpisodeCount int `json:"episodeCount"`
 }
 
 func (s *Service) Continue(ctx context.Context, userID string) ([]ContinueItem, error) {
-	rows, e := s.db.QueryContext(ctx, `with active as(select distinct on(tmdb_id)tmdb_id,season_number,updated_at from episode_progress where user_id=$1 and watched order by tmdb_id,updated_at desc),next_ep as(select a.*,coalesce((select min(gs) from generate_series(1,(select coalesce(max(episode_number),0)+1 from episode_progress p where p.user_id=$1 and p.tmdb_id=a.tmdb_id and p.season_number=a.season_number and p.watched))gs where not exists(select 1 from episode_progress p where p.user_id=$1 and p.tmdb_id=a.tmdb_id and p.season_number=a.season_number and p.episode_number=gs and p.watched)),1)episode_number from active a),titles as(select distinct on(tmdb_id)tmdb_id,title,coalesce(poster_url,'')poster_url from saved_titles where user_id=$1 and media_type='tv' order by tmdb_id,updated_at desc)select n.tmdb_id,t.title,t.poster_url,n.season_number,n.episode_number,n.updated_at from next_ep n join titles t using(tmdb_id)order by n.updated_at desc limit 20`, userID)
+	rows, e := s.db.QueryContext(ctx, `with active as(select distinct on(tmdb_id)tmdb_id,season_number,updated_at from episode_progress where user_id=$1 and watched order by tmdb_id,updated_at desc),next_ep as(select a.*,coalesce((select min(gs) from generate_series(1,(select coalesce(max(episode_number),0)+1 from episode_progress p where p.user_id=$1 and p.tmdb_id=a.tmdb_id and p.season_number=a.season_number and p.watched))gs where not exists(select 1 from episode_progress p where p.user_id=$1 and p.tmdb_id=a.tmdb_id and p.season_number=a.season_number and p.episode_number=gs and p.watched)),1)episode_number from active a),titles as(select distinct on(tmdb_id)tmdb_id,title,coalesce(poster_url,'')poster_url from saved_titles where user_id=$1 and media_type='tv' order by tmdb_id,updated_at desc)select n.tmdb_id,t.title,t.poster_url,n.season_number,n.episode_number,n.updated_at,(select count(*) from episode_progress p where p.user_id=$1 and p.tmdb_id=n.tmdb_id and p.season_number=n.season_number and p.watched)watched_count from next_ep n join titles t using(tmdb_id)order by n.updated_at desc limit 20`, userID)
 	if e != nil {
 		return nil, e
 	}
@@ -87,7 +93,7 @@ func (s *Service) Continue(ctx context.Context, userID string) ([]ContinueItem, 
 	var out []ContinueItem
 	for rows.Next() {
 		var v ContinueItem
-		if e := rows.Scan(&v.TMDBID, &v.Title, &v.PosterURL, &v.SeasonNumber, &v.EpisodeNumber, &v.UpdatedAt); e != nil {
+		if e := rows.Scan(&v.TMDBID, &v.Title, &v.PosterURL, &v.SeasonNumber, &v.EpisodeNumber, &v.UpdatedAt, &v.WatchedCount); e != nil {
 			return nil, e
 		}
 		out = append(out, v)

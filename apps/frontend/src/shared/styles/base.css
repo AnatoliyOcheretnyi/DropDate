@@ -24,6 +24,25 @@
   --page-padding: clamp(0.9rem, 1.6vw, 1.5rem);
   --home-max: 1560px;
   --home-padding: clamp(0.75rem, 1.2vw, 1.25rem);
+
+  /*
+   * Home redesign palette (design/home-redesign/SPEC.md). Kept as its own --dd-*
+   * set rather than folded into the variables above: the redesign lands section
+   * by section, and the older rails still read the legacy tokens, which differ
+   * by a shade or two (--bg #07111a vs --dd-bg #060B12).
+   */
+  --dd-bg: #060b12;
+  --dd-surface-1: #0d141f;
+  --dd-surface-2: #131c2a;
+  --dd-border: rgba(255, 255, 255, 0.08);
+  --dd-border-strong: rgba(255, 255, 255, 0.14);
+  --dd-accent: #73f0c1;
+  --dd-accent-soft: rgba(115, 240, 193, 0.12);
+  --dd-accent-ink: #04120d;
+  --dd-warn: #ffb86b;
+  --dd-text: #f4f7fb;
+  --dd-muted: #98a6bc;
+  --dd-faint: #6b7a91;
 }
 
 * {

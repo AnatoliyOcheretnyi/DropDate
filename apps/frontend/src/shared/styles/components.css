@@ -756,3 +756,49 @@ dd.date span:last-child {
     background-position: -200% 0;
   }
 }
+
+/* Quick actions inside the hover preview.
+   The preview is the only place a title's actions live now, so the six lists
+   are drawn as one equal-width row of icon buttons rather than the labelled
+   pills used on the details page. */
+.movie-preview .list-status-bar--compact {
+  display: flex;
+  gap: 6px;
+  margin-top: 0;
+}
+
+.movie-preview .list-status-bar--compact .list-status {
+  flex: 1 1 0;
+  justify-content: center;
+  gap: 0;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--dd-border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dd-muted, #98a6bc);
+  backdrop-filter: none;
+}
+
+.movie-preview .list-status-bar--compact .list-status__label,
+.movie-preview .list-status-bar--compact .list-status__check {
+  display: none;
+}
+
+.movie-preview .list-status-bar--compact .list-status__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.movie-preview .list-status-bar--compact .list-status:hover {
+  transform: none;
+  border-color: var(--dd-border-strong, rgba(255, 255, 255, 0.14));
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--dd-text, #f4f7fb);
+}
+
+.movie-preview .list-status-bar--compact .list-status.is-active {
+  border-color: rgba(115, 240, 193, 0.24);
+  background: var(--dd-accent-soft, rgba(115, 240, 193, 0.12));
+  color: var(--dd-accent, #73f0c1);
+}

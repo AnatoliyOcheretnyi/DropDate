@@ -101,6 +101,7 @@
 .header-nav-link {
   border: none;
   background: transparent;
+  text-decoration: none;
   color: var(--text-dim);
   min-height: 40px;
   padding: 0.5rem 0.8rem;
@@ -113,10 +114,14 @@
   cursor: pointer;
 }
 
-.header-nav-link.active,
 .header-nav-link:hover {
   color: var(--text);
-  background: rgba(115, 240, 193, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.header-nav-link.active {
+  color: var(--dd-accent);
+  background: var(--dd-accent-soft);
 }
 
 .header-nav-count {
@@ -168,6 +173,81 @@
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* "Увійти" is the one solid-accent control in the header. */
+.header-link.header-auth {
+  border-color: transparent;
+  background: var(--dd-accent);
+  color: var(--dd-accent-ink);
+  font-weight: 800;
+}
+
+.header-link.header-auth:hover:not(:disabled) {
+  background: #8ff6d0;
+}
+
+/* --- Inline header search (design/home-redesign, section 1) --------------- */
+
+.header-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 300px;
+  padding: 10px 14px;
+  border: 1px solid var(--dd-border-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.header-search:focus-within {
+  border-color: rgba(115, 240, 193, 0.4);
+}
+
+.header-search__icon {
+  color: var(--dd-faint);
+  flex-shrink: 0;
+}
+
+.header-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dd-text);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.header-search input::placeholder {
+  color: var(--dd-faint);
+}
+
+.header-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.header-search .suggestions {
+  left: 0;
+  right: 0;
+  width: auto;
+  top: calc(100% + 10px);
+  border-radius: 18px;
+}
+
+/* The inline field and the icon button are two views of the same feature; only
+   one is ever visible. */
+@media (min-width: 901px) {
+  .header-icon--search {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .header-search {
+    display: none;
+  }
 }
 
 .header-auth-skeleton {
@@ -1188,37 +1268,127 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* Footer — design/home-redesign, section 7: brand block plus three link
+   columns, then a divider, copyright and social buttons. */
 .site-footer-inner {
-  width: min(var(--page-max), calc(100vw - (var(--page-padding) * 2)));
+  width: min(var(--home-max), calc(100vw - (var(--home-padding) * 2)));
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 1rem;
+  display: block;
+}
+
+.footer-top {
+  display: flex;
+  gap: 40px;
+  padding: 24px 0 32px;
 }
 
 .footer-brand {
-  display: grid;
-  gap: 0.2rem;
+  width: 340px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.footer-brand strong {
+.footer-brand__mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-brand__mark strong {
   font-family: var(--font-display), var(--font-body), sans-serif;
-  font-size: 1rem;
-  color: var(--text);
+  font-size: 1.2rem;
+  color: var(--dd-text);
 }
 
-.footer-brand span {
-  font-size: 0.84rem;
-  color: var(--text-dim);
+.footer-brand__tagline {
+  margin: 0;
+  max-width: 300px;
+  color: var(--dd-muted);
+  font-size: 13.5px;
+  line-height: 21px;
+}
+
+.footer-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer-column__title {
+  color: var(--dd-text);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.footer-column__link {
+  color: var(--dd-muted);
+  font-size: 13.5px;
+  text-decoration: none;
+}
+
+.footer-column__link:hover {
+  color: var(--dd-text);
+}
+
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--dd-border);
+}
+
+.footer-socials {
+  display: flex;
+  gap: 10px;
+}
+
+.footer-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--dd-border-strong);
+  border-radius: 10px;
+  color: var(--dd-muted);
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.footer-social:hover {
+  color: var(--dd-accent);
+  border-color: rgba(115, 240, 193, 0.35);
+}
+
+@media (max-width: 900px) {
+  .footer-top {
+    flex-wrap: wrap;
+    gap: 28px;
+  }
+
+  .footer-brand {
+    width: 100%;
+  }
+
+  .footer-column {
+    flex: 1 1 40%;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .footer-year {
   font-size: 0.85rem;
-  color: var(--text-dim);
-  letter-spacing: 0.08rem;
-  justify-self: end;
-  text-align: right;
+  color: var(--dd-faint);
+  text-align: left;
 }
 
 .footer-actions {

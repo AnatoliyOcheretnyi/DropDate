@@ -14,6 +14,7 @@ import {
 } from "../features/notifications/lib/presentation";
 import { CoverImage } from "../shared/ui/CoverImage";
 import { AuthModal } from "./AuthModal";
+import { HeaderSearch } from "./HeaderSearch";
 
 export type ViewKey = "home" | "saved" | "games" | "mood" | "match" | "calendar";
 
@@ -146,11 +147,13 @@ export function Header({
               />
             </span>
             <div className="brand-text">
-              <span className="brand-kicker">Release radar</span>
               <span className="brand-title">{copy.appName}</span>
               <span className="brand-subtitle">{copy.tagline}</span>
             </div>
           </Link>
+          {/* The designed pill is a fixed five. Друзі / Мій список stay reachable
+              from the profile popover and the mobile bar rather than growing
+              this row to seven items for signed-in users. */}
           <nav className="header-nav" aria-label="Основна навігація">
             <button
               type="button"
@@ -159,6 +162,12 @@ export function Header({
             >
               Головна
             </button>
+            <Link
+              href="/calendar"
+              className={`header-nav-link${active === "calendar" ? " active" : ""}`}
+            >
+              Календар
+            </Link>
             <Link
               href="/mood"
               className={`header-nav-link${active === "mood" ? " active" : ""}`}
@@ -177,32 +186,12 @@ export function Header({
             >
               Ігри
             </Link>
-            {user ? (
-              <Link
-                href="/calendar"
-                className={`header-nav-link${active === "calendar" ? " active" : ""}`}
-              >
-                Календар
-              </Link>
-            ) : null}
-            {user ? (
-              <Link href="/friends" className="header-nav-link">
-                Друзі
-              </Link>
-            ) : null}
-            {user ? (
-              <button
-                type="button"
-                className={`header-nav-link${active === "saved" ? " active" : ""}`}
-                onClick={() => onChange("saved")}
-              >
-                <span>{copy.header.savedList}</span>
-                <span className="header-nav-count">{savedCount}</span>
-              </button>
-            ) : null}
           </nav>
         </div>
         <div className="header-actions">
+          <HeaderSearch />
+          {/* Kept for narrow screens, where the inline field is hidden and this
+              opens the full-screen overlay instead. */}
           <button
             type="button"
             className="header-icon header-icon--search"

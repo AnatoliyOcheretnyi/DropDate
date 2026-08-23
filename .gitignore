@@ -33,3 +33,7 @@ yarn-error.log*
 
 # Claude Code workspace config stays local
 .claude/
+
+# Design sources and exports (kept locally, not versioned)
+dd.pen
+design/
