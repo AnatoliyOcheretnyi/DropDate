@@ -423,7 +423,7 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 			runtime_minutes, episode_count, tmdb_rating, genres
 		)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-		        string_to_array(nullif($17, ''), '|'))
+		        coalesce(string_to_array(nullif($17, ''), '|'), '{}'::text[]))
 		on conflict (user_id, tmdb_id, media_type, list_type)
 		do update set
 			title = excluded.title,
