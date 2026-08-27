@@ -158,7 +158,9 @@ jobs:
           # A run may have waited in the concurrency queue while an earlier
           # release recorded its VERSION commit. Calculate this bump from the
           # current main tip, not from the event SHA captured before the wait.
-          git fetch origin main
+          # Tags are part of version allocation: bump-version.sh skips a
+          # version that has already been published even if VERSION lagged.
+          git fetch origin main --tags
           git checkout -B release-work origin/main
       - name: Bump versions after successful deployment
         id: versions

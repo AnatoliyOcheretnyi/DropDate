@@ -48,5 +48,26 @@ case "$kind" in
 esac
 
 next="${major}.${minor}.${patch}"
+
+# VERSION files can lag behind tags when an older release pipeline created a
+# tag but failed before recording the version bump. Never select an already
+# published version for a new release: advance within the requested bump lane
+# until the candidate tag is free.
+while git rev-parse -q --verify "refs/tags/${app}/v${next}" >/dev/null; do
+  echo "Release tag ${app}/v${next} already exists; advancing version." >&2
+  case "$kind" in
+    major)
+      major=$((major + 1))
+      ;;
+    minor)
+      minor=$((minor + 1))
+      ;;
+    patch)
+      patch=$((patch + 1))
+      ;;
+  esac
+  next="${major}.${minor}.${patch}"
+done
+
 echo "$next" > "$version_file"
 echo "$next"
