@@ -132,3 +132,58 @@ func TestDiscoverHandlerUnknownFiltersRejected(t *testing.T) {
 		t.Fatalf("expected 400 for unknown genre, got %d", rec.Code)
 	}
 }
+
+func TestDiscoverHandlerMatchesAllSelectedGenres(t *testing.T) {
+	suggester := &stubDiscoverSuggester{}
+	server := newDiscoverTestServer(suggester)
+
+	req := httptest.NewRequest(http.MethodGet, "/discover?genres=comedy,drama", nil)
+	rec := httptest.NewRecorder()
+	server.discoverHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	// Two chips mean "comedy AND drama", so both legs must ask TMDB for both.
+	if !suggester.movieParams.GenresMatchAll {
+		t.Fatal("expected the movie leg to match all genres")
+	}
+	if !suggester.tvParams.GenresMatchAll {
+		t.Fatal("expected the tv leg to match all genres")
+	}
+	if len(suggester.movieParams.WithGenres) != 2 {
+		t.Fatalf("movie genres = %v, want both", suggester.movieParams.WithGenres)
+	}
+}
+
+func TestDiscoverHandlerSkipsTVWhenOneGenreHasNoTVMapping(t *testing.T) {
+	suggester := &stubDiscoverSuggester{}
+	server := newDiscoverTestServer(suggester)
+
+	// Comedy exists for tv, horror does not: a tv leg would return plain
+	// comedies, which is not what "horror + comedy" asks for.
+	req := httptest.NewRequest(http.MethodGet, "/discover?genres=horror,comedy", nil)
+	rec := httptest.NewRecorder()
+	server.discoverHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if suggester.callCount != 1 {
+		t.Fatalf("expected only the movie leg to run, got %d calls", suggester.callCount)
+	}
+}
+
+func TestDiscoverHandlerDeduplicatesSharedTVGenres(t *testing.T) {
+	suggester := &stubDiscoverSuggester{}
+	server := newDiscoverTestServer(suggester)
+
+	// Both chips map onto TMDB's single "Sci-Fi & Fantasy" tv genre.
+	req := httptest.NewRequest(http.MethodGet, "/discover?genres=scifi,fantasy", nil)
+	rec := httptest.NewRecorder()
+	server.discoverHandler(rec, req)
+
+	if len(suggester.tvParams.WithGenres) != 1 {
+		t.Fatalf("tv genres = %v, want one deduplicated id", suggester.tvParams.WithGenres)
+	}
+}

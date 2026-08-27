@@ -228,12 +228,34 @@
   appearance: none;
 }
 
-.header-search .suggestions {
+/* The dropdown carries two lists now — people, then titles — so the stack owns
+   the popup chrome and each list flows inside it instead of positioning itself. */
+.search-results-stack .suggestions {
+  position: static;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.search-results-stack .people-suggestions + .suggestions:not(:empty) {
+  margin-top: 0.4rem;
+}
+
+.header-search__results {
+  position: absolute;
   left: 0;
   right: 0;
-  width: auto;
   top: calc(100% + 10px);
+  z-index: 40;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
   border-radius: 18px;
+  background: linear-gradient(180deg, rgba(10, 16, 25, 0.98), rgba(8, 12, 20, 0.98));
+  box-shadow: var(--shadow-strong);
 }
 
 /* The inline field and the icon button are two views of the same feature; only

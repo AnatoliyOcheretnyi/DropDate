@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/releasestatus"
@@ -250,15 +251,13 @@ func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Su
 		return nil, err
 	}
 
+	english := c.lazyEnglishSearch(ctx, query, 1)
 	suggestions := make([]Suggestion, 0, len(results))
 	for _, result := range results {
 		if result.MediaType != "tv" && result.MediaType != "movie" {
 			continue
 		}
-		name := result.Title
-		if name == "" {
-			name = result.Name
-		}
+		name := localizedTitle(result, english)
 		if name == "" {
 			continue
 		}
@@ -560,6 +559,15 @@ func (c *Client) search(ctx context.Context, title string) ([]searchResult, erro
 }
 
 func (c *Client) searchPage(ctx context.Context, title string, page int) (multiSearchResponse, error) {
+	return c.searchPageLanguage(ctx, title, page, "uk-UA")
+}
+
+func (c *Client) searchPageLanguage(
+	ctx context.Context,
+	title string,
+	page int,
+	language string,
+) (multiSearchResponse, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -573,7 +581,7 @@ func (c *Client) searchPage(ctx context.Context, title string, page int) (multiS
 	q := req.URL.Query()
 	q.Set("query", title)
 	q.Set("include_adult", "false")
-	q.Set("language", "uk-UA")
+	q.Set("language", language)
 	if page > 0 {
 		q.Set("page", strconv.Itoa(page))
 	}
@@ -605,14 +613,12 @@ func (c *Client) SearchAll(ctx context.Context, query string, page int) (SearchR
 	}
 
 	out := make([]Suggestion, 0, len(payload.Results))
+	english := c.lazyEnglishSearch(ctx, query, page)
 	for _, result := range payload.Results {
 		if result.MediaType != "tv" && result.MediaType != "movie" {
 			continue
 		}
-		name := result.Title
-		if name == "" {
-			name = result.Name
-		}
+		name := localizedTitle(result, english)
 		if name == "" {
 			continue
 		}
@@ -1027,6 +1033,17 @@ type searchResult struct {
 	ReleaseDate  string `json:"release_date"`
 	FirstAirDate string `json:"first_air_date"`
 	PosterPath   string `json:"poster_path"`
+	// Original values are what the Ukrainian/English fallback compares against.
+	OriginalTitle    string `json:"original_title"`
+	OriginalName     string `json:"original_name"`
+	OriginalLanguage string `json:"original_language"`
+	// Person hits from /search/multi carry their own shape; TMDB returns them
+	// in the same list as titles.
+	ProfilePath        string         `json:"profile_path"`
+	KnownForDepartment string         `json:"known_for_department"`
+	Gender             int            `json:"gender"`
+	Popularity         float64        `json:"popularity"`
+	KnownFor           []searchResult `json:"known_for"`
 }
 
 type multiSearchResponse struct {
@@ -1340,4 +1357,69 @@ func buildProfileURL(path string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s%s", profileBaseURL, path)
+}
+
+// searchTitle returns the display title of a search hit, whichever field TMDB
+// filled for that media type.
+func searchTitle(result searchResult) string {
+	if result.Title != "" {
+		return result.Title
+	}
+	return result.Name
+}
+
+func searchOriginalTitle(result searchResult) string {
+	if result.OriginalTitle != "" {
+		return result.OriginalTitle
+	}
+	return result.OriginalName
+}
+
+func searchKey(mediaType string, id int) string {
+	return fmt.Sprintf("%s:%d", mediaType, id)
+}
+
+// lazyEnglishSearch returns a function that fetches the same search page in
+// English the first time a caller actually needs it, and indexes it by media
+// type and id. Most queries never call it: it only runs when a result came back
+// in Russian because TMDB has no Ukrainian translation for it.
+func (c *Client) lazyEnglishSearch(
+	ctx context.Context,
+	query string,
+	page int,
+) func() map[string]searchResult {
+	var (
+		once  sync.Once
+		index map[string]searchResult
+	)
+	return func() map[string]searchResult {
+		once.Do(func() {
+			payload, err := c.searchPageLanguage(ctx, query, page, "en-US")
+			if err != nil {
+				index = map[string]searchResult{}
+				return
+			}
+			index = make(map[string]searchResult, len(payload.Results))
+			for _, result := range payload.Results {
+				index[searchKey(result.MediaType, result.ID)] = result
+			}
+		})
+		return index
+	}
+}
+
+// localizedTitle picks the title to show: the Ukrainian one, or the English one
+// when what came back is really the untranslated Russian original.
+func localizedTitle(result searchResult, english func() map[string]searchResult) string {
+	title := searchTitle(result)
+	if title == "" {
+		return ""
+	}
+	if !needsLatinFallback(title, searchOriginalTitle(result), result.OriginalLanguage) {
+		return title
+	}
+	if alternative, ok := english()[searchKey(result.MediaType, result.ID)]; ok {
+		return preferLatin(title, searchTitle(alternative))
+	}
+	return title
 }

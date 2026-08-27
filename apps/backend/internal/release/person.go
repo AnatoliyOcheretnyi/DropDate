@@ -11,6 +11,7 @@ import (
 type Person struct {
 	ID                 int            `json:"id"`
 	Name               string         `json:"name"`
+	Gender             int            `json:"gender,omitempty"`
 	Biography          string         `json:"biography,omitempty"`
 	KnownForDepartment string         `json:"knownForDepartment,omitempty"`
 	Birthday           string         `json:"birthday,omitempty"`
@@ -85,6 +86,7 @@ func (p *tmdbSuggestionProvider) Person(ctx context.Context, id int) (Person, er
 	return Person{
 		ID:                 info.ID,
 		Name:               info.Name,
+		Gender:             info.Gender,
 		Biography:          info.Biography,
 		KnownForDepartment: info.KnownForDepartment,
 		Birthday:           info.Birthday,
@@ -98,4 +100,69 @@ func (p *tmdbSuggestionProvider) Person(ctx context.Context, id int) (Person, er
 		Popularity:         info.Popularity,
 		Credits:            credits,
 	}, nil
+}
+
+// PersonMatch is a person the search matched by name, with the titles TMDB
+// considers them known for.
+type PersonMatch struct {
+	ID         int     `json:"id"`
+	Name       string  `json:"name"`
+	ProfileURL string  `json:"profileUrl,omitempty"`
+	Department string  `json:"department,omitempty"`
+	Gender     int     `json:"gender,omitempty"`
+	Popularity float64 `json:"popularity,omitempty"`
+	// Roles are filled only for the person whose filmography was fetched: they
+	// are derived from credits, not from the single known-for department, so a
+	// person who both acts and directs reads as both.
+	Roles    []string     `json:"roles,omitempty"`
+	KnownFor []Suggestion `json:"knownFor,omitempty"`
+}
+
+// PeopleSearcher matches people by name.
+type PeopleSearcher interface {
+	SearchPeople(ctx context.Context, query string, limit int) ([]PersonMatch, error)
+}
+
+// SearchPeople returns people matching a free-text query, most relevant first.
+func (s *Service) SearchPeople(ctx context.Context, query string, limit int) ([]PersonMatch, error) {
+	searcher, ok := s.person.(PeopleSearcher)
+	if !ok || s.person == nil {
+		return nil, nil
+	}
+	return searcher.SearchPeople(ctx, query, limit)
+}
+
+func (p *tmdbSuggestionProvider) SearchPeople(
+	ctx context.Context,
+	query string,
+	limit int,
+) ([]PersonMatch, error) {
+	matches, err := p.client.SearchPeople(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]PersonMatch, 0, len(matches))
+	for _, match := range matches {
+		knownFor := make([]Suggestion, 0, len(match.KnownFor))
+		for _, item := range match.KnownFor {
+			knownFor = append(knownFor, Suggestion{
+				ID:        item.ID,
+				Title:     item.Title,
+				MediaType: item.MediaType,
+				Year:      item.Year,
+				PosterURL: item.PosterURL,
+			})
+		}
+		out = append(out, PersonMatch{
+			ID:         match.ID,
+			Name:       match.Name,
+			ProfileURL: match.ProfileURL,
+			Department: match.Department,
+			Gender:     match.Gender,
+			Popularity: match.Popularity,
+			KnownFor:   knownFor,
+		})
+	}
+	return out, nil
 }

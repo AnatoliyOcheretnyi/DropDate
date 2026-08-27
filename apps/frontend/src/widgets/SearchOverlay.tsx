@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { Suggestion } from "../shared/lib/release";
 import { copy } from "../shared/lib/strings";
+import { useSuggestions } from "../shared/hooks/useSuggestions";
+import { PeopleSuggestions } from "../shared/ui/PeopleSuggestions";
 import { Suggestions } from "../shared/ui/Suggestions";
 
 export type SearchOverlayProps = {
@@ -35,6 +38,10 @@ export function SearchOverlay({
   isSuggestionSaved,
 }: SearchOverlayProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+  // People come from the same /api/suggest response the caller already
+  // requested, so this shares the cached query rather than firing a second one.
+  const { people } = useSuggestions(title, null, () => undefined);
 
   useEffect(() => {
     if (!isOpen) {
@@ -110,13 +117,22 @@ export function SearchOverlay({
           </button>
         </div>
         {isFetchingSuggestions && <p className="hint">{copy.header.suggestionsLoading}</p>}
-        {suggestions.length > 0 && (
-          <Suggestions
-            suggestions={suggestions}
-            isSaved={isSuggestionSaved}
-            onSelect={onSuggestionSelect}
-          />
-        )}
+        {people.length > 0 || suggestions.length > 0 ? (
+          <div className="search-results-stack">
+            <PeopleSuggestions
+              people={people}
+              onSelect={(person) => {
+                onClose();
+                router.push(`/person/${person.id}`);
+              }}
+            />
+            <Suggestions
+              suggestions={suggestions}
+              isSaved={isSuggestionSaved}
+              onSelect={onSuggestionSelect}
+            />
+          </div>
+        ) : null}
       </form>
     </>
   );

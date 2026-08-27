@@ -932,8 +932,7 @@ main.page--friend-profile {
   color: var(--accent-strong);
 }
 
-/* The saved screen shifts the info button left to clear its remove ✕;
-   friend cards have no remove, so pin it back to the corner. */
+/* Friend cards have no remove ✕, so the info button sits in the corner. */
 .saved-banner-card .saved-info-btn.friend-saved-info-btn {
   right: 0.75rem;
 }
@@ -942,13 +941,13 @@ main.page--friend-profile {
    its banner grid defaults to 4 columns on desktop instead of the base 3;
    below 980px the saved styles' own 2-col/1-col breakpoints take over. */
 @media (min-width: 981px) {
-  .page--friend-profile .saved-grid:not(.saved-grid--single):not(.saved-grid--double) {
+  .friend-saved-grid:not(.friend-saved-grid--single):not(.friend-saved-grid--double) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 2400px) {
-  .page--friend-profile .saved-grid:not(.saved-grid--single):not(.saved-grid--double) {
+  .friend-saved-grid:not(.friend-saved-grid--single):not(.friend-saved-grid--double) {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
@@ -1012,3 +1011,211 @@ main.page--friend-profile {
 .social-list-grid h3 { font-family: var(--font-display); font-size: 1.35rem; }
 .social-list-invite{display:flex;gap:.35rem;margin-top:1rem}.social-list-invite select{min-width:0;flex:1;padding:.45rem;border:1px solid var(--border);border-radius:.6rem;background:var(--surface-1);color:var(--text)}.social-list-invite button{width:34px;border:0;border-radius:.6rem;background:var(--accent);font-weight:900}
 @media(max-width:700px){.social-feed button{grid-template-columns:1fr}.social-list-grid{grid-template-columns:1fr}}
+
+
+/* ---- friend saved grid ----
+   Banner cards, moved here from the saved screen: "Мій список" now renders
+   poster cards (design/saved-redesign/SPEC.md) and the friend profile is the
+   only page left showing a title as a 16:10 banner. */
+
+.friend-saved-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.friend-saved-grid--single {
+  grid-template-columns: minmax(280px, 520px);
+}
+
+.friend-saved-grid--double {
+  grid-template-columns: repeat(2, minmax(280px, 520px));
+}
+
+.saved-banner-card {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 10;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.4rem;
+  overflow: hidden;
+  background: #0a111b;
+  box-shadow: 0 18px 50px rgba(1, 6, 13, 0.24);
+}
+
+.saved-banner-link {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: block;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saved-banner-media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.saved-banner-link img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.45s ease, filter 0.45s ease;
+}
+
+.saved-banner-media.is-poster img {
+  object-position: center 18%;
+}
+
+.saved-banner-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at top right, rgba(115, 240, 193, 0.24), transparent 30%),
+    linear-gradient(145deg, #16313a, #080e17);
+  color: rgba(255, 255, 255, 0.18);
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+}
+
+.saved-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(5, 10, 17, 0.28), transparent 34%),
+    linear-gradient(0deg, rgba(5, 10, 17, 0.96), rgba(5, 10, 17, 0.05) 72%);
+  transition: background 0.3s ease;
+}
+
+.saved-banner-content {
+  position: absolute;
+  inset: 0;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: var(--text);
+}
+
+.saved-banner-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.saved-banner-chip {
+  min-height: 25px;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(5, 10, 17, 0.55);
+  color: rgba(244, 247, 251, 0.78);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.07rem;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+}
+
+.saved-banner-chip--rating {
+  border-color: rgba(115, 240, 193, 0.36);
+  background: rgba(115, 240, 193, 0.92);
+  color: #07130f;
+}
+
+.saved-banner-content h4 {
+  margin: 0.65rem 0 0;
+  max-width: 20ch;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  line-height: 1.08;
+}
+
+.saved-banner-type {
+  margin-top: 0.35rem;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+}
+
+.saved-banner-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-radius: 1.4rem;
+  transition: border-color 0.25s ease;
+}
+
+.saved-banner-link:hover::after,
+.saved-banner-link:focus-visible::after {
+  border-color: rgba(115, 240, 193, 0.6);
+}
+
+.saved-banner-link:hover img,
+.saved-banner-link:focus-visible img {
+  filter: saturate(1.08);
+  transform: scale(1.035);
+}
+
+.saved-banner-card .saved-info-btn {
+  top: 0.75rem;
+  right: 3.4rem;
+  left: auto;
+  width: 34px;
+  height: 34px;
+  z-index: 3;
+  background: rgba(5, 10, 17, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.saved-banner-rating {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 3;
+  padding: 0.34rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(5, 10, 17, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 980px) {
+  .friend-saved-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .friend-saved-grid--single {
+    grid-template-columns: minmax(280px, 520px);
+  }
+}
+
+@media (max-width: 700px) {
+  .friend-saved-grid,
+  .friend-saved-grid--single,
+  .friend-saved-grid--double {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .saved-banner-card {
+    aspect-ratio: 4 / 3;
+  }
+}

@@ -19,6 +19,10 @@ export type SavedRelease = ReleaseInfo & {
   runtimeMinutes?: number;
   episodeCount?: number;
   tmdbRating?: number;
+  /** TMDB genres captured when the title was saved. Empty for rows written before migration 023. */
+  genres?: string[];
+  /** When the title first entered the library — drives the "Нещодавно додані" sort. */
+  createdAt?: string;
 };
 
 const normalizeTitle = (value: string) => value.trim().toLowerCase();

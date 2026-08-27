@@ -13,7 +13,8 @@ import (
 // /discover/tv.
 type DiscoverParams struct {
 	MediaType         string   // "movie" (default) or "tv"
-	WithGenres        []int    // OR-joined (any of)
+	WithGenres        []int    // OR-joined (any of), or AND-joined when GenresMatchAll
+	GenresMatchAll    bool     // true = a title must carry every genre listed
 	WithoutGenres     []int    // excluded
 	WithKeywords      []int    // OR-joined (any of) -- the thematic layer
 	WithoutKeywords   []int    // excluded
@@ -82,7 +83,12 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 	q.Set("include_adult", "false")
 
 	if len(p.WithGenres) > 0 {
-		q.Set("with_genres", joinInts(p.WithGenres, "|"))
+		// TMDB reads "," as AND and "|" as OR inside with_genres.
+		separator := "|"
+		if p.GenresMatchAll {
+			separator = ","
+		}
+		q.Set("with_genres", joinInts(p.WithGenres, separator))
 	}
 	if len(p.WithoutGenres) > 0 {
 		q.Set("without_genres", joinInts(p.WithoutGenres, ","))

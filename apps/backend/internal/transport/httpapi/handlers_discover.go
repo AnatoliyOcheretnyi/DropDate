@@ -26,7 +26,7 @@ var discoverMovieGenreIDs = map[string]int{
 
 // discoverTVGenreIDs maps a taste-chip genre slug to its TMDB tv genre id.
 // TMDB's tv genre list has no Horror/Thriller/Romance bucket, so those slugs
-// are intentionally absent here — the tv leg of the query is skipped when a
+// are intentionally absent here — the tv leg of the query is skipped when any
 // requested genre has no tv mapping (see discoverHandler).
 var discoverTVGenreIDs = map[string]int{
 	"action":    10759, // Action & Adventure
@@ -75,12 +75,17 @@ func (s *Server) discoverHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var movieGenres, tvGenres []int
+	tvMapped := 0
 	for _, slug := range genreSlugs {
 		if id, ok := discoverMovieGenreIDs[slug]; ok {
-			movieGenres = append(movieGenres, id)
+			movieGenres = appendUniqueInt(movieGenres, id)
 		}
 		if id, ok := discoverTVGenreIDs[slug]; ok {
-			tvGenres = append(tvGenres, id)
+			tvMapped++
+			// Two chips can share one TMDB tv genre (Sci-Fi & Fantasy covers
+			// both "scifi" and "fantasy"), and asking for it twice is not a
+			// stricter filter.
+			tvGenres = appendUniqueInt(tvGenres, id)
 		}
 	}
 
@@ -96,9 +101,14 @@ func (s *Server) discoverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Several chips read as "and", not "or": picking Horror + Comedy asks for
+	// horror comedies, not for every horror plus every comedy.
+	matchAll := len(genreSlugs) > 1
+
 	movies, err := s.releases.Discover(r.Context(), release.DiscoverParams{
 		MediaType:         "movie",
 		WithGenres:        movieGenres,
+		GenresMatchAll:    matchAll,
 		WithOriginCountry: countries,
 		SortBy:            "popularity.desc",
 		VoteCountGTE:      discoverVoteCountFloor,
@@ -110,14 +120,16 @@ func (s *Server) discoverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Skip the tv leg only when genres were requested but none of them have a
-	// tv equivalent — otherwise an unfiltered tv list would ignore the genre
-	// the user actually picked.
+	// The tv leg runs only when every requested genre has a tv equivalent.
+	// TMDB's tv list has no Horror/Thriller/Romance, so "horror + comedy" would
+	// otherwise come back as plain comedies — matching one of the two chips is
+	// exactly what the user did not ask for.
 	var series []release.DiscoverItem
-	if len(genreSlugs) == 0 || len(tvGenres) > 0 {
+	if len(genreSlugs) == 0 || tvMapped == len(genreSlugs) {
 		series, err = s.releases.Discover(r.Context(), release.DiscoverParams{
 			MediaType:         "tv",
 			WithGenres:        tvGenres,
+			GenresMatchAll:    matchAll,
 			WithOriginCountry: countries,
 			SortBy:            "popularity.desc",
 			VoteCountGTE:      discoverVoteCountFloor,
@@ -135,6 +147,16 @@ func (s *Server) discoverHandler(w http.ResponseWriter, r *http.Request) {
 		"page":    page,
 		"hasMore": len(movies) >= 20 || len(series) >= 20,
 	})
+}
+
+// appendUniqueInt keeps a genre list free of duplicates without reordering it.
+func appendUniqueInt(values []int, value int) []int {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func splitCSV(raw string) []string {

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
+import { excludeSaved } from "../../../shared/lib/excludeSaved";
 import { fetchDiscoverResults } from "../api/discoverApi";
 import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 
@@ -39,6 +40,13 @@ const COUNTRIES: Chip[] = [
   { id: "es", label: "Іспанія", icon: "🇪🇸" },
   { id: "in", label: "Індія", icon: "🇮🇳" },
 ];
+
+// Hiding titles that are already in a list thins each page out, so a page that
+// comes back mostly saved is topped up with the next one instead of leaving a
+// short grid. Capped so a library that already owns the whole genre does not
+// walk through TMDB page by page.
+const MIN_VISIBLE_RESULTS = 12;
+const MAX_AUTO_PAGES = 3;
 
 // A few reliably-populated genres to offer as a quick escape from a dead end.
 const RETRY_SUGGESTIONS = GENRES.filter((chip) =>
@@ -87,21 +95,27 @@ function ChipRow({
 function EmptyState({
   onReset,
   onTryGenre,
+  allSaved,
 }: {
   onReset: () => void;
   onTryGenre: (id: string) => void;
+  /** Everything found under this combination is already in the user's lists. */
+  allSaved?: boolean;
 }) {
   return (
     <div className="taste-chips__empty">
       <span className="taste-chips__empty-icon" aria-hidden="true">
-        🍿
+        {allSaved ? "✅" : "🍿"}
       </span>
       <strong className="taste-chips__empty-title">
-        Нічого не знайшли під цю комбінацію
+        {allSaved
+          ? "Усе знайдене вже у твоїх списках"
+          : "Нічого не знайшли під цю комбінацію"}
       </strong>
       <p className="taste-chips__empty-text">
-        Спробуй прибрати один із фільтрів або обрати інше поєднання жанру й
-        країни.
+        {allSaved
+          ? "Під цю комбінацію ми показуємо лише нове — а тут ти вже все зберіг. Спробуй інший жанр чи країну."
+          : "Спробуй прибрати один із фільтрів або обрати інше поєднання жанру й країни."}
       </p>
       <button
         type="button"
@@ -191,12 +205,41 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
       lastPage.hasMore ? lastPage.page + 1 : undefined,
   });
 
-  const results = useMemo(
+  const fetched = useMemo(
     () => discoverQuery.data?.pages.flatMap((page) => page.results) ?? [],
     [discoverQuery.data]
   );
+  // Titles already in a list are not a discovery.
+  const results = useMemo(
+    () => excludeSaved(fetched, getListTypes),
+    [fetched, getListTypes]
+  );
+  const hiddenCount = fetched.length - results.length;
   const isLoading =
     discoverQuery.isLoading || discoverQuery.isFetchingNextPage;
+
+  // Reset the top-up budget whenever the selection changes: a new combination
+  // deserves its own attempts.
+  const selectionKey = `${genreList.join(",")}|${countryList.join(",")}`;
+  const autoPagesRef = useRef(0);
+  useEffect(() => {
+    autoPagesRef.current = 0;
+  }, [selectionKey]);
+
+  const { fetchNextPage, hasNextPage, isFetching } = discoverQuery;
+  useEffect(() => {
+    if (!hasSelection || !hasNextPage || isFetching) {
+      return;
+    }
+    if (results.length >= MIN_VISIBLE_RESULTS) {
+      return;
+    }
+    if (autoPagesRef.current >= MAX_AUTO_PAGES) {
+      return;
+    }
+    autoPagesRef.current += 1;
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, hasSelection, isFetching, results.length]);
 
   const handleReset = () => {
     setGenres(new Set());
@@ -236,7 +279,9 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
                   ? "Не вдалося завантажити добірку."
                   : isLoading && results.length === 0
                     ? "Шукаємо збіги за твоїм вибором…"
-                    : `Показуємо збіги за твоїм вибором · ${results.length}`}
+                    : `Показуємо збіги за твоїм вибором · ${results.length}${
+                        hiddenCount > 0 ? ` · ${hiddenCount} вже у списках` : ""
+                      }`}
               </p>
               <button
                 type="button"
@@ -258,7 +303,11 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
                 discoverQuery.isError ? (
                   <ErrorState onRetry={() => discoverQuery.refetch()} />
                 ) : (
-                  <EmptyState onReset={handleReset} onTryGenre={handleTryGenre} />
+                  <EmptyState
+                    onReset={handleReset}
+                    onTryGenre={handleTryGenre}
+                    allSaved={hiddenCount > 0}
+                  />
                 )
               }
               showEmpty

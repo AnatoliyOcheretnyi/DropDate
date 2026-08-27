@@ -12,6 +12,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { copy } from "../../../shared/lib/strings";
+import { excludeSaved } from "../../../shared/lib/excludeSaved";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 import { useToasts } from "../../../shared/hooks/useToasts";
@@ -89,7 +90,12 @@ export function useTitleDetails() {
 
   const details = detailsQuery.data?.details ?? null;
   const release = detailsQuery.data?.release ?? null;
-  const recommendations = detailsQuery.data?.recommendations ?? [];
+  // "Схожі" is a place to find something new, so titles already in one of the
+  // user's lists are dropped from it.
+  const recommendations = useMemo(
+    () => excludeSaved(detailsQuery.data?.recommendations ?? [], getListTypes),
+    [detailsQuery.data, getListTypes]
+  );
   const isLoading = detailsQuery.isLoading;
   const error = !isValidRequest
     ? copy.errors.invalidRequest

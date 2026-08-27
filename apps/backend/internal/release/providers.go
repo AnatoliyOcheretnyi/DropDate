@@ -213,6 +213,7 @@ func (p *tmdbSuggestionProvider) Discover(
 	results, err := p.client.Discover(ctx, tmdb.DiscoverParams{
 		MediaType:         params.MediaType,
 		WithGenres:        params.WithGenres,
+		GenresMatchAll:    params.GenresMatchAll,
 		WithoutGenres:     params.WithoutGenres,
 		WithKeywords:      params.WithKeywords,
 		WithoutKeywords:   params.WithoutKeywords,

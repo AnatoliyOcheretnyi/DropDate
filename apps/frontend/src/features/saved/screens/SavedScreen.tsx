@@ -1,29 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppPageShell } from "../../../widgets/AppPageShell";
 import { AuthorizedSavedList } from "../components/AuthorizedSavedList";
-import { ProfileTabs } from "../../profile/components/ProfileTabs";
-import { ProfileStats } from "../../profile/components/ProfileStats";
+import { SavedActiveFilters } from "../components/SavedActiveFilters";
+import { SavedControlPanel } from "../components/SavedControlPanel";
+import { SavedEmpty } from "../components/SavedEmpty";
 import { copy } from "../../../shared/lib/strings";
+import { LIST_META } from "../../../shared/lib/listMeta";
 import { useSavedPage } from "../hooks/useSavedPage";
+import { useSavedFilters } from "../hooks/useSavedFilters";
 import { useAuth } from "../../../shared/state/auth";
 import type { ListType, SavedRelease } from "../../../shared/types/releases";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
-import type { ProfileStat, TabDefinition, TabKey } from "../../profile/types";
 import { Reveal } from "../../../shared/ui/Reveal";
 import { PeopleSection } from "../../people/components/PeopleSection";
 import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
+import { savedMediaType } from "../utils/savedPresentation";
 
-type SortKey = "default" | "rating" | "alpha" | "release";
-
-const RATED_TABS: TabKey[] = ["favorite", "liked", "watched", "disliked"];
+const RATED_LISTS: ListType[] = ["favorite", "liked", "watched", "disliked"];
 
 const toSuggestion = (item: SavedRelease): Suggestion => ({
   id: item.tmdbId as number,
   title: item.title,
-  mediaType: item.mediaType || (item.type === "movie" ? "movie" : "tv"),
+  mediaType: savedMediaType(item),
   posterUrl: item.posterUrl,
 });
 
@@ -37,18 +38,9 @@ const toRelease = (item: SavedRelease): ReleaseInfo => ({
   status: item.status,
 });
 
-const normalizeItemLists = (item: SavedRelease): TabKey[] => {
-  if (item.listTypes && item.listTypes.length > 0) {
-    return item.listTypes;
-  }
-  return ["follow"];
-};
-
-export function SavedScreen() {
+function SavedScreenContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabKey>("follow");
-  const [sortKey, setSortKey] = useState<SortKey>("default");
   const [section, setSection] = useState<"titles" | "people">("titles");
   const { people: followedPeople } = useFollowedPeople();
   const {
@@ -74,6 +66,8 @@ export function SavedScreen() {
     updateListStats,
   } = useSavedPage();
 
+  const filters = useSavedFilters(saved);
+
   const handleChangeLists = (item: SavedRelease, next: ListType[]) => {
     if (!item.tmdbId || !item.mediaType) {
       return;
@@ -89,105 +83,27 @@ export function SavedScreen() {
     if (!item.tmdbId || !item.mediaType) {
       return;
     }
-    const listType: ListType = RATED_TABS.includes(activeTab)
-      ? activeTab
-      : "watched";
+    // On the union tab the rating belongs to whichever verdict list the title
+    // already sits in; otherwise it goes to the list being viewed.
+    const ownLists = item.listTypes ?? [];
+    const listType: ListType =
+      filters.tab !== "all" && RATED_LISTS.includes(filters.tab as ListType)
+        ? (filters.tab as ListType)
+        : (ownLists.find((entry) => RATED_LISTS.includes(entry)) ?? "watched");
     updateListStats(toSuggestion(item), listType, { userRating: rating });
   };
 
-  const tabCounts = useMemo(
-    () =>
-      saved.reduce<Record<TabKey, number>>(
-        (counts, item) => {
-          normalizeItemLists(item).forEach((listType) => {
-            counts[listType] += 1;
-          });
-          return counts;
-        },
-        {
-          follow: 0,
-          watchlist: 0,
-          favorite: 0,
-          liked: 0,
-          watched: 0,
-          disliked: 0,
-        }
-      ),
-    [saved]
-  );
-  const tabs: TabDefinition[] = [
-    { key: "follow", label: copy.lists.follow, count: tabCounts.follow },
-    {
-      key: "watchlist",
-      label: copy.lists.watchlist,
-      count: tabCounts.watchlist,
-    },
-    {
-      key: "favorite",
-      label: copy.lists.favorite,
-      count: tabCounts.favorite,
-    },
-    { key: "liked", label: copy.lists.liked, count: tabCounts.liked },
-    { key: "watched", label: copy.lists.watched, count: tabCounts.watched },
-    {
-      key: "disliked",
-      label: copy.lists.disliked,
-      count: tabCounts.disliked,
-    },
-  ];
-  const statsCopy = useMemo(
-    () =>
-      copy.listStats ?? {
-        total: "Всього у списку",
-        thisWeek: "Цього тижня",
-        rewatches: "Повторні перегляди",
-        series: "Серіалів",
-        views: "Переглядів",
-        avgRating: "Середня оцінка",
-      },
-    []
-  );
-
-  const tabItems = useMemo(
-    () =>
-      saved.filter((item) =>
-        normalizeItemLists(item).includes(activeTab)
-      ),
-    [activeTab, saved]
-  );
-
-  const displayItems = useMemo(() => {
-    if (sortKey === "default") {
-      return tabItems;
-    }
-    const copyItems = [...tabItems];
-    if (sortKey === "alpha") {
-      copyItems.sort((a, b) => a.title.localeCompare(b.title, "uk"));
-    } else if (sortKey === "rating") {
-      copyItems.sort((a, b) => (b.userRating || 0) - (a.userRating || 0));
-    } else if (sortKey === "release") {
-      copyItems.sort((a, b) => {
-        const ta = a.nextRelease ? new Date(a.nextRelease).getTime() : 0;
-        const tb = b.nextRelease ? new Date(b.nextRelease).getTime() : 0;
-        return tb - ta;
-      });
-    }
-    return copyItems;
-  }, [sortKey, tabItems]);
-
+  // Library-wide, never per tab: swapping the numbers under the user mid-click
+  // is what made the old stat tiles unreadable.
   const weekCount = useMemo(() => {
-    if (activeTab !== "follow") {
-      return 0;
-    }
     const now = new Date();
     const start = new Date(now);
     const day = start.getDay();
-    const diff = (day === 0 ? -6 : 1) - day;
-    start.setDate(start.getDate() + diff);
+    start.setDate(start.getDate() + ((day === 0 ? -6 : 1) - day));
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
-    return tabItems.filter((item) => {
+    return saved.filter((item) => {
       if (!item.nextRelease) {
         return false;
       }
@@ -197,88 +113,71 @@ export function SavedScreen() {
       }
       return parsed >= start && parsed < end;
     }).length;
-  }, [activeTab, tabItems]);
+  }, [saved]);
 
   const seriesCount = useMemo(
-    () =>
-      tabItems.filter(
-        (item) => item.mediaType === "tv" || item.type === "series"
-      ).length,
-    [tabItems]
+    () => saved.filter((item) => savedMediaType(item) === "tv").length,
+    [saved],
   );
 
-  const watchlistAvgRating = useMemo(() => {
-    if (activeTab !== "watchlist") {
-      return 0;
-    }
-    const ratings = tabItems
-      .map((item) => item.tmdbRating)
-      .filter((value): value is number => typeof value === "number");
-    if (ratings.length === 0) {
-      return 0;
-    }
-    const total = ratings.reduce((sum, value) => sum + value, 0);
-    return Math.round((total / ratings.length) * 10) / 10;
-  }, [activeTab, tabItems]);
+  const activeListLabel =
+    filters.tab === "all"
+      ? "Усі"
+      : (LIST_META.find((meta) => meta.type === filters.tab)?.label ?? "");
 
-  const rewatchCount = useMemo(() => {
-    if (activeTab !== "favorite") {
-      return 0;
-    }
-    return tabItems.reduce((sum, item) => {
-      const count = item.watchCount || 0;
-      return sum + Math.max(0, count - 1);
-    }, 0);
-  }, [activeTab, tabItems]);
+  const filterSummary = [
+    ...filters.genres.map((genre) => `«${genre}»`),
+    filters.query.trim() ? `«${filters.query.trim()}»` : "",
+  ]
+    .filter(Boolean)
+    .join(" + ");
 
-  const watchedViews = useMemo(() => {
-    if (activeTab !== "watched") {
-      return 0;
+  const renderTitles = () => {
+    if (!isStorageReady) {
+      return (
+        <div className="saved-empty">
+          <p>{copy.hints.loadingList}</p>
+        </div>
+      );
     }
-    return tabItems.reduce((sum, item) => sum + (item.watchCount || 0), 0);
-  }, [activeTab, tabItems]);
-
-  const averageRating = useMemo(() => {
-    if (activeTab !== "disliked") {
-      return 0;
+    if (saved.length === 0) {
+      return <SavedEmpty kind="library" onAction={() => router.push("/")} />;
     }
-    const ratings = tabItems
-      .map((item) => item.userRating)
-      .filter((value): value is number => typeof value === "number");
-    if (ratings.length === 0) {
-      return 0;
+    if (filters.tabItems.length === 0) {
+      return (
+        <SavedEmpty
+          kind="list"
+          listLabel={activeListLabel}
+          onAction={() => filters.setTab("all")}
+        />
+      );
     }
-    const total = ratings.reduce((sum, value) => sum + value, 0);
-    return Math.round((total / ratings.length) * 10) / 10;
-  }, [activeTab, tabItems]);
-
-  const middleStat = useMemo<ProfileStat>(() => {
-    if (activeTab === "follow") {
-      return { value: weekCount, label: statsCopy.thisWeek, tone: "amber" };
+    if (filters.displayItems.length === 0) {
+      return (
+        <SavedEmpty
+          kind="filters"
+          filterSummary={filterSummary}
+          onAction={filters.resetFilters}
+        />
+      );
     }
-    if (activeTab === "watchlist") {
-      return {
-        value: `${watchlistAvgRating}/10`,
-        label: statsCopy.avgRating,
-        tone: "amber",
-      };
-    }
-    if (activeTab === "favorite") {
-      return { value: rewatchCount, label: statsCopy.rewatches, tone: "amber" };
-    }
-    if (activeTab === "watched") {
-      return { value: watchedViews, label: statsCopy.views, tone: "amber" };
-    }
-    return { value: averageRating, label: statsCopy.avgRating, tone: "amber" };
-  }, [
-    activeTab,
-    averageRating,
-    rewatchCount,
-    statsCopy,
-    watchlistAvgRating,
-    watchedViews,
-    weekCount,
-  ]);
+    return (
+      <Reveal key={`${filters.tab}-${filters.view}`}>
+        <AuthorizedSavedList
+          items={filters.displayItems}
+          onRemove={(item) => removeRelease(item.id)}
+          actionsDisabled={!isStorageReady}
+          // Sections are a property of the ordering, not of the tab: "sorted by
+          // rating" and "grouped by date" cannot both be true.
+          groupByDate={filters.sortKey === "release"}
+          onChangeLists={handleChangeLists}
+          onRate={handleRate}
+          showBadges={filters.tab === "all"}
+          view={filters.view}
+        />
+      </Reveal>
+    );
+  };
 
   return (
     <main className="page page--saved">
@@ -313,139 +212,135 @@ export function SavedScreen() {
           isSuggestionSaved,
         }}
       >
-
-      <section className="saved">
-        <div className="saved-hero">
-          <div className="saved-hero-copy">
-            <p className="eyebrow">Персональна бібліотека</p>
-            <h1>Мій список</h1>
-            <p>
-              Усе, що ти відстежуєш, плануєш подивитися або вже оцінив.
-            </p>
-          </div>
-          <div className="saved-hero-side">
-            <div className="saved-total">
-              <strong>{savedCount}</strong>
-              <span>тайтлів у бібліотеці</span>
+        <section className="saved">
+          <div className="saved-hero">
+            <div className="saved-hero-copy">
+              <p className="eyebrow">Персональна бібліотека</p>
+              <h1>Мій список</h1>
+              <p>Усе, що ти відстежуєш, плануєш подивитися або вже оцінив.</p>
             </div>
+            <div className="saved-hero-side">
+              <div className="saved-stat">
+                <strong>{savedCount}</strong>
+                <span>тайтлів</span>
+              </div>
+              <div className="saved-stat">
+                <strong>{weekCount}</strong>
+                <span>цього тижня</span>
+              </div>
+              <div className="saved-stat">
+                <strong>{seriesCount}</strong>
+                <span>серіалів</span>
+              </div>
+              <button
+                type="button"
+                className="saved-refresh"
+                onClick={handleRefreshAllClick}
+                disabled={!isStorageReady || saved.length === 0 || isRefreshing}
+              >
+                <span aria-hidden="true">↻</span>
+                {isRefreshing ? copy.actions.updating : copy.actions.updateAll}
+              </button>
+            </div>
+          </div>
+
+          {refreshMessage ? (
+            <p className="saved-refresh-message">{refreshMessage}</p>
+          ) : null}
+
+          <div
+            className="saved-sections-switch"
+            role="tablist"
+            aria-label="Розділи"
+          >
             <button
               type="button"
-              className="saved-refresh"
-              onClick={handleRefreshAllClick}
-              disabled={!isStorageReady || saved.length === 0 || isRefreshing}
+              role="tab"
+              aria-selected={section === "titles"}
+              className={`saved-switch-btn${
+                section === "titles" ? " is-active" : ""
+              }`}
+              onClick={() => setSection("titles")}
             >
-              <span aria-hidden="true">↻</span>
-              {isRefreshing ? copy.actions.updating : copy.actions.updateAll}
+              Тайтли
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={section === "people"}
+              className={`saved-switch-btn${
+                section === "people" ? " is-active" : ""
+              }`}
+              onClick={() => setSection("people")}
+            >
+              Люди
+              {followedPeople.length > 0 ? (
+                <span>{followedPeople.length}</span>
+              ) : null}
             </button>
           </div>
-        </div>
 
-        {refreshMessage ? (
-          <p className="saved-refresh-message">{refreshMessage}</p>
-        ) : null}
+          {section === "people" ? (
+            <Reveal>
+              <PeopleSection />
+            </Reveal>
+          ) : (
+            <>
+              {/* An empty library has nothing to filter: the empty state is the
+                  whole screen until the first title is saved. */}
+              {isStorageReady && saved.length > 0 ? (
+                <>
+                  <SavedControlPanel
+                    tab={filters.tab}
+                    tabCounts={filters.tabCounts}
+                    onTabChange={filters.setTab}
+                    isAuthenticated={Boolean(user)}
+                    genreFacets={filters.genreFacets}
+                    selectedGenres={filters.genres}
+                    onToggleGenre={filters.toggleGenre}
+                    onResetGenres={filters.resetFilters}
+                    query={filters.query}
+                    onQueryChange={filters.setQuery}
+                    sortKey={filters.sortKey}
+                    direction={filters.direction}
+                    onSortChange={filters.setSortKey}
+                    onToggleDirection={filters.toggleDirection}
+                    view={filters.view}
+                    onViewChange={filters.setView}
+                    shownCount={filters.displayItems.length}
+                    totalCount={filters.tabItems.length}
+                    isFiltered={
+                      filters.genres.length > 0 ||
+                      filters.query.trim().length > 0
+                    }
+                  />
 
-        <div className="saved-sections-switch" role="tablist" aria-label="Розділи">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "titles"}
-            className={`saved-switch-btn${
-              section === "titles" ? " is-active" : ""
-            }`}
-            onClick={() => setSection("titles")}
-          >
-            Тайтли
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "people"}
-            className={`saved-switch-btn${
-              section === "people" ? " is-active" : ""
-            }`}
-            onClick={() => setSection("people")}
-          >
-            Люди
-            {followedPeople.length > 0 ? (
-              <span>{followedPeople.length}</span>
-            ) : null}
-          </button>
-        </div>
+                  <SavedActiveFilters
+                    genres={filters.genres}
+                    query={filters.query}
+                    sortKey={filters.sortKey}
+                    direction={filters.direction}
+                    isSortPinned={filters.isSortPinned}
+                    onRemoveGenre={filters.toggleGenre}
+                    onClearQuery={() => filters.setQuery("")}
+                    onReset={filters.resetFilters}
+                  />
+                </>
+              ) : null}
 
-        {section === "people" ? (
-          <Reveal>
-            <PeopleSection />
-          </Reveal>
-        ) : (
-          <>
-        <div className="saved-dashboard">
-          <ProfileTabs
-            tabs={tabs}
-            activeTab={activeTab}
-            isAuthenticated={Boolean(user)}
-            onChange={setActiveTab}
-          />
-          <ProfileStats
-            total={tabItems.length}
-            middleStat={middleStat}
-            seriesCount={seriesCount}
-            statsCopy={{ total: statsCopy.total, series: statsCopy.series }}
-          />
-        </div>
-
-        {isStorageReady && tabItems.length > 0 && activeTab !== "follow" ? (
-          <div className="saved-controls">
-            <span className="saved-controls-count">
-              {tabItems.length}{" "}
-              {tabItems.length === 1 ? "тайтл" : "тайтлів"}
-            </span>
-            <label className="saved-sort">
-              <span>Сортувати</span>
-              <select
-                value={sortKey}
-                onChange={(event) =>
-                  setSortKey(event.target.value as SortKey)
-                }
-              >
-                <option value="default">За замовчуванням</option>
-                <option value="rating">За оцінкою</option>
-                <option value="alpha">За назвою</option>
-                <option value="release">За датою релізу</option>
-              </select>
-            </label>
-          </div>
-        ) : null}
-
-        {!isStorageReady ? (
-          <div className="saved-empty">
-            <p>{copy.hints.loadingList}</p>
-          </div>
-        ) : tabItems.length === 0 ? (
-          <div className="saved-empty">
-            <span aria-hidden="true">＋</span>
-            <h2>Тут поки порожньо</h2>
-            <p>{copy.hints.listEmpty}</p>
-            <button type="button" onClick={() => router.push("/")}>
-              Знайти тайтли
-            </button>
-          </div>
-        ) : (
-          <Reveal key={activeTab}>
-            <AuthorizedSavedList
-              items={displayItems}
-              onRemove={(item) => removeRelease(item.id)}
-              actionsDisabled={!isStorageReady}
-              groupByDate={activeTab === "follow"}
-              onChangeLists={handleChangeLists}
-              onRate={handleRate}
-              showRating={RATED_TABS.includes(activeTab)}
-            />
-          </Reveal>
-        )}
-          </>
-        )}
-      </section>
+              {renderTitles()}
+            </>
+          )}
+        </section>
       </AppPageShell>
     </main>
+  );
+}
+
+export function SavedScreen() {
+  return (
+    <Suspense fallback={<main className="page page--saved" />}>
+      <SavedScreenContent />
+    </Suspense>
   );
 }

@@ -5,6 +5,7 @@ import { AppPageShell } from "../../../widgets/AppPageShell";
 import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 import { copy } from "../../../shared/lib/strings";
 import { useSearchPage } from "../hooks/useSearchPage";
+import { SearchPeopleStrip } from "../components/SearchPeopleStrip";
 
 export function SearchScreen() {
   const [sort, setSort] = useState<"relevance" | "year" | "title">(
@@ -31,6 +32,9 @@ export function SearchScreen() {
     isSearchOpen,
     isSuggestionSaved,
     page,
+    people,
+    person,
+    personTitles,
     savedCount,
     setFilter,
     setTitle,
@@ -164,6 +168,19 @@ export function SearchScreen() {
         </div>
 
         {error ? <div className="search-state search-state--error">{error}</div> : null}
+
+        <SearchPeopleStrip people={people} />
+
+        {person && personTitles.length > 0 ? (
+          <SearchResultsGrid
+            items={personTitles}
+            isLoading={false}
+            onSelect={handleSelect}
+            getListTypes={getListTypes}
+            onChangeLists={handleResultListChange}
+            title={`Фільмографія · ${person.name}`}
+          />
+        ) : null}
 
         <SearchResultsGrid
           items={sortedResults}

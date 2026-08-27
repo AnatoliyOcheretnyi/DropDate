@@ -29,6 +29,8 @@ type savedItem struct {
 	RuntimeMinutes *int     `json:"runtimeMinutes,omitempty"`
 	EpisodeCount   *int     `json:"episodeCount,omitempty"`
 	TMDBRating     *float64 `json:"tmdbRating,omitempty"`
+	Genres         []string `json:"genres,omitempty"`
+	CreatedAt      string   `json:"createdAt,omitempty"`
 	Source         string   `json:"source"`
 	Type           string   `json:"type"`
 }
@@ -295,6 +297,11 @@ func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {
 				value := details.VoteAverage
 				input.TMDBRating = &value
 			}
+			// Genres come from the same lookup the saved list already makes,
+			// so the client-side genre filter costs no extra TMDB request.
+			if len(details.Genres) > 0 {
+				input.Genres = details.Genres
+			}
 			if enriched, enrichErr := s.saved.Upsert(writeContext, input); enrichErr != nil {
 				s.logger.Printf("saved metadata enrichment failed: %v", enrichErr)
 			} else {
@@ -364,6 +371,10 @@ func mapSavedItem(item saved.Title) savedItem {
 	if mediaType == "movie" {
 		releaseType = "movie"
 	}
+	createdAt := ""
+	if !item.CreatedAt.IsZero() {
+		createdAt = item.CreatedAt.Format(time.RFC3339)
+	}
 	return savedItem{
 		TMDBID:         item.TMDBID,
 		MediaType:      mediaType,
@@ -379,6 +390,8 @@ func mapSavedItem(item saved.Title) savedItem {
 		RuntimeMinutes: item.RuntimeMinutes,
 		EpisodeCount:   item.EpisodeCount,
 		TMDBRating:     item.TMDBRating,
+		Genres:         item.Genres,
+		CreatedAt:      createdAt,
 		Source:         "tmdb",
 		Type:           releaseType,
 	}

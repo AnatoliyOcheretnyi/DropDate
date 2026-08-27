@@ -20,8 +20,12 @@ export function FriendSavedGrid({ items }: Props) {
     return <div className="friends-empty">Тут поки порожньо.</div>;
   }
 
-  const gridClass = `saved-grid${
-    items.length === 1 ? " saved-grid--single" : items.length === 2 ? " saved-grid--double" : ""
+  const gridClass = `friend-saved-grid${
+    items.length === 1
+      ? " friend-saved-grid--single"
+      : items.length === 2
+        ? " friend-saved-grid--double"
+        : ""
   }`;
 
   return (

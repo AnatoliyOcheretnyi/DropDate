@@ -1,35 +1,21 @@
 "use client";
 
 import type { ListType, SavedRelease } from "../../../shared/types/releases";
-import { getReleaseStatusLabel, type Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
-import { CoverImage } from "../../../shared/ui/CoverImage";
-import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
-import { StarRating } from "../../../shared/ui/StarRating";
-import { useRouter } from "next/navigation";
+import type { SavedViewMode } from "../types";
+import { SavedCompactRow } from "./SavedCompactRow";
+import { SavedPosterCard } from "./SavedPosterCard";
 
 type Props = {
   items: SavedRelease[];
   onRemove: (item: SavedRelease) => void;
   actionsDisabled?: boolean;
+  /** Date sections only make sense while the list is ordered by release date. */
   groupByDate?: boolean;
   onChangeLists?: (item: SavedRelease, next: ListType[]) => void;
   onRate?: (item: SavedRelease, rating: number) => void;
-  showRating?: boolean;
-};
-
-const formatDate = (value?: string) => {
-  if (!value) {
-    return copy.misc.dash;
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "numeric",
-    month: "long",
-  }).format(parsed);
+  showBadges?: boolean;
+  view?: SavedViewMode;
 };
 
 const isEnded = (item: SavedRelease) =>
@@ -77,112 +63,45 @@ export function AuthorizedSavedList({
   items,
   onRemove,
   actionsDisabled,
-  groupByDate = true,
+  groupByDate = false,
   onChangeLists,
   onRate,
-  showRating = false,
+  showBadges = false,
+  view = "grid",
 }: Props) {
-  const router = useRouter();
-  const buckets = groupByDate
-    ? items.reduce<Record<string, SavedRelease[]>>((acc, item) => {
-        const key = getBucketKey(item);
-        acc[key] = acc[key] ? [...acc[key], item] : [item];
-        return acc;
-      }, {})
-    : {};
-
-  const renderCard = (item: SavedRelease) => {
-    const statusLabel = getReleaseStatusLabel(item.status, item.type);
-    const imageUrl = item.backdropUrl || item.posterUrl;
-    const usesPoster = !item.backdropUrl && Boolean(item.posterUrl);
-    const mediaType: Suggestion["mediaType"] =
-      item.mediaType || (item.type === "movie" ? "movie" : "tv");
-
-    return (
-      <div key={item.id} className="saved-banner-card">
-        <button
-          type="button"
-          className="saved-remove"
-          onClick={() => onRemove(item)}
-          disabled={actionsDisabled}
-          aria-label={copy.saved.removeAria}
-        >
-          ✕
-        </button>
-        {item.tmdbId && onChangeLists ? (
-          <MovieInfoButton
-            tmdbId={item.tmdbId}
-            mediaType={mediaType}
-            title={item.title}
-            className="saved-info-btn"
-            onActivate={() => router.push(`/title/${mediaType}/${item.tmdbId}`)}
-            activeLists={item.listTypes ?? []}
-            onChangeLists={(next) => onChangeLists(item, next)}
-          />
-        ) : null}
-        {showRating && item.tmdbId ? (
-          <div
-            className="saved-banner-rating"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <StarRating
-              value={item.userRating}
-              onChange={(rating) => onRate?.(item, rating)}
-            />
-          </div>
-        ) : null}
-        <button
-          type="button"
-          className="saved-banner-link"
-          onClick={() => {
-            if (item.tmdbId) {
-              router.push(`/title/${mediaType}/${item.tmdbId}`);
-            } else {
-              router.push(`/search?query=${encodeURIComponent(item.title)}`);
-            }
-          }}
-        >
-          <div
-            className={`saved-banner-media${usesPoster ? " is-poster" : ""}`}
-          >
-            {imageUrl ? (
-              <CoverImage
-                src={imageUrl}
-                alt={item.title}
-                sizes="(max-width: 900px) 100vw, 33vw"
-              />
-            ) : (
-              <div className="saved-banner-fallback">
-                {item.title.slice(0, 1)}
-              </div>
-            )}
-          </div>
-          <div className="saved-banner-overlay" aria-hidden="true" />
-          <div className="saved-banner-content">
-            <div className="saved-banner-meta">
-              <span className="saved-banner-chip saved-banner-chip--rating">
-                {statusLabel}
-              </span>
-              <span className="saved-banner-chip">
-                {formatDate(item.nextRelease)}
-              </span>
-            </div>
-            <h4>{item.title}</h4>
-            <span className="saved-banner-type">
-              {mediaType === "movie" ? "Фільм" : "Серіал"}
-            </span>
-          </div>
-        </button>
-      </div>
+  const renderItem = (item: SavedRelease) =>
+    view === "compact" ? (
+      <SavedCompactRow
+        key={item.id}
+        item={item}
+        onRemove={onRemove}
+        onChangeLists={onChangeLists}
+        showBadges={showBadges}
+        actionsDisabled={actionsDisabled}
+      />
+    ) : (
+      <SavedPosterCard
+        key={item.id}
+        item={item}
+        onRemove={onRemove}
+        onChangeLists={onChangeLists}
+        onRate={onRate}
+        showBadges={showBadges}
+        actionsDisabled={actionsDisabled}
+      />
     );
-  };
+
+  const containerClass = view === "compact" ? "saved-rows" : "saved-grid";
 
   if (!groupByDate) {
-    const gridClass = `saved-grid${
-      items.length === 1 ? " saved-grid--single" : items.length === 2 ? " saved-grid--double" : ""
-    }`;
-    return <div className={gridClass}>{items.map(renderCard)}</div>;
+    return <div className={containerClass}>{items.map(renderItem)}</div>;
   }
+
+  const buckets = items.reduce<Record<string, SavedRelease[]>>((acc, item) => {
+    const key = getBucketKey(item);
+    acc[key] = acc[key] ? [...acc[key], item] : [item];
+    return acc;
+  }, {});
 
   return (
     <div className="saved-sections">
@@ -191,21 +110,13 @@ export function AuthorizedSavedList({
         if (sectionItems.length === 0) {
           return null;
         }
-
-        const gridClass = `saved-grid${
-          sectionItems.length === 1
-            ? " saved-grid--single"
-            : sectionItems.length === 2
-              ? " saved-grid--double"
-              : ""
-        }`;
         return (
           <section key={key} className="saved-section">
             <div className="saved-section-head">
               <h3>{SECTION_TITLES[key]}</h3>
               <span>{sectionItems.length}</span>
             </div>
-            <div className={gridClass}>{sectionItems.map(renderCard)}</div>
+            <div className={containerClass}>{sectionItems.map(renderItem)}</div>
           </section>
         );
       })}

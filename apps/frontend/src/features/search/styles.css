@@ -288,3 +288,146 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ---- people in search ----
+   A name typed into the search box resolves to people, and their filmography
+   is what the user is actually after — so the strip sits above the title
+   results, not below them. */
+
+.search-people {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.search-people-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.search-people-head h2 {
+  margin: 0;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.35rem;
+}
+
+.search-people-head > span {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.search-people-row {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+
+.search-people-row::-webkit-scrollbar {
+  display: none;
+}
+
+.search-person {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 240px;
+  padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+  border: 1px solid var(--dd-border);
+  border-radius: 999px;
+  background: var(--dd-surface-1);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search-person:hover {
+  border-color: rgba(115, 240, 193, 0.32);
+}
+
+.search-person-photo {
+  position: relative;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--dd-surface-2);
+  display: grid;
+  place-items: center;
+}
+
+.search-person-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-person-fallback {
+  color: var(--accent-strong);
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.2rem;
+}
+
+.search-person-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.search-person-name {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.search-person-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dd-faint);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+/* ---- people in the search overlay ---- */
+
+.people-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.people-suggestions-label {
+  margin: 0 0 0 0.4rem;
+  color: var(--dd-faint);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.suggestions--people {
+  margin-top: 0;
+}
+
+.suggestion-poster--person {
+  border-radius: 50%;
+  aspect-ratio: 1;
+  width: 44px;
+  height: 44px;
+}

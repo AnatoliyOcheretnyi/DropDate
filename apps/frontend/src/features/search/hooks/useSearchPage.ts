@@ -75,6 +75,15 @@ export function useSearchPage() {
   );
 
   const pages = searchQuery.data?.pages ?? [];
+  // People and the filmography ride on the first page only: paging through
+  // titles must not repeat them.
+  const firstPage = pages[0];
+  const people = firstPage?.people ?? [];
+  const person = firstPage?.person ?? null;
+  const personTitles = useMemo(
+    () => firstPage?.personTitles ?? [],
+    [firstPage]
+  );
   const totalPages = pages[0]?.totalPages ?? 1;
   const totalResults = pages[0]?.totalResults ?? 0;
   const page = pages[pages.length - 1]?.page ?? 1;
@@ -179,6 +188,9 @@ export function useSearchPage() {
     isSearchOpen,
     isSuggestionSaved,
     page,
+    people,
+    person,
+    personTitles,
     savedCount: saved.length,
     setFilter,
     setTitle,

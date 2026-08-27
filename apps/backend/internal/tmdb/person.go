@@ -19,6 +19,7 @@ const maxPersonCredits = 120
 type PersonInfo struct {
 	ID                 int
 	Name               string
+	Gender             int
 	Biography          string
 	KnownForDepartment string
 	Birthday           string
@@ -58,13 +59,100 @@ func (c *Client) PersonByID(ctx context.Context, id int) (PersonInfo, error) {
 		return PersonInfo{}, err
 	}
 
-	if strings.TrimSpace(payload.Biography) == "" {
-		if fallback, err := c.fetchPerson(ctx, id, "en-US"); err == nil {
-			payload.Biography = fallback.Biography
+	// One English fetch covers three gaps: a missing biography, a name TMDB
+	// keeps in Russian, and credits whose "Ukrainian" title is the untranslated
+	// Russian original.
+	if strings.TrimSpace(payload.Biography) == "" ||
+		looksRussian(payload.Name) ||
+		hasUntranslatedCredits(payload.CombinedCredits) {
+		if fallback, fallbackErr := c.fetchPerson(ctx, id, "en-US"); fallbackErr == nil {
+			if strings.TrimSpace(payload.Biography) == "" {
+				payload.Biography = fallback.Biography
+			}
+			if looksRussian(payload.Name) {
+				payload.Name = preferLatin(payload.Name, fallback.Name)
+			}
+			applyCreditFallback(payload.CombinedCredits, fallback.CombinedCredits)
 		}
 	}
 
 	return mapPerson(payload), nil
+}
+
+// hasUntranslatedCredits reports whether any credit came back as the Russian
+// original because TMDB has no Ukrainian title for it.
+func hasUntranslatedCredits(credits *personCombinedCredits) bool {
+	if credits == nil {
+		return false
+	}
+	for _, credit := range credits.Cast {
+		if creditNeedsFallback(credit.personCreditCommon) {
+			return true
+		}
+	}
+	for _, credit := range credits.Crew {
+		if creditNeedsFallback(credit.personCreditCommon) {
+			return true
+		}
+	}
+	return false
+}
+
+func creditNeedsFallback(common personCreditCommon) bool {
+	return needsLatinFallback(creditTitle(common), creditOriginalTitle(common), common.OriginalLanguage)
+}
+
+func creditTitle(common personCreditCommon) string {
+	if common.Title != "" {
+		return common.Title
+	}
+	return common.Name
+}
+
+func creditOriginalTitle(common personCreditCommon) string {
+	if common.OriginalTitle != "" {
+		return common.OriginalTitle
+	}
+	return common.OriginalName
+}
+
+// applyCreditFallback rewrites the credits that need it with their English
+// titles, matching entries by media type and id.
+func applyCreditFallback(credits, fallback *personCombinedCredits) {
+	if credits == nil || fallback == nil {
+		return
+	}
+
+	index := make(map[string]string, len(fallback.Cast)+len(fallback.Crew))
+	for _, credit := range fallback.Cast {
+		index[searchKey(credit.MediaType, credit.ID)] = creditTitle(credit.personCreditCommon)
+	}
+	for _, credit := range fallback.Crew {
+		index[searchKey(credit.MediaType, credit.ID)] = creditTitle(credit.personCreditCommon)
+	}
+
+	replace := func(common *personCreditCommon) {
+		if !creditNeedsFallback(*common) {
+			return
+		}
+		alternative, ok := index[searchKey(common.MediaType, common.ID)]
+		if !ok {
+			return
+		}
+		title := preferLatin(creditTitle(*common), alternative)
+		if common.Title != "" {
+			common.Title = title
+			return
+		}
+		common.Name = title
+	}
+
+	for i := range credits.Cast {
+		replace(&credits.Cast[i].personCreditCommon)
+	}
+	for i := range credits.Crew {
+		replace(&credits.Crew[i].personCreditCommon)
+	}
 }
 
 func (c *Client) fetchPerson(ctx context.Context, id int, language string) (personDetailsResponse, error) {
@@ -94,6 +182,7 @@ func mapPerson(payload personDetailsResponse) PersonInfo {
 	info := PersonInfo{
 		ID:                 payload.ID,
 		Name:               payload.Name,
+		Gender:             payload.Gender,
 		Biography:          strings.TrimSpace(payload.Biography),
 		KnownForDepartment: payload.KnownForDepartment,
 		Birthday:           payload.Birthday,
@@ -219,6 +308,7 @@ type personDetailsResponse struct {
 	PlaceOfBirth       string                 `json:"place_of_birth"`
 	ProfilePath        string                 `json:"profile_path"`
 	Homepage           string                 `json:"homepage"`
+	Gender             int                    `json:"gender"`
 	Popularity         float64                `json:"popularity"`
 	ExternalIDs        *personExternalIDs     `json:"external_ids"`
 	CombinedCredits    *personCombinedCredits `json:"combined_credits"`
@@ -236,15 +326,18 @@ type personCombinedCredits struct {
 }
 
 type personCreditCommon struct {
-	ID           int     `json:"id"`
-	MediaType    string  `json:"media_type"`
-	Title        string  `json:"title"`
-	Name         string  `json:"name"`
-	ReleaseDate  string  `json:"release_date"`
-	FirstAirDate string  `json:"first_air_date"`
-	PosterPath   string  `json:"poster_path"`
-	VoteAverage  float64 `json:"vote_average"`
-	Popularity   float64 `json:"popularity"`
+	ID               int     `json:"id"`
+	MediaType        string  `json:"media_type"`
+	Title            string  `json:"title"`
+	Name             string  `json:"name"`
+	OriginalTitle    string  `json:"original_title"`
+	OriginalName     string  `json:"original_name"`
+	OriginalLanguage string  `json:"original_language"`
+	ReleaseDate      string  `json:"release_date"`
+	FirstAirDate     string  `json:"first_air_date"`
+	PosterPath       string  `json:"poster_path"`
+	VoteAverage      float64 `json:"vote_average"`
+	Popularity       float64 `json:"popularity"`
 }
 
 type personCastCredit struct {
@@ -256,4 +349,91 @@ type personCrewCredit struct {
 	personCreditCommon
 	Job        string `json:"job"`
 	Department string `json:"department"`
+}
+
+// PersonMatch is a person hit from a multi-search, carrying just enough to
+// render a row and open the person page.
+type PersonMatch struct {
+	ID         int
+	Name       string
+	ProfileURL string
+	Department string
+	Gender     int
+	Popularity float64
+	KnownFor   []Suggestion
+}
+
+// SearchPeople returns the people TMDB matched for a free-text query.
+//
+// It reuses the same /search/multi response the title search already fetches —
+// person hits arrive in that list and were simply dropped until now — so
+// searching by an actor's name costs no extra request.
+func (c *Client) SearchPeople(ctx context.Context, query string, limit int) ([]PersonMatch, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+
+	payload, err := c.searchPage(ctx, query, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	english := c.lazyEnglishSearch(ctx, query, 1)
+	matches := make([]PersonMatch, 0, limit)
+	for _, result := range payload.Results {
+		if result.MediaType != "person" || strings.TrimSpace(result.Name) == "" {
+			continue
+		}
+		name := result.Name
+		// TMDB stores some people's "Ukrainian" name in Russian; the English
+		// record at least spells it in Latin.
+		if looksRussian(name) {
+			if alternative, ok := english()[searchKey("person", result.ID)]; ok {
+				name = preferLatin(name, alternative.Name)
+			}
+		}
+		match := PersonMatch{
+			ID:         result.ID,
+			Name:       name,
+			Department: result.KnownForDepartment,
+			Gender:     result.Gender,
+			Popularity: result.Popularity,
+		}
+		if result.ProfilePath != "" {
+			match.ProfileURL = buildPersonProfileURL(result.ProfilePath)
+		}
+		for _, known := range result.KnownFor {
+			if known.MediaType != "movie" && known.MediaType != "tv" {
+				continue
+			}
+			title := localizedTitle(known, english)
+			if title == "" {
+				continue
+			}
+			date := known.ReleaseDate
+			if date == "" {
+				date = known.FirstAirDate
+			}
+			poster := ""
+			if known.PosterPath != "" {
+				poster = buildPosterURL(known.PosterPath)
+			}
+			match.KnownFor = append(match.KnownFor, Suggestion{
+				ID:        known.ID,
+				Title:     title,
+				MediaType: known.MediaType,
+				Year:      yearFromDate(date),
+				PosterURL: poster,
+			})
+		}
+		matches = append(matches, match)
+		if len(matches) == limit {
+			break
+		}
+	}
+
+	return matches, nil
 }

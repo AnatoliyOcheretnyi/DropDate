@@ -36,6 +36,7 @@ type Title struct {
 	RuntimeMinutes *int
 	EpisodeCount   *int
 	TMDBRating     *float64
+	Genres         []string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -65,6 +66,38 @@ type UpsertInput struct {
 	RuntimeMinutes *int
 	EpisodeCount   *int
 	TMDBRating     *float64
+	Genres         []string
+}
+
+// Postgres text[] does not round-trip through database/sql with the pgx stdlib
+// driver, so genres cross the boundary as one joined string and are split and
+// rebuilt inside the queries themselves. TMDB genre names never contain "|".
+const genreSeparator = "|"
+
+func joinGenres(values []string) string {
+	cleaned := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" && !containsString(cleaned, value) {
+			cleaned = append(cleaned, value)
+		}
+	}
+	return strings.Join(cleaned, genreSeparator)
+}
+
+func splitGenres(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, genreSeparator)
+	genres := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			genres = append(genres, part)
+		}
+	}
+	return genres
 }
 
 func (s *Store) ListByUser(ctx context.Context, userID string, listType string) ([]Title, error) {
@@ -72,7 +105,8 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 	query := `
 		select id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
 		       poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-		       runtime_minutes, episode_count, tmdb_rating, created_at, updated_at
+		       runtime_minutes, episode_count, tmdb_rating, array_to_string(genres, '|'),
+		       created_at, updated_at
 		from saved_titles
 		where user_id = $1`
 	args := []any{userID}
@@ -101,6 +135,7 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 		var runtime sql.NullInt32
 		var episodeCount sql.NullInt32
 		var tmdbRating sql.NullFloat64
+		var genres sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.UserID,
@@ -118,6 +153,7 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 			&runtime,
 			&episodeCount,
 			&tmdbRating,
+			&genres,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
@@ -151,6 +187,9 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 			value := tmdbRating.Float64
 			item.TMDBRating = &value
 		}
+		if genres.Valid {
+			item.Genres = splitGenres(genres.String)
+		}
 
 		if rowListType.Valid {
 			item.ListTypes = []string{rowListType.String}
@@ -158,8 +197,18 @@ func (s *Store) ListByUser(ctx context.Context, userID string, listType string) 
 		key := fmt.Sprintf("%d:%s", item.TMDBID, item.MediaType)
 		if idx, ok := index[key]; ok {
 			existing := items[idx]
+			changed := false
 			if rowListType.Valid && !containsString(existing.ListTypes, rowListType.String) {
 				existing.ListTypes = append(existing.ListTypes, rowListType.String)
+				changed = true
+			}
+			// Genres are a per-title fact, but only the rows written after the
+			// backfill carry them — take them from whichever row has them.
+			if len(existing.Genres) == 0 && len(item.Genres) > 0 {
+				existing.Genres = item.Genres
+				changed = true
+			}
+			if changed {
 				items[idx] = existing
 			}
 			continue
@@ -180,7 +229,8 @@ func (s *Store) ListAllRows(ctx context.Context, userID string) ([]Title, error)
 	rows, err := s.db.QueryContext(ctx, `
 		select id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
 		       poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-		       runtime_minutes, episode_count, tmdb_rating, created_at, updated_at
+		       runtime_minutes, episode_count, tmdb_rating, array_to_string(genres, '|'),
+		       created_at, updated_at
 		from saved_titles
 		where user_id = $1
 		order by updated_at desc
@@ -202,6 +252,7 @@ func (s *Store) ListAllRows(ctx context.Context, userID string) ([]Title, error)
 		var runtime sql.NullInt32
 		var episodeCount sql.NullInt32
 		var tmdbRating sql.NullFloat64
+		var genres sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.UserID,
@@ -219,6 +270,7 @@ func (s *Store) ListAllRows(ctx context.Context, userID string) ([]Title, error)
 			&runtime,
 			&episodeCount,
 			&tmdbRating,
+			&genres,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
@@ -251,6 +303,9 @@ func (s *Store) ListAllRows(ctx context.Context, userID string) ([]Title, error)
 		if tmdbRating.Valid {
 			value := tmdbRating.Float64
 			item.TMDBRating = &value
+		}
+		if genres.Valid {
+			item.Genres = splitGenres(genres.String)
 		}
 		if rowListType.Valid {
 			item.ListTypes = []string{rowListType.String}
@@ -357,15 +412,18 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	if input.LastWatched != nil {
 		lastWatched = sql.NullTime{Time: *input.LastWatched, Valid: true}
 	}
+	genresJoined := joinGenres(input.Genres)
 
 	var rowListType sql.NullString
+	var genresValue sql.NullString
 	err := s.db.QueryRowContext(ctx, `
 		insert into saved_titles (
 			user_id, tmdb_id, media_type, list_type, title, next_release, status,
 			poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-			runtime_minutes, episode_count, tmdb_rating
+			runtime_minutes, episode_count, tmdb_rating, genres
 		)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+		        string_to_array(nullif($17, ''), '|'))
 		on conflict (user_id, tmdb_id, media_type, list_type)
 		do update set
 			title = excluded.title,
@@ -379,10 +437,14 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 			runtime_minutes = coalesce(excluded.runtime_minutes, saved_titles.runtime_minutes),
 			episode_count = coalesce(excluded.episode_count, saved_titles.episode_count),
 			tmdb_rating = coalesce(excluded.tmdb_rating, saved_titles.tmdb_rating),
+			-- A save without metadata must not wipe genres a previous
+			-- enrichment already stored.
+			genres = case when $17 <> '' then excluded.genres else saved_titles.genres end,
 			updated_at = now()
 		returning id, user_id, tmdb_id, media_type, list_type, title, next_release, status,
 		          poster_url, backdrop_url, user_rating, watch_count, last_watched_at,
-		          runtime_minutes, episode_count, tmdb_rating, created_at, updated_at
+		          runtime_minutes, episode_count, tmdb_rating, array_to_string(genres, '|'),
+		          created_at, updated_at
 	`,
 		input.UserID,
 		input.TMDBID,
@@ -400,6 +462,7 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		episodeCount,
 		tmdbRating,
 		watchCountProvided,
+		genresJoined,
 	).Scan(
 		&item.ID,
 		&item.UserID,
@@ -417,6 +480,7 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 		&runtime,
 		&episodeCount,
 		&tmdbRating,
+		&genresValue,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
@@ -439,6 +503,9 @@ func (s *Store) Upsert(ctx context.Context, input UpsertInput) (Title, error) {
 	}
 	if lastWatched.Valid {
 		item.LastWatched = &lastWatched.Time
+	}
+	if genresValue.Valid {
+		item.Genres = splitGenres(genresValue.String)
 	}
 	if runtime.Valid {
 		value := int(runtime.Int32)

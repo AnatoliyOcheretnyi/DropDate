@@ -198,6 +198,7 @@ type SeasonProvider interface {
 type DiscoverParams struct {
 	MediaType         string
 	WithGenres        []int
+	GenresMatchAll    bool
 	WithoutGenres     []int
 	WithKeywords      []int
 	WithoutKeywords   []int

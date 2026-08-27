@@ -6,6 +6,7 @@ import type { Suggestion } from "../shared/lib/release";
 import { useSuggestions } from "../shared/hooks/useSuggestions";
 import { useSavedReleases } from "../features/saved/hooks/useSavedReleases";
 import { Icon } from "../shared/ui/Icon";
+import { PeopleSuggestions } from "../shared/ui/PeopleSuggestions";
 import { Suggestions } from "../shared/ui/Suggestions";
 
 /**
@@ -22,7 +23,7 @@ export function HeaderSearch() {
   const blurTimeout = useRef<number | null>(null);
   const { isSuggestionSaved } = useSavedReleases();
 
-  const { suggestions } = useSuggestions(query, null, () => {});
+  const { suggestions, people } = useSuggestions(query, null, () => {});
 
   const close = () => {
     setIsOpen(false);
@@ -57,15 +58,26 @@ export function HeaderSearch() {
           blurTimeout.current = window.setTimeout(() => setIsOpen(false), 150);
         }}
       />
-      {isOpen && suggestions.length > 0 ? (
-        <Suggestions
-          suggestions={suggestions}
-          isSaved={isSuggestionSaved}
-          onSelect={(suggestion: Suggestion) => {
-            close();
-            router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
-          }}
-        />
+      {isOpen && (suggestions.length > 0 || people.length > 0) ? (
+        <div className="search-results-stack header-search__results">
+          {/* The placeholder promises actors, so people come first: typing a
+              name should reach the person, not scroll past the titles. */}
+          <PeopleSuggestions
+            people={people}
+            onSelect={(person) => {
+              close();
+              router.push(`/person/${person.id}`);
+            }}
+          />
+          <Suggestions
+            suggestions={suggestions}
+            isSaved={isSuggestionSaved}
+            onSelect={(suggestion: Suggestion) => {
+              close();
+              router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
+            }}
+          />
+        </div>
       ) : null}
     </form>
   );
