@@ -1,3 +1,5 @@
+//go:build integration
+
 package airecs
 
 import (
@@ -10,7 +12,8 @@ import (
 )
 
 // TestNextQuestionIDIntegration exercises the real Gemini API for mood
-// branching. Skipped unless GEMINI_API_KEY is set.
+// branching. Run explicitly with `go test -tags=integration`; release checks
+// stay deterministic and must not depend on external quota.
 func TestNextQuestionIDIntegration(t *testing.T) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {

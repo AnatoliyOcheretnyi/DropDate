@@ -1,3 +1,5 @@
+//go:build integration
+
 package airecs
 
 import (
@@ -7,8 +9,8 @@ import (
 	"time"
 )
 
-// TestRerankIntegration exercises the real Gemini API. It is skipped unless
-// GEMINI_API_KEY is set, so it never runs in normal CI.
+// TestRerankIntegration exercises the real Gemini API. Run explicitly with
+// `go test -tags=integration`; normal CI must not consume live quota.
 func TestRerankIntegration(t *testing.T) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
