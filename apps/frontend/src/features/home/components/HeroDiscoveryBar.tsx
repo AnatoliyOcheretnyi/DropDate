@@ -2,31 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Suggestion } from "../../../shared/lib/release";
-import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 import { Icon } from "../../../shared/ui/Icon";
-import { Suggestions } from "../../../shared/ui/Suggestions";
+import { EXAMPLE_PHRASES } from "../../vibe/types";
 
-type Props = {
-  /** Pool the "surprise me" die rolls from -- whatever the page already loaded. */
-  surprisePool: Suggestion[];
-  isSuggestionSaved: (suggestion: Suggestion) => boolean;
-};
-
-const PLACEHOLDER =
-  "Опиши, чого хочеш: «корейський трилер до 100 хв» або «щось нове, як Дюна»";
-
-export function HeroDiscoveryBar({ surprisePool, isSuggestionSaved }: Props) {
+/**
+ * The hero's search bar — the associative one.
+ *
+ * It used to search titles, which is what the header field already does; the
+ * placeholder promised a description and the Enter key delivered a title
+ * search. Now the phrase goes to /vibe, and titles stay with the header. The
+ * three shortcuts that lived here ("Здивуй мене", "Кіно-баттл", "За настроєм")
+ * moved out entirely: all three sit one screen below in "Відкрий щось нове".
+ *
+ * Focus changes nothing on purpose — no panel, no suggestions. The examples
+ * under the field are always there, so there is nothing left for a dropdown to
+ * add, and a hero that reflows the moment it is clicked reads as a glitch.
+ */
+export function HeroDiscoveryBar() {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [phrase, setPhrase] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const blurTimeout = useRef<number | null>(null);
 
-  const { suggestions } = useSuggestions(query, null, () => {});
-
-  // ⌘K / Ctrl+K focuses the bar from anywhere on the page, matching the hint
-  // rendered inside it.
+  // ⌘K / Ctrl+K focuses the bar from anywhere on the page.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) {
@@ -40,103 +37,54 @@ export function HeroDiscoveryBar({ surprisePool, isSuggestionSaved }: Props) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (blurTimeout.current !== null) {
-        window.clearTimeout(blurTimeout.current);
-      }
-    },
-    []
-  );
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed) {
+  const open = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed.length < 3) {
       return;
     }
-    setIsOpen(false);
-    router.push(`/search?query=${encodeURIComponent(trimmed)}`);
+    router.push(`/vibe?q=${encodeURIComponent(trimmed)}`);
   };
-
-  const handleSelect = (suggestion: Suggestion) => {
-    setIsOpen(false);
-    router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
-  };
-
-  const handleSurprise = () => {
-    if (surprisePool.length === 0) {
-      router.push("/mood");
-      return;
-    }
-    const pick = surprisePool[Math.floor(Math.random() * surprisePool.length)];
-    router.push(`/title/${pick.mediaType}/${pick.id}`);
-  };
-
-  const showSuggestions = isOpen && suggestions.length > 0;
 
   return (
     <div className="hero-discovery">
-      <form className="hero-discovery__search" onSubmit={handleSubmit} role="search">
-        <Icon name="search" size={20} className="hero-discovery__search-icon" />
+      <form
+        className="hero-discovery__form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          open(phrase);
+        }}
+        role="search"
+      >
+        <Icon name="sparkles" size={20} className="hero-discovery__icon" />
         <input
           ref={inputRef}
-          type="search"
-          value={query}
-          placeholder={PLACEHOLDER}
-          aria-label="Пошук фільмів і серіалів"
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onBlur={() => {
-            // Let a click on a suggestion land before the list unmounts.
-            blurTimeout.current = window.setTimeout(() => setIsOpen(false), 150);
-          }}
+          type="text"
+          value={phrase}
+          placeholder="молодіжний жах, де багато крові…"
+          aria-label="Опиши, що хочеш подивитись"
+          onChange={(event) => setPhrase(event.target.value)}
         />
-        <kbd className="hero-discovery__shortcut" aria-hidden="true">
-          ⌘K
-        </kbd>
-
-        {/* Suggestions positions itself against this form, which is the nearest
-            positioned ancestor -- no wrapper, or it would clip the list. */}
-        {showSuggestions ? (
-          <Suggestions
-            suggestions={suggestions}
-            isSaved={isSuggestionSaved}
-            onSelect={handleSelect}
-          />
-        ) : null}
+        <button
+          type="submit"
+          className="hero-discovery__submit"
+          disabled={phrase.trim().length < 3}
+        >
+          Знайти
+        </button>
       </form>
 
-      <span className="hero-discovery__divider" aria-hidden="true" />
-
-      <div className="hero-discovery__actions">
-        <button
-          type="button"
-          className="hero-discovery__action hero-discovery__action--primary"
-          onClick={handleSurprise}
-        >
-          <Icon name="dices" size={17} />
-          <span>Здивуй мене</span>
-        </button>
-        <button
-          type="button"
-          className="hero-discovery__action"
-          onClick={() => router.push("/mood")}
-        >
-          <Icon name="sparkles" size={17} />
-          <span>За настроєм</span>
-        </button>
-        <button
-          type="button"
-          className="hero-discovery__action"
-          onClick={() => router.push("/games/battle")}
-        >
-          <Icon name="swords" size={17} />
-          <span>Кіно-баттл</span>
-        </button>
+      <div className="hero-discovery__examples">
+        <span className="hero-discovery__examples-label">Спробуй</span>
+        {EXAMPLE_PHRASES.map((example) => (
+          <button
+            key={example}
+            type="button"
+            className="hero-discovery__example"
+            onClick={() => open(example)}
+          >
+            {example}
+          </button>
+        ))}
       </div>
     </div>
   );

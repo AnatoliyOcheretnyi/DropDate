@@ -249,6 +249,7 @@ func (p *tmdbSuggestionProvider) Discover(
 			PosterURL: result.PosterURL,
 			Rating:    result.Rating,
 			GenreIDs:  result.GenreIDs,
+			Overview:  result.Overview,
 		})
 	}
 	return out, nil
@@ -321,6 +322,7 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		Tagline:           info.Tagline,
 		PosterURL:         info.PosterURL,
 		BackdropURL:       info.BackdropURL,
+		BackdropLargeURL:  info.BackdropLargeURL,
 		Status:            info.Status,
 		ReleaseDate:       info.ReleaseDate,
 		FirstAirDate:      info.FirstAirDate,
@@ -359,6 +361,11 @@ func mapSeasons(items []tmdb.SeasonInfo) []Season {
 func (p *tmdbSuggestionProvider) SeasonEpisodes(ctx context.Context, tvID, seasonNumber int) ([]Episode, error) {
 	items, err := p.client.SeasonEpisodes(ctx, tvID, seasonNumber)
 	if err != nil {
+		// A season that does not exist is a definitive answer — callers rely on
+		// telling it apart from a transient failure.
+		if errors.Is(err, tmdb.ErrNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	out := make([]Episode, 0, len(items))

@@ -170,9 +170,6 @@ function HomeScreenContent({ sections }: Props) {
     [sectionState]
   );
   const spotlight = heroItems[0] ?? null;
-  // Everything the page already has loaded doubles as the "surprise me" pool,
-  // so the die roll is instant and never hits the network.
-  const surprisePool = useMemo(() => heroItems.slice(1), [heroItems]);
 
   return (
     <main className="page page--home">
@@ -207,8 +204,6 @@ function HomeScreenContent({ sections }: Props) {
       <TasteOnboarding emphasis="overlay" />
       <HomeHero
         spotlight={spotlight}
-        surprisePool={surprisePool}
-        isSuggestionSaved={isSuggestionSaved}
         getListTypes={getListTypes}
         onChangeLists={handleChangeLists}
       />

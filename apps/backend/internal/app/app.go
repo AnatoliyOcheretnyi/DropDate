@@ -29,6 +29,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/taste"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/tmdb"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/transport/httpapi"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/vibe"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"golang.org/x/sync/errgroup"
 )
@@ -164,7 +165,22 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		capabilities.AIRecommendations: aiReady && cfg.AI.RecommendationsEnabled,
 		capabilities.AIMood:            aiReady && cfg.AI.MoodEnabled,
 		capabilities.AIMatch:           aiReady && cfg.AI.MatchEnabled,
+		capabilities.AIVibe:            aiReady && cfg.AI.VibeEnabled,
 	})
+
+	// Associative search: the model is optional on both ends — without it the
+	// engine still interprets phrases by keyword and keeps TMDB's order.
+	vibeOptions := vibe.Options{Logger: logger}
+	if aiService != nil {
+		vibeOptions.Interpreter = aiService
+		// Reranking is the second model call of a search; it can be switched
+		// off on its own when quota is tight, leaving interpretation (which is
+		// cached per phrase) in place.
+		if cfg.AI.VibeRerankEnabled {
+			vibeOptions.Reranker = aiService
+		}
+	}
+	vibeService := vibe.NewService(releaseService, vibeOptions)
 
 	var readiness httpapi.ReadinessChecker
 	if db != nil || tmdbClient != nil {
@@ -197,6 +213,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			JobsAccessToken: cfg.Jobs.AccessToken,
 			SuperuserEmails: cfg.Security.SuperuserEmails,
 			AI:              aiService,
+			Vibe:            vibeService,
 			Capabilities:    capabilitiesResolver,
 			People:          peopleService,
 			Achievements:    achievementsService,

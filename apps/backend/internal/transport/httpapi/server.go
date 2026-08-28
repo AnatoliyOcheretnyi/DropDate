@@ -25,6 +25,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/social"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/taste"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/vibe"
 )
 
 type AuthService interface {
@@ -55,6 +56,7 @@ type ServerOptions struct {
 	JobsAccessToken  string
 	SuperuserEmails  []string
 	AI               *airecs.Service
+	Vibe             *vibe.Service
 	Capabilities     capabilities.Resolver
 	People           *people.Service
 	Achievements     *achievements.Service
@@ -78,6 +80,7 @@ type Server struct {
 	match            *cinematch.Service
 	people           *people.Service
 	ai               *airecs.Service
+	vibe             *vibe.Service
 	caps             capabilities.Resolver
 	achievements     *achievements.Service
 	friends          *friends.Service
@@ -132,6 +135,7 @@ func NewServer(
 		match:            matchSvc,
 		people:           options.People,
 		ai:               options.AI,
+		vibe:             options.Vibe,
 		caps:             options.Capabilities,
 		achievements:     options.Achievements,
 		friends:          options.Friends,

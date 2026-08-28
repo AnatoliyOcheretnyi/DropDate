@@ -43,13 +43,16 @@ type SearchResults struct {
 }
 
 type Details struct {
-	ID                int                          `json:"id"`
-	Title             string                       `json:"title"`
-	MediaType         string                       `json:"mediaType"`
-	Overview          string                       `json:"overview,omitempty"`
-	Tagline           string                       `json:"tagline,omitempty"`
-	PosterURL         string                       `json:"posterUrl,omitempty"`
-	BackdropURL       string                       `json:"backdropUrl,omitempty"`
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	MediaType   string `json:"mediaType"`
+	Overview    string `json:"overview,omitempty"`
+	Tagline     string `json:"tagline,omitempty"`
+	PosterURL   string `json:"posterUrl,omitempty"`
+	BackdropURL string `json:"backdropUrl,omitempty"`
+	// BackdropLargeURL is the untouched TMDB upload, for full-bleed surfaces
+	// like the home hero where the w780 variant visibly falls apart.
+	BackdropLargeURL  string                       `json:"backdropLargeUrl,omitempty"`
 	Status            string                       `json:"status,omitempty"`
 	ReleaseDate       string                       `json:"releaseDate,omitempty"`
 	FirstAirDate      string                       `json:"firstAirDate,omitempty"`
@@ -227,6 +230,9 @@ type DiscoverItem struct {
 	PosterURL string  `json:"posterUrl,omitempty"`
 	Rating    float64 `json:"rating,omitempty"`
 	GenreIDs  []int   `json:"genreIds,omitempty"`
+	// Overview is what the title is about — the reranker reads it, the client
+	// does not, so it stays out of the JSON the frontend receives.
+	Overview string `json:"-"`
 }
 
 // DiscoverProvider runs TMDB /discover queries for movies.

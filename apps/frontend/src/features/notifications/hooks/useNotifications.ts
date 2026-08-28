@@ -6,8 +6,6 @@ import type { NotificationsResponse } from "../types/notifications";
 import { requestApi, webApi } from "../../../shared/api/http";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
-import { useSavedStore } from "../../saved/store/savedStore";
-import { hasFollowItems } from "../../saved/utils/savedState";
 
 const emptyState = {
   items: [],
@@ -16,9 +14,13 @@ const emptyState = {
 
 export function useNotifications() {
   const { user, accessToken } = useAuth();
-  const saved = useSavedStore((state) => state.saved);
   const queryClient = useQueryClient();
-  const enabled = Boolean(user && accessToken && hasFollowItems(saved));
+  // Anyone signed in has notifications to fetch. This used to be gated on the
+  // user following at least one title, from when notifications were only
+  // release alerts — but friend requests, recommendations and game challenges
+  // arrive regardless of what the recipient tracks, and that gate left them
+  // stored, unread and invisible for anyone with an empty "Підписка" list.
+  const enabled = Boolean(user && accessToken);
 
   const notificationsQuery = useQuery({
     queryKey: webQueryKeys.notifications(user?.id ?? "guest"),
@@ -93,10 +95,9 @@ export function useNotifications() {
   }, [enabled, markAllReadMutation]);
 
   return {
-    // Show whatever the query has fetched, even if `enabled` momentarily
-    // flips false (e.g. the saved store empties for a beat during a token
-    // refresh or reconcile). Gating the *display* on `enabled` made an open
-    // notifications popover blank out a couple seconds after opening.
+    // Show whatever the query has fetched, even if `enabled` momentarily flips
+    // false during a token refresh: gating the *display* on it made an open
+    // notifications popover blank out a couple of seconds after opening.
     items: notificationsQuery.data?.items ?? emptyState.items,
     unreadCount: notificationsQuery.data?.unreadCount ?? emptyState.unreadCount,
     isLoading: notificationsQuery.isLoading || markAllReadMutation.isPending,

@@ -18,6 +18,12 @@ import (
 const defaultBaseURL = "https://api.themoviedb.org/3"
 const posterBaseURL = "https://image.tmdb.org/t/p/w342"
 const backdropBaseURL = "https://image.tmdb.org/t/p/w780"
+
+// backdropLargeBaseURL serves the untouched upload. w780 is right for a card in
+// a rail, but the home hero is full-bleed: on a wide retina screen it is
+// stretched past 3000 physical pixels, and no amount of re-encoding downstream
+// puts back detail the source never had.
+const backdropLargeBaseURL = "https://image.tmdb.org/t/p/original"
 const profileBaseURL = "https://image.tmdb.org/t/p/w185"
 const providerLogoBaseURL = "https://image.tmdb.org/t/p/w92"
 
@@ -50,6 +56,7 @@ type DetailInfo struct {
 	Tagline           string
 	PosterURL         string
 	BackdropURL       string
+	BackdropLargeURL  string
 	Status            string
 	ReleaseDate       string
 	FirstAirDate      string
@@ -806,8 +813,10 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 		poster = buildPosterURL(payload.PosterPath)
 	}
 	backdrop := ""
+	backdropLarge := ""
 	if payload.BackdropPath != "" {
 		backdrop = buildBackdropURL(payload.BackdropPath)
+		backdropLarge = buildBackdropLargeURL(payload.BackdropPath)
 	}
 	genres := make([]string, 0, len(payload.Genres))
 	for _, genre := range payload.Genres {
@@ -817,25 +826,26 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 	}
 
 	return DetailInfo{
-		ID:             id,
-		Title:          payload.Title,
-		MediaType:      "movie",
-		Overview:       payload.Overview,
-		Tagline:        payload.Tagline,
-		PosterURL:      poster,
-		BackdropURL:    backdrop,
-		Status:         payload.Status,
-		ReleaseDate:    payload.ReleaseDate,
-		Runtime:        payload.Runtime,
-		Genres:         genres,
-		VoteAverage:    payload.VoteAverage,
-		VoteCount:      payload.VoteCount,
-		Popularity:     payload.Popularity,
-		Homepage:       payload.Homepage,
-		OriginCountry:  payload.OriginCountry,
-		Cast:           mapCast(payload.Credits),
-		Directors:      mapDirectors(payload.Credits),
-		WatchProviders: mapWatchProviders(payload.WatchProviders.Results),
+		ID:               id,
+		Title:            payload.Title,
+		MediaType:        "movie",
+		Overview:         payload.Overview,
+		Tagline:          payload.Tagline,
+		PosterURL:        poster,
+		BackdropURL:      backdrop,
+		BackdropLargeURL: backdropLarge,
+		Status:           payload.Status,
+		ReleaseDate:      payload.ReleaseDate,
+		Runtime:          payload.Runtime,
+		Genres:           genres,
+		VoteAverage:      payload.VoteAverage,
+		VoteCount:        payload.VoteCount,
+		Popularity:       payload.Popularity,
+		Homepage:         payload.Homepage,
+		OriginCountry:    payload.OriginCountry,
+		Cast:             mapCast(payload.Credits),
+		Directors:        mapDirectors(payload.Credits),
+		WatchProviders:   mapWatchProviders(payload.WatchProviders.Results),
 	}, nil
 }
 
@@ -863,8 +873,10 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		poster = buildPosterURL(payload.PosterPath)
 	}
 	backdrop := ""
+	backdropLarge := ""
 	if payload.BackdropPath != "" {
 		backdrop = buildBackdropURL(payload.BackdropPath)
+		backdropLarge = buildBackdropLargeURL(payload.BackdropPath)
 	}
 	genres := make([]string, 0, len(payload.Genres))
 	for _, genre := range payload.Genres {
@@ -913,6 +925,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		Tagline:           payload.Tagline,
 		PosterURL:         poster,
 		BackdropURL:       backdrop,
+		BackdropLargeURL:  backdropLarge,
 		Status:            payload.Status,
 		FirstAirDate:      payload.FirstAirDate,
 		LastAirDate:       lastAirDate,
@@ -1350,6 +1363,13 @@ func buildBackdropURL(path string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s%s", backdropBaseURL, path)
+}
+
+func buildBackdropLargeURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", backdropLargeBaseURL, path)
 }
 
 func buildProfileURL(path string) string {

@@ -1,9 +1,16 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
+
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/episodes"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 )
 
 func (s *Server) episodesHandler(w http.ResponseWriter, r *http.Request) {
@@ -67,50 +74,7 @@ func (s *Server) episodesContinueHandler(w http.ResponseWriter, r *http.Request)
 		writeError(w, 500, "continue failed")
 		return
 	}
-	// Continue() finds the first unwatched number from persisted progress. That
-	// number still has to be checked against TMDB: max(watched)+1 is not
-	// necessarily a real episode when the user has finished a season or series.
-	validated := items[:0]
-	for _, item := range items {
-		episodes, err := s.releases.SeasonEpisodes(r.Context(), item.TMDBID, item.SeasonNumber)
-		if err != nil {
-			// Metadata is an external dependency. Preserve the existing item on a
-			// transient failure instead of making the whole rail disappear.
-			validated = append(validated, item)
-			continue
-		}
-		exists := false
-		for _, episode := range episodes {
-			if episode.EpisodeNumber == item.EpisodeNumber {
-				exists = true
-				break
-			}
-		}
-		if exists {
-			item.EpisodeCount = len(episodes)
-			validated = append(validated, item)
-			continue
-		}
-
-		// A completed season may still continue at episode one of the next one.
-		nextSeason, err := s.releases.SeasonEpisodes(r.Context(), item.TMDBID, item.SeasonNumber+1)
-		if err != nil {
-			validated = append(validated, item)
-			continue
-		}
-		for _, episode := range nextSeason {
-			if episode.EpisodeNumber == 1 {
-				item.SeasonNumber++
-				item.EpisodeNumber = 1
-				// Progress belongs to the season being counted, and this item has
-				// just rolled over to the next one.
-				item.WatchedCount = 0
-				item.EpisodeCount = len(nextSeason)
-				validated = append(validated, item)
-				break
-			}
-		}
-	}
+	validated := validateContinueItems(r.Context(), s.releases, items, time.Now().UTC())
 	writeJSON(w, 200, map[string]any{"items": validated})
 }
 
@@ -137,3 +101,89 @@ func (s *Server) episodesMetadataHandler(w http.ResponseWriter, r *http.Request)
 	}
 	writeJSON(w, 200, map[string]any{"items": items})
 }
+
+// seasonFetcher is the slice of the release service the continue rail needs.
+type seasonFetcher interface {
+	SeasonEpisodes(ctx context.Context, tvID, seasonNumber int) ([]release.Episode, error)
+}
+
+// validateContinueItems decides which of the stored "next episode" pointers are
+// actually something to watch right now.
+//
+// Continue() derives the next episode as max(watched)+1, which is a guess: for
+// someone who finished a season it points past the end, and TMDB happily lists
+// episodes that were announced but have not aired. Both cases used to leave a
+// finished series sitting in "Продовжити перегляд" forever. A series drops out
+// of the rail when the viewer has caught up, and comes back on its own once the
+// next episode airs.
+func validateContinueItems(
+	ctx context.Context,
+	seasons seasonFetcher,
+	items []episodes.ContinueItem,
+	today time.Time,
+) []episodes.ContinueItem {
+	validated := items[:0]
+	for _, item := range items {
+		current, err := seasons.SeasonEpisodes(ctx, item.TMDBID, item.SeasonNumber)
+		if err != nil {
+			if errors.Is(err, release.ErrNotFound) {
+				// The season the progress points at is gone; nothing to continue.
+				continue
+			}
+			// Metadata is an external dependency: on a transient failure keep the
+			// item rather than making the whole rail flicker out.
+			validated = append(validated, item)
+			continue
+		}
+
+		item.EpisodeCount = len(current)
+		if hasAiredEpisode(current, item.EpisodeNumber, today) {
+			validated = append(validated, item)
+			continue
+		}
+
+		// The season is finished — the next one may already have started.
+		next, err := seasons.SeasonEpisodes(ctx, item.TMDBID, item.SeasonNumber+1)
+		if err != nil {
+			if errors.Is(err, release.ErrNotFound) {
+				// No next season: the viewer is done with this series.
+				continue
+			}
+			validated = append(validated, item)
+			continue
+		}
+		if !hasAiredEpisode(next, 1, today) {
+			// Announced but not aired yet — the card returns on release day.
+			continue
+		}
+
+		item.SeasonNumber++
+		item.EpisodeNumber = 1
+		// Progress belongs to the season being counted, and this item has just
+		// rolled over to the next one.
+		item.WatchedCount = 0
+		item.EpisodeCount = len(next)
+		validated = append(validated, item)
+	}
+	return validated
+}
+
+// hasAiredEpisode reports whether the numbered episode exists in the season and
+// is already out. An episode without an air date is treated as unreleased:
+// TMDB fills the date in once an episode is scheduled, so a blank one is a
+// placeholder rather than something the viewer can watch tonight.
+func hasAiredEpisode(season []release.Episode, number int, today time.Time) bool {
+	for _, episode := range season {
+		if episode.EpisodeNumber != number {
+			continue
+		}
+		airDate, err := time.Parse(episodeAirDateLayout, strings.TrimSpace(episode.AirDate))
+		if err != nil {
+			return false
+		}
+		return !airDate.After(today)
+	}
+	return false
+}
+
+const episodeAirDateLayout = "2006-01-02"

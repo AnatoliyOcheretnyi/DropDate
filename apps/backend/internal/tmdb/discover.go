@@ -44,6 +44,7 @@ type DiscoverItem struct {
 	PosterURL string
 	Rating    float64
 	GenreIDs  []int
+	Overview  string
 }
 
 type discoverResponse struct {
@@ -59,6 +60,7 @@ type discoverEntry struct {
 	PosterPath   string  `json:"poster_path"`
 	VoteAverage  float64 `json:"vote_average"`
 	GenreIDs     []int   `json:"genre_ids"`
+	Overview     string  `json:"overview"`
 }
 
 // Discover queries TMDB /discover/{movie,tv} with the given filters.
@@ -183,6 +185,7 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 			PosterURL: poster,
 			Rating:    result.VoteAverage,
 			GenreIDs:  result.GenreIDs,
+			Overview:  strings.TrimSpace(result.Overview),
 		})
 	}
 	return out, nil

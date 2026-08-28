@@ -16,11 +16,14 @@ const (
 	AIMood Feature = "ai_mood"
 	// AIMatch gates AI-assisted selection in the match/cinematch picker.
 	AIMatch Feature = "ai_match"
+	// AIVibe gates phrase interpretation and reranking in associative search.
+	// With it off the engine still works, on the keyword matcher alone.
+	AIVibe Feature = "ai_vibe"
 )
 
 // AllFeatures lists every known feature (handy for config/dumps).
 func AllFeatures() []Feature {
-	return []Feature{AIRecommendations, AIMood, AIMatch}
+	return []Feature{AIRecommendations, AIMood, AIMatch, AIVibe}
 }
 
 // Resolver decides whether a feature is enabled for a given user. The userID is

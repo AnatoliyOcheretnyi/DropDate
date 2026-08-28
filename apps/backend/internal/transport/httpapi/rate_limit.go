@@ -67,6 +67,7 @@ func (l *rateLimiter) policy(path string) (string, int) {
 		strings.HasPrefix(path, "/recommendations/"),
 		strings.HasPrefix(path, "/mood/"),
 		strings.HasPrefix(path, "/match/"),
+		strings.HasPrefix(path, "/vibe"),
 		strings.HasPrefix(path, "/akinator/"):
 		return "expensive", l.config.ExpensivePerMinute
 	default:

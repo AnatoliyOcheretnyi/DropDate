@@ -1473,6 +1473,15 @@
   object-position: center;
 }
 
+/* The poster standing in until the backdrop arrives: blurred and pushed out of
+   frame so a portrait image reads as a colour wash rather than as art that
+   failed to load. */
+.home-hero__image--placeholder {
+  transform: scale(1.15);
+  filter: blur(28px) saturate(1.1);
+  opacity: 0.7;
+}
+
 /* Two scrims: horizontal so the copy stays readable over bright art, vertical
    so the discovery bar sits on solid ground. */
 .home-hero__scrim {
@@ -1715,144 +1724,114 @@
   color: var(--dd-warn);
 }
 
-/* --- Discovery bar ------------------------------------------------------- */
+/* --- Discovery bar -------------------------------------------------------
+
+   The hero's one input: a phrase, not a title. Titles belong to the header
+   field, and the three shortcuts that used to sit here live one screen below
+   in "Відкрий щось нове" (design/discovery-redesign/SPEC.md).
+   ------------------------------------------------------------------------ */
 
 .hero-discovery {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--dd-border);
   border-radius: 22px;
   background: rgba(11, 18, 28, 0.88);
   backdrop-filter: blur(20px);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
 }
 
-.hero-discovery__search {
-  position: relative;
-  flex: 1;
+.hero-discovery__form {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 18px;
+  height: 60px;
+  padding: 0 10px 0 18px;
   border: 1px solid var(--dd-border-strong);
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.04);
-  min-width: 0;
 }
 
-.hero-discovery__search:focus-within {
+.hero-discovery__form:focus-within {
   border-color: rgba(115, 240, 193, 0.4);
 }
 
-.hero-discovery__search-icon {
-  color: var(--dd-accent);
+.hero-discovery__icon {
   flex-shrink: 0;
+  color: var(--dd-accent);
 }
 
-.hero-discovery__search input {
+.hero-discovery__form input {
   flex: 1;
   min-width: 0;
   border: 0;
   background: transparent;
   color: var(--dd-text);
+  font-family: inherit;
   font-size: 15px;
+  font-weight: 600;
   outline: none;
 }
 
-.hero-discovery__search input::placeholder {
-  color: var(--dd-muted);
-}
-
-/* Safari renders a native clear affordance on type=search that fights the
-   rounded field. */
-.hero-discovery__search input::-webkit-search-cancel-button {
-  appearance: none;
-}
-
-.hero-discovery__shortcut {
-  flex-shrink: 0;
-  padding: 4px 9px;
-  border: 1px solid var(--dd-border-strong);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
+.hero-discovery__form input::placeholder {
   color: var(--dd-faint);
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
 }
 
-/* The shared suggestions list already positions and scrolls itself; here it
-   only needs the redesign's radius and enough lift to clear the hero art. */
-.hero-discovery__search .suggestions {
-  top: calc(100% + 10px);
-  /* The shared list sizes itself to the field's content box; stretch it to the
-     field's outer edges instead so the two line up. */
-  left: 0;
-  right: 0;
-  width: auto;
-  z-index: 30;
-  border: 1px solid var(--dd-border-strong);
-  border-radius: 18px;
-  background: rgba(9, 15, 24, 0.98);
-}
-
-.hero-discovery__divider {
-  width: 1px;
-  height: 34px;
+.hero-discovery__submit {
   flex-shrink: 0;
-  background: var(--dd-border-strong);
-}
-
-.hero-discovery__actions {
-  display: flex;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.hero-discovery__action {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 18px;
-  border: 1px solid var(--dd-border-strong);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--dd-text);
-  font-size: 14px;
-  font-weight: 800;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.16s ease;
-}
-
-.hero-discovery__action:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.hero-discovery__action--primary {
-  border-color: transparent;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: 14px;
   background: var(--dd-accent);
   color: var(--dd-accent-ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
-.hero-discovery__action--primary:hover {
-  background: #8ff6d0;
+.hero-discovery__submit:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
-/* --- Adaptive ------------------------------------------------------------ */
+/* --- examples row --- */
 
-@media (max-width: 1180px) {
-  .home-hero__body {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 24px;
-  }
+.hero-discovery__examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
 
-  .hero-countdown {
-    width: 100%;
-  }
+.hero-discovery__examples-label {
+  flex-shrink: 0;
+  width: 76px;
+  color: var(--dd-faint);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.hero-discovery__example {
+  padding: 8px 13px;
+  border: 1px solid var(--dd-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--dd-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hero-discovery__example:hover {
+  border-color: rgba(115, 240, 193, 0.32);
+  color: var(--dd-text);
 }
 
 @media (max-width: 900px) {
@@ -1869,31 +1848,24 @@
     letter-spacing: -0.8px;
   }
 
-  /* The bar becomes a full-width field with the quick actions scrolling under
-     it, rather than a single squeezed row. */
+  /* The examples wrap under the field instead of sharing its row. */
   .hero-discovery {
-    flex-direction: column;
-    align-items: stretch;
+    padding: 12px;
     gap: 12px;
   }
 
-  .hero-discovery__divider {
-    display: none;
+  .hero-discovery__form {
+    height: 54px;
+    padding-left: 14px;
   }
 
-  .hero-discovery__shortcut {
-    display: none;
+  .hero-discovery__examples-label {
+    width: 100%;
   }
 
-  .hero-discovery__actions {
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-
-  .hero-discovery__actions::-webkit-scrollbar {
-    display: none;
+  .hero-discovery__example {
+    font-size: 12px;
+    padding: 7px 11px;
   }
 }
 

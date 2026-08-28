@@ -59,21 +59,26 @@ export function TitleDetailsScreen() {
     ? getReleaseStatusLabel(currentRelease.status, currentRelease.type)
     : null;
 
+  // Full-bleed art, same as the home hero: the card-sized w780 variant is
+  // visibly soft stretched across the page.
+  const pageBackdrop = details?.backdropLargeUrl ?? details?.backdropUrl ?? "";
+
   return (
     <main className="page page--details">
       {details ? (
         <div
           className={`details-page-backdrop${
-            details.backdropUrl ? "" : " details-page-backdrop--empty"
+            pageBackdrop ? "" : " details-page-backdrop--empty"
           }`}
           aria-hidden="true"
         >
-          {details.backdropUrl ? (
+          {pageBackdrop ? (
             <CoverImage
-              src={details.backdropUrl}
+              src={pageBackdrop}
               alt=""
               sizes="100vw"
               priority
+              quality={90}
               ariaHidden
             />
           ) : null}

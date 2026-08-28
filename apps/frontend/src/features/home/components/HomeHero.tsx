@@ -16,16 +16,12 @@ import { HeroDiscoveryBar } from "./HeroDiscoveryBar";
 type Props = {
   spotlight: Suggestion | null;
   /** Everything else the home page loaded, for the "surprise me" die. */
-  surprisePool: Suggestion[];
-  isSuggestionSaved: (suggestion: Suggestion) => boolean;
   getListTypes: (suggestion: Suggestion) => ListType[];
   onChangeLists: (suggestion: Suggestion, next: ListType[]) => void;
 };
 
 export function HomeHero({
   spotlight,
-  surprisePool,
-  isSuggestionSaved,
   getListTypes,
   onChangeLists,
 }: Props) {
@@ -38,7 +34,13 @@ export function HomeHero({
   }
 
   const isTracked = getListTypes(spotlight).includes("watchlist");
-  const backdrop = details?.backdropUrl ?? spotlight.posterUrl;
+  // Full-bleed art needs the untouched upload: the w780 variant is a card size
+  // and visibly falls apart stretched across a wide screen.
+  const backdrop = details?.backdropLargeUrl ?? details?.backdropUrl ?? "";
+  // Until /details answers, the only art the home payload carries is a poster.
+  // Stretching a portrait poster across the hero looked like a broken image, so
+  // it stands in blurred — a colour wash that reads as loading, not as a bug.
+  const placeholder = backdrop ? "" : spotlight.posterUrl ?? "";
 
   const mediaLabel =
     spotlight.mediaType === "movie" ? copy.mediaType.movie : copy.mediaType.series;
@@ -69,8 +71,18 @@ export function HomeHero({
             alt=""
             sizes="100vw"
             priority
+            quality={90}
             ariaHidden
             className="home-hero__image"
+          />
+        ) : placeholder ? (
+          <CoverImage
+            src={placeholder}
+            alt=""
+            sizes="100vw"
+            priority
+            ariaHidden
+            className="home-hero__image home-hero__image--placeholder"
           />
         ) : null}
         <span className="home-hero__scrim" />
@@ -123,10 +135,7 @@ export function HomeHero({
           <HeroCountdown details={details ?? null} releaseAt={releaseAt} />
         </div>
 
-        <HeroDiscoveryBar
-          surprisePool={surprisePool}
-          isSuggestionSaved={isSuggestionSaved}
-        />
+        <HeroDiscoveryBar />
       </div>
     </section>
   );

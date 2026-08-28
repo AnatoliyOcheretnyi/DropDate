@@ -43,6 +43,8 @@ type AIConfig struct {
 	RecommendationsEnabled bool
 	MoodEnabled            bool
 	MatchEnabled           bool
+	VibeEnabled            bool
+	VibeRerankEnabled      bool
 }
 
 type RecommendationsConfig struct {
@@ -151,6 +153,8 @@ func LoadConfig() (Config, error) {
 			RecommendationsEnabled: config.Bool("AI_RECOMMENDATIONS_ENABLED", true),
 			MoodEnabled:            config.Bool("AI_MOOD_ENABLED", true),
 			MatchEnabled:           config.Bool("AI_MATCH_ENABLED", true),
+			VibeEnabled:            config.Bool("AI_VIBE_ENABLED", true),
+			VibeRerankEnabled:      config.Bool("AI_VIBE_RERANK_ENABLED", true),
 		},
 		Recommendations: RecommendationsConfig{
 			RefreshDebounce: config.Duration("RECOMMENDATIONS_REFRESH_DEBOUNCE", 5*time.Minute),

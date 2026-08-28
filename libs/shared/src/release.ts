@@ -27,6 +27,8 @@ export type Details = {
   tagline?: string;
   posterUrl?: string;
   backdropUrl?: string;
+  /** Untouched TMDB upload, for full-bleed surfaces like the home hero. */
+  backdropLargeUrl?: string;
   status?: string;
   releaseDate?: string;
   firstAirDate?: string;
