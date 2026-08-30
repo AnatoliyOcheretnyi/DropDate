@@ -1,6 +1,8 @@
 package vibe
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -25,6 +27,26 @@ func TestNormalizeDropsAnythingOutsideTheVocabulary(t *testing.T) {
 	}
 }
 
+// The wire contract says themes and genres are arrays. A nil slice marshals to
+// `null`, and a client reading `plan.genres.includes(...)` off a themes-only
+// plan crashes on it — so they must never be nil.
+func TestNormalizeNeverLeavesTheListsNil(t *testing.T) {
+	for _, plan := range []Plan{
+		{Themes: []string{"erotica"}},
+		{Genres: []string{"horror"}},
+		{},
+	} {
+		normalized := plan.Normalize(now)
+		encoded, err := json.Marshal(normalized)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if bytes.Contains(encoded, []byte("null")) {
+			t.Fatalf("plan %+v encoded as %s, want empty lists", plan, encoded)
+		}
+	}
+}
+
 func TestNormalizeSquaresAwayTheYearRange(t *testing.T) {
 	plan := Plan{YearFrom: 2026, YearTo: 2015}.Normalize(now)
 	if plan.YearFrom != 2015 || plan.YearTo != 2026 {
@@ -41,14 +63,14 @@ func TestNormalizeSquaresAwayTheYearRange(t *testing.T) {
 func TestDiscoverParamsAndsGenresAndOrsKeywords(t *testing.T) {
 	plan := Plan{Themes: []string{"slasher"}, Genres: []string{"horror"}}.Normalize(now)
 
-	params, ok := plan.DiscoverParams(MediaMovie)
+	params, ok := plan.DiscoverParams(MediaMovie, MatchBroad)
 	if !ok {
 		t.Fatal("expected a movie leg")
 	}
 	if !params.GenresMatchAll {
 		t.Fatal("genres must be AND-ed: a teen horror is a horror, not a horror or a teen film")
 	}
-	if len(params.WithKeywords) == 0 {
+	if len(params.WithKeywordGroups) == 0 {
 		t.Fatal("the theme must contribute its TMDB keywords")
 	}
 	if !containsInt(params.WithGenres, 27) {
@@ -60,19 +82,19 @@ func TestDiscoverParamsSkipsTheTVLegWhenTheGenreHasNoTVBucket(t *testing.T) {
 	// TMDB has no Horror genre for series, so a tv leg would answer a different
 	// question — better to return movies only.
 	plan := Plan{Genres: []string{"horror"}, Themes: []string{"slasher"}}.Normalize(now)
-	if _, ok := plan.DiscoverParams(MediaTV); ok {
+	if _, ok := plan.DiscoverParams(MediaTV, MatchBroad); ok {
 		t.Fatal("expected the tv leg to be skipped")
 	}
 
 	plan = Plan{Genres: []string{"comedy"}, Themes: []string{"haunted"}}.Normalize(now)
-	if _, ok := plan.DiscoverParams(MediaTV); !ok {
+	if _, ok := plan.DiscoverParams(MediaTV, MatchBroad); !ok {
 		t.Fatal("comedy exists for tv, so the leg should run")
 	}
 }
 
 func TestDiscoverParamsRefusesAnEmptyQuery(t *testing.T) {
 	// Nothing but a sort order is "popular titles", not an answer to a phrase.
-	if _, ok := (Plan{}).DiscoverParams(MediaMovie); ok {
+	if _, ok := (Plan{}).DiscoverParams(MediaMovie, MatchBroad); ok {
 		t.Fatal("an empty plan must not produce a query")
 	}
 }
@@ -85,15 +107,46 @@ func TestDiscoverParamsRespectsMediaTypeAndYears(t *testing.T) {
 		YearTo:     2020,
 	}.Normalize(now)
 
-	if _, ok := plan.DiscoverParams(MediaMovie); ok {
+	if _, ok := plan.DiscoverParams(MediaMovie, MatchBroad); ok {
 		t.Fatal("a tv-only plan must not run the movie leg")
 	}
-	params, ok := plan.DiscoverParams(MediaTV)
+	params, ok := plan.DiscoverParams(MediaTV, MatchBroad)
 	if !ok {
 		t.Fatal("expected the tv leg")
 	}
 	if params.ReleaseDateGTE != "2015-01-01" || params.ReleaseDateLTE != "2020-12-31" {
 		t.Fatalf("dates = %q..%q", params.ReleaseDateGTE, params.ReleaseDateLTE)
+	}
+}
+
+func TestMatchStrictAndsThemesWhileBroadOrsThem(t *testing.T) {
+	plan := Plan{Themes: []string{"teen_comedy", "slasher"}}.Normalize(now)
+
+	strict, ok := plan.DiscoverParams(MediaMovie, MatchStrict)
+	if !ok {
+		t.Fatal("expected a movie leg")
+	}
+	if len(strict.WithKeywordGroups) != 2 {
+		t.Fatalf(
+			"groups = %v, want one per theme so a title must carry both",
+			strict.WithKeywordGroups,
+		)
+	}
+
+	broad, ok := plan.DiscoverParams(MediaMovie, MatchBroad)
+	if !ok {
+		t.Fatal("expected a movie leg")
+	}
+	if len(broad.WithKeywordGroups) != 1 {
+		t.Fatalf("groups = %v, want the themes pooled into one", broad.WithKeywordGroups)
+	}
+	if len(broad.WithKeywordGroups[0]) <= len(strict.WithKeywordGroups[0]) {
+		t.Fatal("the broad pool must hold every theme's keywords")
+	}
+
+	// One theme reads the same either way, so there is nothing to widen to.
+	if (Plan{Themes: []string{"slasher"}}).Normalize(now).narrows() {
+		t.Fatal("a single-theme plan must not cost a second query")
 	}
 }
 

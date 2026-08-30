@@ -32,6 +32,12 @@ export type VibeResponse = {
   page: number;
   hasMore: boolean;
   reranked: boolean;
+  /**
+   * The strict reading of the phrase came back nearly empty, so the themes were
+   * widened from "all of these" to "any of these". Worth saying out loud: it is
+   * the difference between an exact answer and a near miss.
+   */
+  broadened: boolean;
   source: string;
 };
 
@@ -49,4 +55,5 @@ export const EXAMPLE_PHRASES = [
   "щось легке про любов",
   "розумна фантастика без екшену",
   "детектив у маленькому місті",
+  "жахи де є оголення",
 ];

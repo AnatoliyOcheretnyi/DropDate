@@ -12,7 +12,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { Details, ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { copy } from "../../../shared/lib/strings";
-import { excludeSaved } from "../../../shared/lib/excludeSaved";
+import { useUnsavedItems } from "../../../shared/lib/unsavedItems";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSuggestions } from "../../../shared/hooks/useSuggestions";
 import { useToasts } from "../../../shared/hooks/useToasts";
@@ -55,6 +55,7 @@ export function useTitleDetails() {
 
   const {
     savedCount,
+    isReady: isSavedReady,
     getListTypes,
     getSavedItem,
     setSuggestionLists,
@@ -91,10 +92,16 @@ export function useTitleDetails() {
   const details = detailsQuery.data?.details ?? null;
   const release = detailsQuery.data?.release ?? null;
   // "Схожі" is a place to find something new, so titles already in one of the
-  // user's lists are dropped from it.
-  const recommendations = useMemo(
-    () => excludeSaved(detailsQuery.data?.recommendations ?? [], getListTypes),
-    [detailsQuery.data, getListTypes]
+  // user's lists are dropped from it — the ones saved right here stay until the
+  // next title is opened.
+  const fetchedRecommendations = useMemo(
+    () => detailsQuery.data?.recommendations ?? [],
+    [detailsQuery.data]
+  );
+  const { items: recommendations } = useUnsavedItems(
+    fetchedRecommendations,
+    getListTypes,
+    { resetKey: `${mediaType}:${id}`, isReady: isSavedReady }
   );
   const isLoading = detailsQuery.isLoading;
   const error = !isValidRequest

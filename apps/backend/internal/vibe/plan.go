@@ -57,10 +57,16 @@ func (p Plan) IsEmpty() bool {
 // and squares away the year range. It is applied both to model output and to
 // plans posted back by the client, so an edited plan gets the same treatment.
 func (p Plan) Normalize(now time.Time) Plan {
+	// Themes and Genres are not optional in the wire contract, so they start as
+	// empty slices rather than nil: a nil slice marshals to `null`, and a client
+	// reading `plan.genres.includes(...)` off a themes-only plan gets a crash
+	// instead of an empty list.
 	out := Plan{
 		Phrase:  strings.TrimSpace(p.Phrase),
 		Summary: strings.TrimSpace(p.Summary),
 		Source:  p.Source,
+		Themes:  []string{},
+		Genres:  []string{},
 	}
 
 	seenTheme := map[string]bool{}
@@ -113,7 +119,10 @@ func (p Plan) Normalize(now time.Time) Plan {
 }
 
 func normalizeGenres(values []string, limit int) []string {
-	var out []string
+	// Non-nil for the same reason Normalize starts Genres empty: this is what
+	// lands in the JSON. ExcludeGenres is `omitempty`, and an empty non-nil
+	// slice is still omitted, so it keeps its old shape.
+	out := []string{}
 	seen := map[string]bool{}
 	for _, slug := range values {
 		genre, ok := genreBySlug(slug)
@@ -193,14 +202,28 @@ func (p Plan) wantsMedia(mediaType string) bool {
 	return containsString(p.MediaTypes, mediaType)
 }
 
+// Match is how hard a multi-theme plan is read.
+//
+// TMDB tags keywords thinly, and the two readings of "молодіжний жах де багато
+// крові" are far apart: MatchStrict asks for a teen film *and* a bloody one and
+// finds a handful of titles; MatchBroad asks for either and finds thousands of
+// which most answer only half the phrase. Neither is right on its own, which is
+// why the engine tries strict first and widens only when strict came back
+// nearly empty.
+type Match int
+
+const (
+	// MatchStrict AND-es the themes: one keyword from every theme.
+	MatchStrict Match = iota
+	// MatchBroad ORs them into a single pool.
+	MatchBroad
+)
+
 // DiscoverParams turns the plan into one leg of the query.
 //
-// Keywords from several themes are OR-joined by TMDB, which is the only thing
-// it supports for with_keywords — so a two-theme plan is a union of keywords
-// sharpened by the AND-ed genres, not a strict intersection of both themes.
-// Genres are AND-ed: "молодіжний жах" must be a horror, not a horror or a
-// teen film.
-func (p Plan) DiscoverParams(mediaType string) (release.DiscoverParams, bool) {
+// Genres are always AND-ed: "молодіжний жах" must be a horror, not a horror or
+// a teen film. Themes follow the match mode above.
+func (p Plan) DiscoverParams(mediaType string, match Match) (release.DiscoverParams, bool) {
 	if !p.wantsMedia(mediaType) {
 		return release.DiscoverParams{}, false
 	}
@@ -242,14 +265,28 @@ func (p Plan) DiscoverParams(mediaType string) (release.DiscoverParams, bool) {
 		}
 	}
 
-	keywords := newIntSet()
+	// One group per theme under MatchStrict, one group for all of them under
+	// MatchBroad. The groups are AND-ed by the client, their members OR-ed.
+	var groups [][]int
+	broad := newIntSet()
 	for _, theme := range themes.Pick(p.Themes...) {
-		keywords.add(theme.Keywords...)
+		if match == MatchStrict {
+			group := newIntSet()
+			group.add(theme.Keywords...)
+			if list := group.list(); len(list) > 0 {
+				groups = append(groups, list)
+			}
+		} else {
+			broad.add(theme.Keywords...)
+		}
 		// Genre hints are movie ids, so they only sharpen the movie leg.
 		if mediaType == MediaMovie {
 			withGenres.add(theme.WithGenres...)
 			withoutGenres.add(theme.WithoutGenres...)
 		}
+	}
+	if list := broad.list(); len(list) > 0 {
+		groups = append(groups, list)
 	}
 
 	for _, id := range withoutGenres.list() {
@@ -257,7 +294,7 @@ func (p Plan) DiscoverParams(mediaType string) (release.DiscoverParams, bool) {
 	}
 	params.WithGenres = withGenres.list()
 	params.WithoutGenres = withoutGenres.list()
-	params.WithKeywords = keywords.list()
+	params.WithKeywordGroups = groups
 	params.WithOriginCountry = append([]string(nil), p.Countries...)
 
 	if p.YearFrom > 0 {
@@ -269,12 +306,17 @@ func (p Plan) DiscoverParams(mediaType string) (release.DiscoverParams, bool) {
 
 	// A plan with neither a keyword nor a genre is just "popular titles", which
 	// is not an answer to a phrase.
-	if len(params.WithKeywords) == 0 && len(params.WithGenres) == 0 &&
+	if len(groups) == 0 && len(params.WithGenres) == 0 &&
 		len(params.WithOriginCountry) == 0 {
 		return release.DiscoverParams{}, false
 	}
 	return params, true
 }
+
+// narrows reports whether reading this plan strictly differs from reading it
+// broadly at all. With fewer than two themes the two are the same query, and
+// running both would double the cost of every search for nothing.
+func (p Plan) narrows() bool { return len(p.Themes) > 1 }
 
 const voteCountFloor = 50
 

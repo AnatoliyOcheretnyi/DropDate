@@ -157,6 +157,20 @@
     var(--dd-surface-1);
 }
 
+/* The eyebrow shares its line with the "Як це працює" trigger, so the
+   explanation sits where the feature is named rather than floating. */
+.vibe-hero__eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.vibe-hero__eyebrow .eyebrow {
+  margin: 0;
+}
+
 .vibe-hero h1 {
   margin: 0;
   font-family: var(--font-display), var(--font-body), sans-serif;

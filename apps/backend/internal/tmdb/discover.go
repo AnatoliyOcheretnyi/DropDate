@@ -12,11 +12,16 @@ import (
 // omitted from the request. MediaType selects /discover/movie (default) or
 // /discover/tv.
 type DiscoverParams struct {
-	MediaType         string   // "movie" (default) or "tv"
-	WithGenres        []int    // OR-joined (any of), or AND-joined when GenresMatchAll
-	GenresMatchAll    bool     // true = a title must carry every genre listed
-	WithoutGenres     []int    // excluded
-	WithKeywords      []int    // OR-joined (any of) -- the thematic layer
+	MediaType      string // "movie" (default) or "tv"
+	WithGenres     []int  // OR-joined (any of), or AND-joined when GenresMatchAll
+	GenresMatchAll bool   // true = a title must carry every genre listed
+	WithoutGenres  []int  // excluded
+	WithKeywords   []int  // OR-joined (any of) -- the thematic layer
+	// WithKeywordGroups AND-es one OR-group against another: a title must carry
+	// at least one keyword out of every group. It is how "молодіжний жах де
+	// багато крові" asks for teen AND gore rather than teen OR gore. Combined
+	// with WithKeywords, which is simply one more group.
+	WithKeywordGroups [][]int
 	WithoutKeywords   []int    // excluded
 	OriginalLanguage  string   // ISO 639-1, e.g. "ja", "ko", "en"
 	WithOriginCountry []string // ISO 3166-1, OR-joined (any of), e.g. ["KR","JP"]
@@ -95,8 +100,14 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 	if len(p.WithoutGenres) > 0 {
 		q.Set("without_genres", joinInts(p.WithoutGenres, ","))
 	}
-	if len(p.WithKeywords) > 0 {
-		q.Set("with_keywords", joinInts(p.WithKeywords, "|"))
+	// TMDB reads "," as AND and "|" as OR inside with_keywords too, so groups
+	// of alternatives are joined with "|" and the groups themselves with ",".
+	if groups := keywordGroups(p); len(groups) > 0 {
+		parts := make([]string, 0, len(groups))
+		for _, group := range groups {
+			parts = append(parts, joinInts(group, "|"))
+		}
+		q.Set("with_keywords", strings.Join(parts, ","))
 	}
 	if len(p.WithoutKeywords) > 0 {
 		q.Set("without_keywords", joinInts(p.WithoutKeywords, ","))
@@ -189,6 +200,21 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 		})
 	}
 	return out, nil
+}
+
+// keywordGroups returns every AND-ed group of the query: the flat WithKeywords
+// list counts as one, empty groups are dropped.
+func keywordGroups(p DiscoverParams) [][]int {
+	groups := make([][]int, 0, len(p.WithKeywordGroups)+1)
+	if len(p.WithKeywords) > 0 {
+		groups = append(groups, p.WithKeywords)
+	}
+	for _, group := range p.WithKeywordGroups {
+		if len(group) > 0 {
+			groups = append(groups, group)
+		}
+	}
+	return groups
 }
 
 func joinInts(values []int, sep string) string {

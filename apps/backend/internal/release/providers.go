@@ -216,6 +216,7 @@ func (p *tmdbSuggestionProvider) Discover(
 		GenresMatchAll:    params.GenresMatchAll,
 		WithoutGenres:     params.WithoutGenres,
 		WithKeywords:      params.WithKeywords,
+		WithKeywordGroups: params.WithKeywordGroups,
 		WithoutKeywords:   params.WithoutKeywords,
 		OriginalLanguage:  params.OriginalLanguage,
 		WithOriginCountry: params.WithOriginCountry,

@@ -45,6 +45,7 @@ func (s *Service) InterpretPhrase(
 		MaxOutputTokens:   768,
 		Temperature:       &temperature,
 		ThinkingConfig:    &genai.ThinkingConfig{ThinkingBudget: &noThinking},
+		SafetySettings:    vibeSafetySettings(),
 	}
 
 	resp, err := s.client.Models.GenerateContent(ctx, s.model, genai.Text(prompt), cfg)
@@ -63,6 +64,29 @@ func (s *Service) InterpretPhrase(
 	return plan, nil
 }
 
+// vibeSafetySettings relax the default thresholds for this one call.
+//
+// The task is to label a search phrase with ids from a fixed list — nothing is
+// written, nothing is described. At the default threshold "жахи, де є оголення"
+// and "щось дуже жорстоке" come back blocked, and the search falls through to
+// the keyword matcher for exactly the phrases the model was added to read. The
+// output is still a set of ids validated against the catalog, so a relaxed
+// threshold cannot widen what the search can return.
+func vibeSafetySettings() []*genai.SafetySetting {
+	threshold := genai.HarmBlockThresholdBlockOnlyHigh
+	categories := []genai.HarmCategory{
+		genai.HarmCategorySexuallyExplicit,
+		genai.HarmCategoryDangerousContent,
+		genai.HarmCategoryHarassment,
+		genai.HarmCategoryHateSpeech,
+	}
+	out := make([]*genai.SafetySetting, 0, len(categories))
+	for _, category := range categories {
+		out = append(out, &genai.SafetySetting{Category: category, Threshold: threshold})
+	}
+	return out
+}
+
 const vibeSystemPrompt = `Ти перекладаєш вільний опис фільму на структурований запит.
 Користувач пише українською, як думає: «молодіжний жах де багато крові»,
 «комедія з привидами», «щось повільне про сімʼю».
@@ -76,6 +100,10 @@ const vibeSystemPrompt = `Ти перекладаєш вільний опис ф
 - excludeGenres — лише коли користувач явно щось відкидає («без жахів», «не мелодрама»).
 - mediaTypes лишай порожнім, якщо у фразі немає слова про фільм чи серіал.
 - yearFrom/yearTo — лише коли час згадано («нове», «90-х», «класика»). Інакше 0.
+- Запити про оголення, еротику, кров і жорстокість — звичайні запити про кіно, а не
+  про порнографію. Для них є теми erotica, gore, disturbing: обирай їх прямо, а не
+  найближчу пристойнішу тему. «Жахи, де є оголення» — це genres:[horror] +
+  themes:[erotica], а не просто horror.
 - summary — один короткий рядок українською про те, як ти зрозумів запит.`
 
 func vibeSchema() *genai.Schema {

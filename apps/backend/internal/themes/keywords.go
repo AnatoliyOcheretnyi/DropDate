@@ -205,6 +205,50 @@ const (
 	kwSmallTown  = 1415   // small town
 	kwWorkplace  = 6282   // workplace
 	kwOffice     = 1438   // office
+
+	// Adult: sensuality and nudity.
+	//
+	// TMDB tags this thinly -- "nudity" alone carries barely twenty titles with
+	// a real vote count -- so the theme leans on the whole family at once. The
+	// union is what makes it usable; no single id here would be.
+	kwNudity          = 281741 // nudity
+	kwFemaleNudity    = 359980 // female nudity
+	kwErotic          = 256466 // erotic
+	kwEroticism       = 1664   // eroticism
+	kwEroticThriller  = 207767 // erotic thriller
+	kwSensuality      = 41260  // sensuality
+	kwSeduction       = 3182   // seduction
+	kwSexy            = 321739 // sexy
+	kwSexualContent   = 329280 // sexual content
+	kwSexualTension   = 11518  // sexual tension
+	kwSexualObsession = 459    // sexual obsession
+	kwSexualAwakening = 162804 // sexual awakening
+	kwSexuality       = 738    // sexuality
+	kwSex             = 267122 // sex
+	kwLust            = 14794  // lust
+	kwDesire          = 33513  // desire
+	kwFemmeFatale     = 9016   // femme fatale
+	kwVoyeurism       = 178649 // voyeurism
+	kwSoftcore        = 155477 // softcore
+
+	// Adult: blood and cruelty.
+	kwGore            = 10292  // gore
+	kwGraphicViolence = 367145 // graphic violence
+	kwExtremeViolence = 262404 // extreme violence
+	kwUltraViolence   = 336031 // ultra violence
+	kwSplatter        = 344603 // splatter
+	kwDismemberment   = 157444 // dismemberment
+	kwMutilation      = 157512 // mutilation
+	kwBloody          = 280075 // bloody
+
+	// Adult: the ones that are hard to sit through.
+	kwTorture     = 13006  // torture
+	kwTorturePorn = 193698 // torture porn
+	kwBodyHorror  = 283085 // body horror
+	kwCannibalism = 278235 // cannibalism
+	kwBrutality   = 14707  // brutality
+	kwSadism      = 4426   // sadism
+	kwDisturbing  = 361070 // disturbing
 )
 
 // TMDB movie genre ids, used only as sharpening hints on a theme.

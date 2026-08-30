@@ -14,6 +14,10 @@ func TestMatchPlanReadsPlainPhrases(t *testing.T) {
 		{"молодіжний жах де багато крові", "slasher", "horror"},
 		{"детектив у маленькому місті", "detective", "crime"},
 		{"фільм про перше кохання", "first_love", ""},
+		// The phrase this whole layer was missing: horror was all it could read.
+		{"жахи де є оголення", "erotica", "horror"},
+		{"щось еротичне зі звабливими дівчатами", "erotica", ""},
+		{"дуже жорстокий фільм з розчленуванням", "gore", ""},
 	}
 
 	for _, tc := range cases {

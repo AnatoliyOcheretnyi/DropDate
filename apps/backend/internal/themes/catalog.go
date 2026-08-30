@@ -13,6 +13,7 @@ const (
 	GroupSociety   = "society"
 	GroupCraft     = "craft"
 	GroupCozy      = "cozy"
+	GroupAdult     = "adult"
 )
 
 var groupOrder = []struct {
@@ -30,6 +31,7 @@ var groupOrder = []struct {
 	{GroupSociety, "Суспільство й історія"},
 	{GroupCraft, "Творчість і спорт"},
 	{GroupCozy, "Затишне"},
+	{GroupAdult, "Дорослим"},
 }
 
 // catalog is the curated theme list. Keyword sets are deliberately narrow: a
@@ -356,5 +358,40 @@ var catalog = []Theme{
 	{
 		ID: "workplace", Label: "Робота й офіс", Emoji: "💼", Group: GroupCozy,
 		Keywords: []int{kwWorkplace, kwOffice},
+	},
+
+	// --- Дорослим -----------------------------------------------------------
+	//
+	// These are the themes the catalog used to have no words for, so "жахи, де є
+	// оголення" could only ever come back as plain horror. They stay a theme
+	// rather than a switch: erotic content is what a film is *about* as much as
+	// gore is, and the reader can drop the chip like any other.
+	//
+	// None of this is pornography -- /discover keeps include_adult=false, so the
+	// adult catalogue never enters the pool. What these themes reach is the
+	// mainstream erotic thriller, the slasher with a nude scene, the film with a
+	// certificate.
+	{
+		ID: "erotica", Label: "Еротика й оголення", Emoji: "🔥", Group: GroupAdult,
+		Keywords: []int{
+			kwNudity, kwFemaleNudity, kwErotic, kwEroticism, kwEroticThriller,
+			kwSensuality, kwSeduction, kwSexy, kwSexualContent, kwSexualTension,
+			kwSexualObsession, kwSexualAwakening, kwSexuality, kwSex, kwLust,
+			kwDesire, kwFemmeFatale, kwVoyeurism, kwSoftcore,
+		},
+	},
+	{
+		ID: "gore", Label: "Кров і жорстокість", Emoji: "🩸", Group: GroupAdult,
+		Keywords: []int{
+			kwGore, kwGraphicViolence, kwExtremeViolence, kwUltraViolence,
+			kwSplatter, kwDismemberment, kwMutilation, kwBloody,
+		},
+	},
+	{
+		ID: "disturbing", Label: "Важке й нещадне", Emoji: "😰", Group: GroupAdult,
+		Keywords: []int{
+			kwTorture, kwTorturePorn, kwBodyHorror, kwCannibalism, kwBrutality,
+			kwSadism, kwDisturbing,
+		},
 	},
 }

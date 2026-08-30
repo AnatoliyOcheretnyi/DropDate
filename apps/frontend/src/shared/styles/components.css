@@ -631,6 +631,151 @@ dd.date span:last-child {
   font-style: italic;
 }
 
+/* ── info hint ───────────────────────────────────────────────────────────
+   The explain-this-feature card. It borrows .movie-preview outright so a hint
+   and a film preview read as the same object; only the inside differs. */
+
+.info-hint__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.4rem;
+  border: 1px solid var(--dd-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dd-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.info-hint__trigger svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.info-hint__trigger:hover,
+.info-hint__trigger:focus-visible,
+.info-hint__trigger[aria-expanded="true"] {
+  color: var(--dd-accent);
+  border-color: rgba(115, 240, 193, 0.4);
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.info-hint__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.85rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--border-strong);
+  font-size: 0.95rem;
+}
+
+.info-hint__close {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.2rem;
+  cursor: pointer;
+}
+
+.info-hint__close:hover,
+.info-hint__close:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.info-hint__body {
+  gap: 0.85rem;
+  padding-top: 0.85rem;
+}
+
+.info-hint__lead,
+.info-hint__foot {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.info-hint__lead b {
+  color: var(--dd-accent);
+}
+
+.info-hint__foot {
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-size: 0.79rem;
+}
+
+/* The worked example: the rule stated once in the form it produces. */
+.info-hint__example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 12px;
+  background: var(--surface-3);
+}
+
+.info-hint__chip {
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.info-hint__op {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.info-hint__count {
+  margin-left: auto;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-hint__rules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0;
+}
+
+/* The global `dl dt` is an uppercase, wide-tracked label; these are sentences
+   and need resetting back to plain text. */
+.info-hint__rules dt {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.info-hint__rules dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .star-rating {
   display: inline-flex;
   align-items: center;

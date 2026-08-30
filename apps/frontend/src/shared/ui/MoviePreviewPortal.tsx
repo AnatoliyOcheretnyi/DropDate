@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { placeBeside } from "../lib/anchorPlacement";
 import type { Details } from "../lib/release";
 import type { ListType } from "../types/releases";
 import { CoverImage } from "./CoverImage";
@@ -9,8 +10,6 @@ import { ListStatusBar } from "./ListStatusBar";
 
 const PREVIEW_WIDTH = 340;
 const ESTIMATED_HEIGHT = 380;
-const GAP = 12;
-const EDGE = 10;
 
 type Props = {
   anchor: DOMRect | null;
@@ -52,23 +51,11 @@ export function MoviePreviewPortal({
     return null;
   }
 
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let left = anchor.right + GAP;
-  let originX: "left" | "right" = "left";
-  if (left + PREVIEW_WIDTH > viewportWidth - EDGE) {
-    left = anchor.left - GAP - PREVIEW_WIDTH;
-    originX = "right";
-  }
-  left = Math.max(EDGE, Math.min(left, viewportWidth - PREVIEW_WIDTH - EDGE));
-
-  let top = anchor.top;
-  if (top + ESTIMATED_HEIGHT > viewportHeight - EDGE) {
-    top = Math.max(EDGE, viewportHeight - EDGE - ESTIMATED_HEIGHT);
-  }
-  // Cap the height to whatever room is left below `top`; the body scrolls.
-  const maxHeight = Math.max(220, viewportHeight - top - EDGE);
+  const { left, top, maxHeight, originX } = placeBeside(
+    anchor,
+    PREVIEW_WIDTH,
+    ESTIMATED_HEIGHT
+  );
 
   const heading = details?.title || title;
   const backdrop = details?.backdropUrl || details?.posterUrl;

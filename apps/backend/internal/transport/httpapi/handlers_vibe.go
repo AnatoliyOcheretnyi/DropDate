@@ -30,7 +30,11 @@ type vibeResponse struct {
 	Page     int                  `json:"page"`
 	HasMore  bool                 `json:"hasMore"`
 	Reranked bool                 `json:"reranked"`
-	Source   string               `json:"source"`
+	// Broadened tells the client the strict reading of the phrase came back
+	// nearly empty, so what it is looking at answers part of the phrase rather
+	// than all of it.
+	Broadened bool   `json:"broadened"`
+	Source    string `json:"source"`
 }
 
 // vibeHandler answers "опиши, що хочеш подивитись": it interprets the phrase
@@ -115,13 +119,14 @@ func (s *Server) writeVibeResults(
 	}
 
 	writeJSON(w, http.StatusOK, vibeResponse{
-		Plan:     plan,
-		Labels:   plan.Labels(),
-		Results:  results.Items,
-		Page:     results.Page,
-		HasMore:  results.HasMore,
-		Reranked: results.Reranked,
-		Source:   plan.Source,
+		Plan:      plan,
+		Labels:    plan.Labels(),
+		Results:   results.Items,
+		Page:      results.Page,
+		HasMore:   results.HasMore,
+		Reranked:  results.Reranked,
+		Broadened: results.Broadened,
+		Source:    plan.Source,
 	})
 }
 

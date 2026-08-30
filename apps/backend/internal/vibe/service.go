@@ -57,6 +57,10 @@ type Results struct {
 	Page     int                  `json:"page"`
 	HasMore  bool                 `json:"hasMore"`
 	Reranked bool                 `json:"reranked"`
+	// Broadened records that the strict reading of the phrase was too thin to
+	// fill a page, so the themes were OR-ed instead of AND-ed. The client says
+	// so rather than passing off near misses as exact answers.
+	Broadened bool `json:"broadened"`
 }
 
 // Service is the associative search engine.
@@ -118,7 +122,9 @@ func (s *Service) Interpret(ctx context.Context, phrase string, useAI bool) Plan
 		return cached
 	}
 
-	plan := Plan{}
+	// Normalized even while empty, so the "не зрозуміли" answer carries the same
+	// shape as every other one: empty lists rather than nulls.
+	plan := Plan{}.Normalize(s.now())
 	if useAI && s.ai != nil {
 		// A phrase is typed into a live search box: a model that needs longer
 		// than this is worse than the keyword matcher that answers instantly.
@@ -167,6 +173,12 @@ func (s *Service) Vocabulary() Vocabulary {
 
 // Results runs the plan against TMDB. Movies and series are fetched as separate
 // legs (their genre ids differ) and interleaved, the same way discovery does it.
+//
+// A multi-theme plan is asked twice: once strictly, then — only if strict came
+// back too thin to fill a page — once broadly. TMDB's keyword tagging is sparse
+// enough that "молодіжний жах де багато крові" read strictly finds two titles,
+// and a page of two titles is a worse answer than a page of near misses the
+// reranker can order.
 func (s *Service) Results(ctx context.Context, plan Plan, page int) (Results, error) {
 	if page < 1 {
 		page = 1
@@ -176,22 +188,24 @@ func (s *Service) Results(ctx context.Context, plan Plan, page int) (Results, er
 		return out, nil
 	}
 
-	var movies, series []release.DiscoverItem
-	if params, ok := plan.DiscoverParams(MediaMovie); ok {
-		params.Page = page
-		found, err := s.discover.Discover(ctx, params)
-		if err != nil {
-			return Results{}, err
-		}
-		movies = found
+	match := MatchStrict
+	if !plan.narrows() {
+		// One theme reads the same either way; skip the second round trip.
+		match = MatchBroad
 	}
-	if params, ok := plan.DiscoverParams(MediaTV); ok {
-		params.Page = page
-		found, err := s.discover.Discover(ctx, params)
-		if err != nil {
-			return Results{}, err
+	movies, series, err := s.legs(ctx, plan, match, page)
+	if err != nil {
+		return Results{}, err
+	}
+	if match == MatchStrict && len(movies)+len(series) < broadenBelow {
+		broadMovies, broadSeries, broadErr := s.legs(ctx, plan, MatchBroad, page)
+		if broadErr != nil {
+			return Results{}, broadErr
 		}
-		series = found
+		if len(broadMovies)+len(broadSeries) > len(movies)+len(series) {
+			movies, series = broadMovies, broadSeries
+			out.Broadened = true
+		}
 	}
 
 	mixed := interleave(movies, series)
@@ -208,6 +222,30 @@ func (s *Service) Results(ctx context.Context, plan Plan, page int) (Results, er
 
 	out.Items = toSuggestions(mixed)
 	return out, nil
+}
+
+// legs runs the movie and series halves of one reading of the plan.
+func (s *Service) legs(
+	ctx context.Context,
+	plan Plan,
+	match Match,
+	page int,
+) (movies, series []release.DiscoverItem, err error) {
+	if params, ok := plan.DiscoverParams(MediaMovie, match); ok {
+		params.Page = page
+		movies, err = s.discover.Discover(ctx, params)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	if params, ok := plan.DiscoverParams(MediaTV, match); ok {
+		params.Page = page
+		series, err = s.discover.Discover(ctx, params)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return movies, series, nil
 }
 
 func (s *Service) rerank(
@@ -282,6 +320,9 @@ const SourceManual = "manual"
 
 const (
 	discoverPageSize = 20
+	// broadenBelow is how few strict matches count as "not a page". Half a
+	// screen of exact answers is still an answer; a handful is not.
+	broadenBelow = 10
 	// Two or three sentences say what a film is about; the rest is plot recap
 	// that only makes the rerank prompt slower.
 	maxOverviewRunes = 220

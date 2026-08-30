@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
-import { excludeSaved } from "../../../shared/lib/excludeSaved";
+import { useUnsavedItems } from "../../../shared/lib/unsavedItems";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { searchByPhrase, searchByPlan } from "../api/vibeApi";
 import type { VibeLabel, VibePlan, VibeResponse } from "../types";
@@ -20,7 +20,7 @@ type Status = "idle" | "loading" | "ready" | "error";
 export function useVibeSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { getListTypes } = useSavedReleases();
+  const { getListTypes, isReady: isSavedReady } = useSavedReleases();
 
   const initialPhrase = searchParams.get("q") ?? "";
   const [phrase, setPhrase] = useState(initialPhrase);
@@ -30,6 +30,7 @@ export function useVibeSearch() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [reranked, setReranked] = useState(false);
+  const [broadened, setBroadened] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef(0);
@@ -40,6 +41,7 @@ export function useVibeSearch() {
     setPage(response.page);
     setHasMore(response.hasMore);
     setReranked(response.reranked);
+    setBroadened(response.broadened);
     setPages((prev) => (append ? [...prev, response.results] : [response.results]));
     setStatus("ready");
   }, []);
@@ -155,18 +157,21 @@ export function useVibeSearch() {
   }, [hasMore, page, phrase, plan, run, status]);
 
   const fetched = useMemo(() => pages.flat(), [pages]);
-  // Titles already in a list are not a discovery — same rule as the chip picker.
-  const results = useMemo(
-    () => excludeSaved(fetched, getListTypes),
-    [fetched, getListTypes]
-  );
+  // Titles already in a list are not a discovery — same rule as the chip
+  // picker. A title saved from this page keeps its slot until the next page or
+  // the next search; only then does the rule drop it.
+  const { items: results, hiddenCount } = useUnsavedItems(fetched, getListTypes, {
+    resetKey: phrase,
+    isReady: isSavedReady,
+  });
 
   return {
     addGenre,
     addTheme,
+    broadened,
     error,
     hasMore,
-    hiddenCount: fetched.length - results.length,
+    hiddenCount,
     initialPhrase,
     labels,
     loadMore,

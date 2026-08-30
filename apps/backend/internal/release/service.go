@@ -204,6 +204,7 @@ type DiscoverParams struct {
 	GenresMatchAll    bool
 	WithoutGenres     []int
 	WithKeywords      []int
+	WithKeywordGroups [][]int
 	WithoutKeywords   []int
 	OriginalLanguage  string
 	WithOriginCountry []string

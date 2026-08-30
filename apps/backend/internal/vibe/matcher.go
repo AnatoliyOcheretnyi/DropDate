@@ -144,6 +144,24 @@ var themeHints = map[string][]string{
 	"mental_health": {"психік", "депрес", "ментальн"},
 	"trauma":        {"травм", "птср"},
 	"memory":        {"памят", "амнезі"},
+
+	// The adult themes: the words people actually type for them are never the
+	// label, and half of them are the ones a stemmer would mangle.
+	"erotica": {
+		"еротик", "оголенн", "оголен", "голі", "гола", "голих",
+		"звабл", "спокус", "сексуальн", "секс", "чуттєв", "відверт",
+		"пікантн", "постільн",
+	},
+	"gore": {
+		"жорсток", "жорстк", "кров", "кривав", "різанин", "розчленув",
+		"мясорубк", "мʼясорубк", "брутальн", "бійн", "трешов",
+	},
+	// No "важк" here on purpose: "щось важке про сімʼю" is a slow drama, not a
+	// film about torture, and the hint would drag one into the other.
+	"disturbing": {
+		"катуван", "тортур", "шокуюч", "огидн", "канібал", "нещадн",
+		"садизм", "збоченн",
+	},
 }
 
 // countryHints match the adjective people actually type ("корейський"), which

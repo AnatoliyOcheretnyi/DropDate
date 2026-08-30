@@ -7,6 +7,7 @@ import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 import { copy } from "../../../shared/lib/strings";
 import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
 import { useSearchPage } from "../../search/hooks/useSearchPage";
+import { VibeHowItWorks } from "../components/VibeHowItWorks";
 import { VibeQueryBar } from "../components/VibeQueryBar";
 import { VibeUnderstanding } from "../components/VibeUnderstanding";
 import { useVibeSearch } from "../hooks/useVibeSearch";
@@ -24,6 +25,7 @@ function VibeScreenContent() {
   const {
     addGenre,
     addTheme,
+    broadened,
     error,
     hasMore,
     hiddenCount,
@@ -80,7 +82,10 @@ function VibeScreenContent() {
       >
         <section className="vibe">
           <div className="vibe-hero">
-            <p className="eyebrow">Пошук за асоціацією</p>
+            <div className="vibe-hero__eyebrow">
+              <p className="eyebrow">Пошук за асоціацією</p>
+              <VibeHowItWorks />
+            </div>
             <h1>Опиши, що хочеш подивитись</h1>
             <VibeQueryBar
               value={phrase}
@@ -146,7 +151,9 @@ function VibeScreenContent() {
                     ? "Шукаємо збіги…"
                     : `${results.length} збігів${
                         hiddenCount > 0 ? ` · ${hiddenCount} вже у списках` : ""
-                      }${reranked ? " · відсортовано за змістом" : ""}`}
+                      }${reranked ? " · відсортовано за змістом" : ""}${
+                        broadened ? " · точних збігів мало, показуємо ширше" : ""
+                      }`}
                 </p>
               </div>
             </>

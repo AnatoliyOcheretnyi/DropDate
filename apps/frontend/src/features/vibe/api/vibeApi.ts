@@ -3,6 +3,30 @@
 import { requestApi } from "../../../shared/api/http";
 import type { VibePlan, VibeResponse, VibeVocabulary } from "../types";
 
+const asArray = (value: string[] | null | undefined): string[] =>
+  Array.isArray(value) ? value : [];
+
+/**
+ * Guarantees the plan's lists are lists.
+ *
+ * A plan with no genres used to arrive as `"genres": null`, and every caller
+ * reads them straight off the plan (`plan.genres.includes(...)`) — one null and
+ * the chip panel throws. The server sends `[]` now; this keeps a stale response
+ * or a cached page from bringing the crash back.
+ */
+const normalizePlan = (plan: VibePlan): VibePlan => ({
+  ...plan,
+  themes: asArray(plan?.themes),
+  genres: asArray(plan?.genres),
+});
+
+const normalizeResponse = (response: VibeResponse): VibeResponse => ({
+  ...response,
+  plan: normalizePlan(response.plan),
+  labels: response.labels ?? [],
+  results: response.results ?? [],
+});
+
 export async function searchByPhrase(
   phrase: string,
   page = 1,
@@ -17,7 +41,7 @@ export async function searchByPhrase(
   if (!response.ok || !response.payload) {
     throw new Error("Не вдалося розібрати запит");
   }
-  return response.payload;
+  return normalizeResponse(response.payload);
 }
 
 /** Re-runs an edited plan. No interpretation happens, so this is instant. */
@@ -35,7 +59,7 @@ export async function searchByPlan(
   if (!response.ok || !response.payload) {
     throw new Error("Не вдалося оновити добірку");
   }
-  return response.payload;
+  return normalizeResponse(response.payload);
 }
 
 export async function fetchVibeVocabulary(

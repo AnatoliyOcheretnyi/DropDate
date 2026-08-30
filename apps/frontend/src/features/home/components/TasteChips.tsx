@@ -5,7 +5,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
-import { excludeSaved } from "../../../shared/lib/excludeSaved";
+import { useUnsavedItems } from "../../../shared/lib/unsavedItems";
+import { useSavedStore } from "../../saved/store/savedStore";
 import { fetchDiscoverResults } from "../api/discoverApi";
 import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
 
@@ -209,18 +210,19 @@ export function TasteChips({ onSelect, getListTypes, onChangeLists }: Props) {
     () => discoverQuery.data?.pages.flatMap((page) => page.results) ?? [],
     [discoverQuery.data]
   );
-  // Titles already in a list are not a discovery.
-  const results = useMemo(
-    () => excludeSaved(fetched, getListTypes),
-    [fetched, getListTypes]
-  );
-  const hiddenCount = fetched.length - results.length;
   const isLoading =
     discoverQuery.isLoading || discoverQuery.isFetchingNextPage;
 
-  // Reset the top-up budget whenever the selection changes: a new combination
-  // deserves its own attempts.
+  // A new combination is a new page: it deserves its own top-up budget, and its
+  // own verdict on which titles are already in a list.
   const selectionKey = `${genreList.join(",")}|${countryList.join(",")}`;
+  // Titles already in a list are not a discovery — but one saved from this row
+  // keeps its slot (and gains its badge) until the next page arrives.
+  const isSavedReady = useSavedStore((state) => state.isReady);
+  const { items: results, hiddenCount } = useUnsavedItems(fetched, getListTypes, {
+    resetKey: selectionKey,
+    isReady: isSavedReady,
+  });
   const autoPagesRef = useRef(0);
   useEffect(() => {
     autoPagesRef.current = 0;
