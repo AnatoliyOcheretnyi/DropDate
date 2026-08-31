@@ -11,10 +11,10 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
-    version: "1.17.0 · серпень",
+    version: "1.16.1 · серпень",
     releasedAt: "31 серпня 2026",
-    frontendVersion: "1.17.0",
-    backendVersion: "1.16.0",
+    frontendVersion: "1.16.1",
+    backendVersion: "1.15.1",
     title: "Точніший Vibe-пошук і надійні списки",
     summary:
       "Замість назви можна написати фразу — «молодіжний жах де багато крові» чи «комедія з привидами» — і отримати добірку. Система показує, як саме зрозуміла запит, і дозволяє це виправити.",
