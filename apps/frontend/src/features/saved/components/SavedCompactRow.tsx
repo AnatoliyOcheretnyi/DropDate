@@ -14,6 +14,10 @@ type Props = {
   onChangeLists?: (item: SavedRelease, next: ListType[]) => void;
   showBadges?: boolean;
   actionsDisabled?: boolean;
+  /** Someone else's row: no list changes and no removal. */
+  readOnly?: boolean;
+  onAdd?: (item: SavedRelease) => void;
+  isAdded?: boolean;
 };
 
 /**
@@ -26,6 +30,9 @@ export function SavedCompactRow({
   onChangeLists,
   showBadges = false,
   actionsDisabled,
+  readOnly = false,
+  onAdd,
+  isAdded = false,
 }: Props) {
   const router = useRouter();
   const mediaType = savedMediaType(item);
@@ -67,7 +74,7 @@ export function SavedCompactRow({
       {showBadges ? <ListBadges listTypes={item.listTypes ?? []} /> : null}
 
       {rating ? (
-        <span className={`saved-row-rating${hasOwnRating ? " is-mine" : ""}`}>
+        <span className={`saved-row-rating${hasOwnRating && !readOnly ? " is-mine" : ""}`}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.9l-5.8 3.05 1.1-6.47-4.7-4.58 6.5-.95L12 2.5Z" />
           </svg>
@@ -78,26 +85,41 @@ export function SavedCompactRow({
       <span className="saved-row-date">{date || copy.misc.dash}</span>
 
       <span className="saved-row-actions">
-        {item.tmdbId && onChangeLists ? (
-          <MovieInfoButton
-            tmdbId={item.tmdbId}
-            mediaType={mediaType}
-            title={item.title}
-            className="saved-card-info"
-            onActivate={open}
-            activeLists={item.listTypes ?? []}
-            onChangeLists={(next) => onChangeLists(item, next)}
-          />
-        ) : null}
-        <button
-          type="button"
-          className="saved-card-remove"
-          onClick={() => onRemove(item)}
-          disabled={actionsDisabled}
-          aria-label={copy.saved.removeAria}
-        >
-          ✕
-        </button>
+        {readOnly ? (
+          item.tmdbId && onAdd ? (
+            <button
+              type="button"
+              className={`saved-row-add${isAdded ? " is-added" : ""}`}
+              onClick={() => onAdd(item)}
+              disabled={isAdded}
+            >
+              {isAdded ? "✓ Уже в тебе" : "+ Додати собі"}
+            </button>
+          ) : null
+        ) : (
+          <>
+            {item.tmdbId && onChangeLists ? (
+              <MovieInfoButton
+                tmdbId={item.tmdbId}
+                mediaType={mediaType}
+                title={item.title}
+                className="saved-card-info"
+                onActivate={open}
+                activeLists={item.listTypes ?? []}
+                onChangeLists={(next) => onChangeLists(item, next)}
+              />
+            ) : null}
+            <button
+              type="button"
+              className="saved-card-remove"
+              onClick={() => onRemove(item)}
+              disabled={actionsDisabled}
+              aria-label={copy.saved.removeAria}
+            >
+              ✕
+            </button>
+          </>
+        )}
       </span>
     </div>
   );

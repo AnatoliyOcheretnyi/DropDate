@@ -1,14 +1,20 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Reveal } from "../../../shared/ui/Reveal";
-import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
-import { GameShell } from "../components/GameShell";
-import { useAllGameStats } from "../hooks/useGameStats";
 import { useAuth } from "../../../shared/state/auth";
 import { useFriends } from "../../friends/hooks/useFriends";
-import { useQuery } from "@tanstack/react-query";
+import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
+import { StatRow } from "../../profile/components/StatRow";
+import { GameShell } from "../components/GameShell";
+import { GameHubCard } from "../components/GameHubCard";
+import { DailyBanner } from "../components/DailyBanner";
+import { DuelPanel, type IncomingChallenge } from "../components/DuelPanel";
+import { GameLeaderboard, type LeaderRow } from "../components/GameLeaderboard";
+import { useAllGameStats } from "../hooks/useGameStats";
+import { useGamePosters } from "../hooks/useGamePosters";
 
 type HubCard = {
   id: string;
@@ -17,7 +23,6 @@ type HubCard = {
   title: string;
   description: string;
   accentA: string;
-  accentB: string;
   /** Stats key in localStorage; cards without scores (wheel) omit it. */
   statsKey?: string;
   statUnit?: string;
@@ -31,7 +36,8 @@ const CARDS: HubCard[] = [
     title: "Люди кіно",
     description: "Поєднуй акторів і режисерів з фільмами та змінюй напрям гри",
     accentA: "rgba(204, 154, 255, 0.35)",
-    accentB: "rgba(62, 34, 86, 0.5)",
+    statsKey: "people",
+    statUnit: "/10",
   },
   {
     id: "akinator",
@@ -40,7 +46,6 @@ const CARDS: HubCard[] = [
     title: "Кіноакінатор",
     description: "Задумай фільм — я спробую вгадати його за 20 питань",
     accentA: "rgba(255, 190, 92, 0.38)",
-    accentB: "rgba(92, 51, 18, 0.55)",
   },
   {
     id: "battle_release_date",
@@ -49,7 +54,6 @@ const CARDS: HubCard[] = [
     title: "Що вийшло раніше?",
     description: "Класичний баттл двох фільмів за датою виходу",
     accentA: "rgba(115, 240, 193, 0.35)",
-    accentB: "rgba(21, 68, 52, 0.5)",
     statsKey: "battle_release_date",
     statUnit: "/10",
   },
@@ -60,7 +64,6 @@ const CARDS: HubCard[] = [
     title: "У кого рейтинг вищий?",
     description: "Порівняй оцінки TMDB двох фільмів",
     accentA: "rgba(115, 170, 240, 0.35)",
-    accentB: "rgba(24, 44, 84, 0.5)",
     statsKey: "battle_rating",
     statUnit: "/10",
   },
@@ -71,7 +74,6 @@ const CARDS: HubCard[] = [
     title: "Постер-бліц",
     description: "Вгадай фільм за кадром, поки тікає таймер",
     accentA: "rgba(240, 115, 162, 0.35)",
-    accentB: "rgba(84, 24, 48, 0.5)",
     statsKey: "blitz",
     statUnit: "/10",
   },
@@ -82,7 +84,6 @@ const CARDS: HubCard[] = [
     title: "Хронологія",
     description: "Розстав фільми в порядку виходу",
     accentA: "rgba(195, 240, 115, 0.35)",
-    accentB: "rgba(60, 84, 24, 0.5)",
     statsKey: "timeline",
     statUnit: "/5",
   },
@@ -93,7 +94,6 @@ const CARDS: HubCard[] = [
     title: "Вгадай рік",
     description: "Наскільки точно ти відчуваєш епохи кіно?",
     accentA: "rgba(255, 212, 121, 0.35)",
-    accentB: "rgba(84, 64, 24, 0.5)",
     statsKey: "year",
     statUnit: " очок",
   },
@@ -104,7 +104,6 @@ const CARDS: HubCard[] = [
     title: "Колесо вечора",
     description: "Крутни — і колесо обере, що дивитись сьогодні",
     accentA: "rgba(160, 115, 240, 0.35)",
-    accentB: "rgba(48, 24, 84, 0.5)",
   },
   {
     id: "friend_taste",
@@ -113,7 +112,6 @@ const CARDS: HubCard[] = [
     title: "Смак друга",
     description: "Вгадай, які фільми твій друг оцінив вище",
     accentA: "rgba(115, 240, 231, 0.35)",
-    accentB: "rgba(24, 76, 84, 0.5)",
     statsKey: "friend_taste",
     statUnit: "/10",
   },
@@ -122,40 +120,64 @@ const CARDS: HubCard[] = [
 // The daily challenge rotates across seedable games by UTC day, so every
 // player lands on the same game with the same backend-seeded questions.
 const DAILY_ROTATION = [
-  { label: "Кіно-баттл: дати", href: "/games/battle?mode=release_date&daily=1" },
-  { label: "Постер-бліц", href: "/games/blitz?daily=1" },
-  { label: "Кіно-баттл: рейтинги", href: "/games/battle?mode=rating&daily=1" },
-  { label: "Вгадай рік", href: "/games/year?daily=1" },
+  { label: "Кіно-баттл: дати", href: "/games/battle?mode=release_date&daily=1", statsKey: "battle_release_date" },
+  { label: "Постер-бліц", href: "/games/blitz?daily=1", statsKey: "blitz" },
+  { label: "Кіно-баттл: рейтинги", href: "/games/battle?mode=rating&daily=1", statsKey: "battle_rating" },
+  { label: "Вгадай рік", href: "/games/year?daily=1", statsKey: "year" },
 ];
 
 const dailyOfToday = () => {
   const now = new Date();
-  const utcDay = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000);
+  const utcDay = Math.floor(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000
+  );
   return DAILY_ROTATION[utcDay % DAILY_ROTATION.length];
 };
 
 const dailyDateLabel = () =>
   new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(new Date());
 
+const isToday = (value?: string) => {
+  if (!value) {
+    return false;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+  const now = new Date();
+  return (
+    parsed.getFullYear() === now.getFullYear() &&
+    parsed.getMonth() === now.getMonth() &&
+    parsed.getDate() === now.getDate()
+  );
+};
+
 export function GamesHubScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const stats = useAllGameStats();
   const { accessToken, user } = useAuth();
   const { friends } = useFriends();
-  const [opponent, setOpponent] = useState("");
-  const [challengeGame, setChallengeGame] = useState("release_date");
-  const [challengeLink, setChallengeLink] = useState("");
+  const { saved } = useSavedReleases();
+  const { backdrop, sliceFor } = useGamePosters();
+  const [challengeLink, setChallengeLink] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const isAuthed = Boolean(user && accessToken);
+
   const challenges = useQuery({
     queryKey: ["game-challenges", user?.id],
-    enabled: Boolean(user && accessToken),
+    enabled: isAuthed,
     queryFn: async () => {
-      const r = await fetch("/api/games/challenges", {
+      const response = await fetch("/api/games/challenges", {
         headers: { authorization: `Bearer ${accessToken}` },
       });
-      const payload = (await r.json()) as {
+      const payload = (await response.json()) as {
         items?: Array<{
           id: string;
           creatorId: string;
+          creatorName?: string;
           opponentId: string;
           gameId: string;
           seed: number;
@@ -165,14 +187,15 @@ export function GamesHubScreen() {
       return Array.isArray(payload.items) ? payload.items : [];
     },
   });
+
   const progress = useQuery({
     queryKey: ["game-progress-summary", user?.id],
-    enabled: Boolean(user && accessToken),
+    enabled: isAuthed,
     queryFn: async () => {
-      const r = await fetch("/api/games/stats", {
+      const response = await fetch("/api/games/stats", {
         headers: { authorization: `Bearer ${accessToken}` },
       });
-      const payload = (await r.json()) as {
+      const payload = (await response.json()) as {
         dailyStreak?: number | null;
         achievements?: string[] | null;
       };
@@ -182,28 +205,102 @@ export function GamesHubScreen() {
       };
     },
   });
+
   const leaders = useQuery({
     queryKey: ["game-leaderboard", user?.id],
-    enabled: Boolean(user && accessToken),
+    enabled: isAuthed,
     queryFn: async () => {
-      const r = await fetch("/api/games/leaderboard", {
+      const response = await fetch("/api/games/leaderboard", {
         headers: { authorization: `Bearer ${accessToken}` },
       });
-      const payload = (await r.json()) as {
-        items?: Array<{ userId: string; name: string; score: number; plays: number }> | null;
+      const payload = (await response.json()) as {
+        items?: LeaderRow[] | null;
       };
       return Array.isArray(payload.items) ? payload.items : [];
     },
   });
-  const { saved } = useSavedReleases();
+
   const watchlistCount = saved.filter((item) =>
     (item.listTypes ?? []).includes("watchlist")
   ).length;
+
   const daily = dailyOfToday();
+  const dailyStats = stats[daily.statsKey];
+  const playedToday = isToday(dailyStats?.lastPlayedAt);
+
+  const totals = useMemo(() => {
+    const entries = Object.values(stats);
+    return {
+      plays: entries.reduce((sum, entry) => sum + entry.plays, 0),
+      best: entries.reduce((max, entry) => Math.max(max, entry.bestScore), 0),
+    };
+  }, [stats]);
+
+  const myPlace = useMemo(() => {
+    const index = (leaders.data ?? []).findIndex((row) => row.userId === user?.id);
+    return index >= 0 ? `№${index + 1}` : "—";
+  }, [leaders.data, user?.id]);
+
+  const incoming: IncomingChallenge[] = useMemo(
+    () =>
+      (challenges.data ?? [])
+        .filter((item) => item.opponentId === user?.id && item.opponentScore == null)
+        .map((item) => ({
+          id: item.id,
+          gameId: item.gameId,
+          seed: item.seed,
+          fromLabel:
+            item.creatorName ||
+            friends.find((entry) => entry.user.id === item.creatorId)?.user.username ||
+            "друг",
+        })),
+    [challenges.data, friends, user?.id]
+  );
+
+  const handleCreateChallenge = useCallback(
+    async (opponentId: string, gameId: string) => {
+      if (!accessToken) {
+        return;
+      }
+      setIsCreating(true);
+      try {
+        const response = await fetch("/api/games/challenges", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ opponentId, gameId }),
+        });
+        const payload = (await response.json()) as { id?: string; seed?: number };
+        if (response.ok && payload.id) {
+          setChallengeLink(
+            `/games/battle?mode=${gameId}&challenge=${payload.id}&seed=${payload.seed}`
+          );
+          void queryClient.invalidateQueries({ queryKey: ["game-challenges", user?.id] });
+        }
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [accessToken, queryClient, user?.id]
+  );
+
+  const statTiles = [
+    { key: "streak", value: progress.data?.dailyStreak ?? 0, label: "днів поспіль" },
+    { key: "plays", value: totals.plays, label: "ігор зіграно" },
+    { key: "best", value: totals.best, label: "найкращий рахунок" },
+    {
+      key: "achievements",
+      value: progress.data?.achievements.length ?? 0,
+      label: "ігрових досягнень",
+    },
+    { key: "place", value: myPlace, label: "місце в топі" },
+  ];
 
   return (
     <GameShell withBack={false}>
-      <div className="games-head">
+      <div className="games-head games-head--tight">
         <p className="eyebrow">Міні-ігри</p>
         <h1>Ігрова зала</h1>
         <p className="games-lead">
@@ -213,93 +310,82 @@ export function GamesHubScreen() {
       </div>
 
       <Reveal>
-        <button
-          type="button"
-          className="games-daily"
-          onClick={() => router.push(daily.href)}
-        >
-          <span className="games-daily__badge">Щоденний виклик</span>
-          <span className="games-daily__title">
-            {daily.label} · {dailyDateLabel()}
-          </span>
-          <span className="games-daily__hint">
-            Однакові питання для всіх. Зіграй і поділись результатом →
-          </span>
-        </button>
+        <DailyBanner
+          label={daily.label}
+          dateLabel={dailyDateLabel()}
+          backdrop={backdrop}
+          playedScore={
+            playedToday && dailyStats ? `${dailyStats.bestScore}` : undefined
+          }
+          onPlay={() => router.push(daily.href)}
+        />
       </Reveal>
 
-      {user && friends.length > 0 ? <Reveal><section className="games-challenge"><div><p className="eyebrow">Дуель із другом</p><h2>Однакові питання. Різні результати.</h2></div><select value={opponent} onChange={e=>setOpponent(e.target.value)}><option value="">Обери друга</option>{friends.map(f=><option key={f.user.id} value={f.user.id}>{f.user.username||f.user.email}</option>)}</select><select value={challengeGame} onChange={e=>setChallengeGame(e.target.value)}><option value="release_date">Дати релізу</option><option value="rating">Рейтинги</option></select><button disabled={!opponent} onClick={async()=>{const r=await fetch("/api/games/challenges",{method:"POST",headers:{authorization:`Bearer ${accessToken}`,"content-type":"application/json"},body:JSON.stringify({opponentId:opponent,gameId:challengeGame})});const p=await r.json();if(r.ok)setChallengeLink(`/games/battle?mode=${challengeGame}&challenge=${p.id}&seed=${p.seed}`)}}>Створити виклик</button>{challengeLink?<button onClick={()=>router.push(challengeLink)}>Грати свій раунд →</button>:null}</section></Reveal>:null}
-      {challenges.data
-        ?.filter((item) => item.opponentId === user?.id && item.opponentScore == null)
-        .map((item) => (
-          <button
-            key={item.id}
-            className="games-daily"
-            onClick={() =>
-              router.push(`/games/battle?mode=${item.gameId}&challenge=${item.id}&seed=${item.seed}`)
-            }
-          >
-            <span className="games-daily__badge">Виклик від друга</span>
-            <span className="games-daily__title">Зіграти однаковий раунд →</span>
-          </button>
-        ))}
-      {user ? (
-        <section className="games-progress-summary">
-          <div>
-            <p className="eyebrow">Твій прогрес</p>
-            <strong>{progress.data?.dailyStreak ?? 0} днів поспіль</strong>
-            <span>{progress.data?.achievements.length ?? 0} ігрових досягнень</span>
-          </div>
-          <ol>
-            {leaders.data?.map((item, index) => (
-              <li key={item.userId}>
-                <b>{index + 1}</b>
-                <span>{item.name}</span>
-                <strong>{item.score}</strong>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
+      {isAuthed ? (
+        <StatRow items={statTiles} isLoading={progress.isLoading} />
+      ) : (
+        <p className="games-guest-strip">
+          Увійди, щоб зберігати рекорди, стріки й місце в топі.
+        </p>
+      )}
+
+      <div className="games-grid-head">
+        <div>
+          <h2>Усі ігри</h2>
+          <p>Фон картки — постери з тієї ж вибірки, яку гра використовує всередині</p>
+        </div>
+        <span>{CARDS.length} ігор</span>
+      </div>
 
       <div className="games-hub-grid">
         {CARDS.map((card, index) => {
           const stat = card.statsKey ? stats[card.statsKey] : undefined;
+          const hasRecord = Boolean(stat && stat.plays > 0);
+          const meta =
+            card.id === "wheel"
+              ? watchlistCount > 0
+                ? `У колі: ${watchlistCount}`
+                : "Крутимо трендове"
+              : hasRecord
+                ? `Рекорд ${stat!.bestScore}${card.statUnit ?? ""}`
+                : "Ще не грав";
           return (
             <Reveal key={card.id} delay={index * 60}>
-              <button
-                type="button"
-                className="games-hub-card"
-                style={{ "--ga": card.accentA, "--gb": card.accentB } as CSSProperties}
+              <GameHubCard
+                emoji={card.emoji}
+                title={card.title}
+                description={card.description}
+                meta={meta}
+                isRecord={hasRecord}
+                accentA={card.accentA}
+                posters={sliceFor(index)}
                 onClick={() => router.push(card.href)}
-              >
-                <span className="games-hub-card__emoji" aria-hidden="true">
-                  {card.emoji}
-                </span>
-                <strong>{card.title}</strong>
-                <span className="games-hub-card__desc">{card.description}</span>
-                <span className="games-hub-card__meta">
-                  {card.id === "wheel" ? (
-                    watchlistCount > 0 ? (
-                      <>У колі: {watchlistCount} зі списку «Хочу подивитись»</>
-                    ) : (
-                      <>Наповни список «Хочу подивитись» — або крути трендове</>
-                    )
-                  ) : stat && stat.plays > 0 ? (
-                    <>
-                      Рекорд: {card.id === "streak" ? stat.bestStreak : stat.bestScore}
-                      {card.statUnit ?? ""} · Ігор: {stat.plays}
-                    </>
-                  ) : (
-                    <>Ще не грав — саме час →</>
-                  )}
-                </span>
-                <span className="games-hub-card__cta">Грати →</span>
-              </button>
+              />
             </Reveal>
           );
         })}
       </div>
+
+      {isAuthed && friends.length > 0 ? (
+        <Reveal>
+          <DuelPanel
+            friends={friends}
+            incoming={incoming}
+            isCreating={isCreating}
+            createdLink={challengeLink}
+            onCreate={(opponentId, gameId) => void handleCreateChallenge(opponentId, gameId)}
+            onOpen={(href) => router.push(href)}
+          />
+        </Reveal>
+      ) : null}
+
+      {isAuthed ? (
+        <GameLeaderboard
+          rows={leaders.data ?? []}
+          currentUserId={user?.id}
+          isLoading={leaders.isLoading}
+        />
+      ) : null}
     </GameShell>
   );
 }

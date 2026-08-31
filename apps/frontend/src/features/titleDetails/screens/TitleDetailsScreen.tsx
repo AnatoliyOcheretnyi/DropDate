@@ -78,7 +78,6 @@ export function TitleDetailsScreen() {
               alt=""
               sizes="100vw"
               priority
-              quality={90}
               ariaHidden
             />
           ) : null}

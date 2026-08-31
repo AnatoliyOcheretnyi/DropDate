@@ -3,6 +3,12 @@ const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
   images: {
+    // Posters and profiles already arrive pre-resized from TMDB's CDN, so the
+    // loader picks a TMDB width bucket instead of paying for a Vercel
+    // transformation. See src/shared/lib/tmdbImageLoader.ts.
+    loader: "custom",
+    loaderFile: "./src/shared/lib/tmdbImageLoader.ts",
+    // Kept so the built-in optimizer still works if the custom loader is removed.
     remotePatterns: [
       {
         protocol: "https",
@@ -10,6 +16,10 @@ const nextConfig = {
         pathname: "/t/p/**",
       },
     ],
+    // Narrowed to the widths the layout actually asks for, so srcset entries
+    // line up with TMDB's buckets instead of fanning out across 16 candidates.
+    imageSizes: [92, 154, 185, 342, 500],
+    deviceSizes: [640, 828, 1080, 1920],
   },
   experimental: {
     externalDir: true

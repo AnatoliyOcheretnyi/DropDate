@@ -7,8 +7,6 @@ type Props = {
   priority?: boolean;
   className?: string;
   ariaHidden?: boolean;
-  /** Encoder quality (next/image default is 75). Worth raising for hero-sized art. */
-  quality?: number;
 };
 
 export function CoverImage({
@@ -18,7 +16,6 @@ export function CoverImage({
   priority = false,
   className,
   ariaHidden = false,
-  quality,
 }: Props) {
   return (
     <Image
@@ -27,7 +24,6 @@ export function CoverImage({
       fill
       sizes={sizes}
       priority={priority}
-      quality={quality}
       loading={priority ? undefined : "lazy"}
       className={className}
       aria-hidden={ariaHidden || undefined}

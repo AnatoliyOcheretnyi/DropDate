@@ -2,6 +2,7 @@
 
 import { requestApi } from "../../../shared/api/http";
 import type { ListProgress } from "../../../shared/lib/achievements";
+import type { PersonFollow } from "../../../shared/lib/release";
 import type {
   FriendUser,
   Friendship,
@@ -146,4 +147,23 @@ export async function fetchFriendAchievements(
     throw new Error("Не вдалося завантажити нагороди друга");
   }
   return Array.isArray(response.payload?.lists) ? response.payload.lists : [];
+}
+
+export async function fetchFriendFollows(
+  accessToken: string,
+  friendId: string,
+  signal?: AbortSignal
+): Promise<PersonFollow[]> {
+  const response = await requestApi<{ items?: PersonFollow[] }>({
+    url: "/api/friends/follows",
+    method: "GET",
+    params: { friendId },
+    headers: authHeader(accessToken),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error("Не вдалося завантажити людей друга");
+  }
+  return Array.isArray(response.payload?.items) ? response.payload.items : [];
 }

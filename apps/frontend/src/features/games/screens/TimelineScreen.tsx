@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { fetchGameQuestions, type GameQuestion, type GameTitleCard } from "../api/games";
-import { Confetti } from "../components/Confetti";
 import { GameShell } from "../components/GameShell";
-import { ShareResultButton } from "../components/ShareResultButton";
+import { GameHud } from "../components/GameHud";
+import { GameStage } from "../components/GameStage";
+import { GameSummary } from "../components/GameSummary";
+import { GameRevealPanel } from "../components/GameRevealPanel";
 import { useGameStats } from "../hooks/useGameStats";
 
 const ROUNDS = 5;
@@ -124,13 +126,19 @@ export function TimelineScreen() {
       )}
 
       {status === "playing" && question && (
-        <div className="timeline" key={question.id}>
-          <div className="blitz__top">
-            <p className="games-kicker">Хронологія</p>
-            <span className="blitz__counter">
-              Раунд {index + 1} / {questions.length} · Рахунок: {score}
-            </span>
-          </div>
+        <GameStage
+          roundKey={question.id}
+          state={revealed ? (isPerfect ? "correct" : "wrong") : "idle"}
+          className="timeline"
+        >
+          <GameHud
+            kicker="Хронологія"
+            metrics={[
+              { label: "Раунд", value: `${index + 1} / ${questions.length}` },
+              { label: "Рахунок", value: `${score}` },
+            ]}
+            progress={(index + (revealed ? 1 : 0)) / Math.max(1, questions.length)}
+          />
           <p className="games-prompt">{question.prompt}</p>
 
           <div className="timeline__slots">
@@ -215,41 +223,26 @@ export function TimelineScreen() {
               </button>
             </>
           ) : (
-            <div className={`game-reveal game-reveal--${isPerfect ? "correct" : "wrong"}`}>
-              <span className="game-reveal__result">
-                {isPerfect ? "Ідеально!" : "Не зовсім"}
-              </span>
-              <button type="button" className="primary game-reveal__next" onClick={nextRound}>
-                {index + 1 >= questions.length ? "Підсумок" : "Далі"}
-              </button>
-            </div>
+            <GameRevealPanel
+              isCorrect={isPerfect}
+              isLast={index + 1 >= questions.length}
+              onNext={nextRound}
+            />
           )}
-        </div>
+        </GameStage>
       )}
 
       {status === "finished" && (
-        <div className="games-summary">
-          {results.length > 0 && score / results.length >= 0.6 ? <Confetti /> : null}
-          <h2>{score === results.length ? "Ходяча енциклопедія! 🕰️" : "Гру завершено"}</h2>
-          <div className="games-summary-stats">
-            <div>
-              <strong>
-                {score} / {results.length}
-              </strong>
-              <span>Ідеальних раундів</span>
-            </div>
-          </div>
-          <div className="games-summary-actions">
-            <button type="button" className="primary" onClick={() => void load()}>
-              Зіграти ще
-            </button>
-            <ShareResultButton text={shareText} />
-            <button type="button" onClick={() => router.push("/games")}>
-              До ігор
-            </button>
-          </div>
-        </div>
+        <GameSummary
+          title={score === results.length ? "Ходяча енциклопедія! 🕰️" : "Гру завершено"}
+          stats={[{ label: "Ідеальних раундів", value: `${score} / ${results.length}` }]}
+          squares={results}
+          shareText={shareText}
+          celebrate={results.length > 0 && score / results.length >= 0.6}
+          onReplay={() => void load()}
+        />
       )}
+
     </GameShell>
   );
 }

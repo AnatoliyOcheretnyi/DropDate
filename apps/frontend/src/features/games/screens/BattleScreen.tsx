@@ -10,9 +10,10 @@ import { useGameSession } from "../hooks/useGameSession";
 import { useGameStats } from "../hooks/useGameStats";
 import { GameQuestionCard } from "../components/GameQuestionCard";
 import { GameRevealPanel } from "../components/GameRevealPanel";
-import { Confetti } from "../components/Confetti";
-import { ShareResultButton } from "../components/ShareResultButton";
 import { GameShell } from "../components/GameShell";
+import { GameHud } from "../components/GameHud";
+import { GameStage } from "../components/GameStage";
+import { GameSummary } from "../components/GameSummary";
 import type { GameMode, GameTitleCard } from "../api/games";
 
 const SESSION_LENGTH = 10;
@@ -186,54 +187,31 @@ export function BattleScreen() {
 
       {status === "playing" && question && question.left && question.right && (
         <div className="games-round">
-          <aside className="games-round__side">
-            <p className="games-kicker">{heading}</p>
-            <p className="games-prompt">{question.prompt}</p>
-            <div className="games-scorebar">
-              {endless ? (
-                <span className="games-streak-big">
-                  Стрік: {streak} {streak >= 3 ? <em aria-hidden="true">🔥</em> : null}
-                </span>
-              ) : (
-                <>
-                  <span>
-                    Питання {questionNumber} / {totalQuestions}
-                  </span>
-                  <span>Рахунок: {score}</span>
-                  <span className={streak >= 3 ? "games-streak is-hot" : "games-streak"}>
-                    Серія: {streak} {streak >= 3 ? <em aria-hidden="true">🔥</em> : null}
-                  </span>
-                </>
-              )}
-              {endless ? <span className="games-lives" aria-label={`Життя: ${lives} з ${maxLives}`}>
-                {Array.from({ length: maxLives }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`games-life${i < lives ? "" : " games-life--lost"}`}
-                    aria-hidden="true"
-                  >
-                    ♥
-                  </span>
-                ))}
-              </span> : null}
-            </div>
-            {!endless ? (
-              <div className="games-progress-bar" aria-hidden="true">
-                <span
-                  style={{
-                    width: `${(((questionNumber - 1) + (isRevealed ? 1 : 0)) / Math.max(1, totalQuestions)) * 100}%`,
-                  }}
-                />
-              </div>
-            ) : null}
-          </aside>
+          <GameHud
+            kicker={heading}
+            mode={endless ? "survival" : "rounds"}
+            metrics={
+              endless
+                ? [{ label: "Стрік", value: `${streak}`, hot: streak >= 3 }]
+                : [
+                    { label: "Питання", value: `${questionNumber} / ${totalQuestions}` },
+                    { label: "Рахунок", value: `${score}` },
+                    { label: "Серія", value: `${streak}`, hot: streak >= 3 },
+                  ]
+            }
+            lives={endless ? { current: lives, max: maxLives } : undefined}
+            progress={
+              endless
+                ? undefined
+                : (questionNumber - 1 + (isRevealed ? 1 : 0)) / Math.max(1, totalQuestions)
+            }
+          />
 
           <div className="games-round__board">
-            <div
-              key={question.id}
-              className={`games-board games-board--enter${
-                isRevealed && selected !== question.answer ? " games-board--missed" : ""
-              }`}
+            <GameStage
+              roundKey={question.id}
+              state={isRevealed ? (selected === question.answer ? "correct" : "wrong") : "idle"}
+              className="games-board"
             >
               <GameQuestionCard
                 card={question.left}
@@ -260,7 +238,7 @@ export function BattleScreen() {
                 onDetails={() => handleDetails(question.right!)}
                 onSave={() => handleSave(question.right!)}
               />
-            </div>
+            </GameStage>
           </div>
 
           {isRevealed && (
@@ -274,62 +252,34 @@ export function BattleScreen() {
       )}
 
       {status === "finished" && (
-        <div className="games-summary">
-          {won ? <Confetti /> : null}
-          <h2>
-            {endless
+        <GameSummary
+          title={
+            endless
               ? bestStreak >= 10
                 ? "Вогонь! 🔥"
                 : "Стрік обірвався"
               : isOutOfLives
                 ? "Життя скінчились"
-                : "Гру завершено"}
-          </h2>
-          <div className="games-summary-stats">
-            {endless ? (
-              <div>
-                <strong>{bestStreak}</strong>
-                <span>Твій стрік</span>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <strong>
-                    {score} / {results.length}
-                  </strong>
-                  <span>Правильних</span>
-                </div>
-                <div>
-                  <strong>{bestStreak}</strong>
-                  <span>Найкраща серія</span>
-                </div>
-              </>
-            )}
-          </div>
-          {!endless && results.length > 0 ? (
-            <p className="games-squares" aria-hidden="true">
-              {squares(results)}
-            </p>
-          ) : null}
-          <div className="games-summary-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={() => {
-                recordedRef.current = false;
-                setResults([]);
-                lastTrackedRef.current = null;
-                void start(mode, { count: SESSION_LENGTH, endless, daily });
-              }}
-            >
-              Зіграти ще
-            </button>
-            <ShareResultButton text={shareText} />
-            <button type="button" onClick={() => router.push("/games")}>
-              До ігор
-            </button>
-          </div>
-        </div>
+                : "Гру завершено"
+          }
+          stats={
+            endless
+              ? [{ label: "Твій стрік", value: bestStreak }]
+              : [
+                  { label: "Правильних", value: `${score} / ${results.length}` },
+                  { label: "Найкраща серія", value: bestStreak },
+                ]
+          }
+          squares={endless ? undefined : results}
+          shareText={shareText}
+          celebrate={won}
+          onReplay={() => {
+            recordedRef.current = false;
+            setResults([]);
+            lastTrackedRef.current = null;
+            void start(mode, { count: SESSION_LENGTH, endless, daily });
+          }}
+        />
       )}
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

@@ -18,6 +18,11 @@ type Props = {
   /** List badges only make sense on the union tab, where the list is not obvious. */
   showBadges?: boolean;
   actionsDisabled?: boolean;
+  /** Someone else's card: no list changes, no rating, no removal. */
+  readOnly?: boolean;
+  /** The single action a read-only card offers — copy the title into my list. */
+  onAdd?: (item: SavedRelease) => void;
+  isAdded?: boolean;
 };
 
 /**
@@ -32,6 +37,9 @@ export function SavedPosterCard({
   onRate,
   showBadges = false,
   actionsDisabled,
+  readOnly = false,
+  onAdd,
+  isAdded = false,
 }: Props) {
   const router = useRouter();
   const mediaType: Suggestion["mediaType"] = savedMediaType(item);
@@ -77,8 +85,14 @@ export function SavedPosterCard({
         <div className="saved-card-top">
           {rating ? (
             <span
-              className={`saved-card-rating${hasOwnRating ? " is-mine" : ""}`}
-              title={hasOwnRating ? "Моя оцінка" : "Оцінка TMDB"}
+              className={`saved-card-rating${hasOwnRating && !readOnly ? " is-mine" : ""}`}
+              title={
+                hasOwnRating
+                  ? readOnly
+                    ? "Оцінка друга"
+                    : "Моя оцінка"
+                  : "Оцінка TMDB"
+              }
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.9l-5.8 3.05 1.1-6.47-4.7-4.58 6.5-.95L12 2.5Z" />
@@ -90,7 +104,7 @@ export function SavedPosterCard({
           )}
 
           <div className="saved-card-actions">
-            {item.tmdbId && onChangeLists ? (
+            {readOnly ? null : item.tmdbId && onChangeLists ? (
               <MovieInfoButton
                 tmdbId={item.tmdbId}
                 mediaType={mediaType}
@@ -101,15 +115,17 @@ export function SavedPosterCard({
                 onChangeLists={(next) => onChangeLists(item, next)}
               />
             ) : null}
-            <button
-              type="button"
-              className="saved-card-remove"
-              onClick={() => onRemove(item)}
-              disabled={actionsDisabled}
-              aria-label={copy.saved.removeAria}
-            >
-              ✕
-            </button>
+            {readOnly ? null : (
+              <button
+                type="button"
+                className="saved-card-remove"
+                onClick={() => onRemove(item)}
+                disabled={actionsDisabled}
+                aria-label={copy.saved.removeAria}
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 
@@ -120,7 +136,7 @@ export function SavedPosterCard({
 
         {/* Stars are a prompt to rate, so they only show on titles that have no
             rating yet; a rated title already shows its score in the chip. */}
-        {item.tmdbId && onRate && !hasOwnRating ? (
+        {!readOnly && item.tmdbId && onRate && !hasOwnRating ? (
           <div
             className="saved-card-stars"
             onClick={(event) => event.stopPropagation()}
@@ -134,6 +150,17 @@ export function SavedPosterCard({
         <h4>{item.title}</h4>
         <span>{savedMetaLine(item)}</span>
       </div>
+
+      {readOnly && onAdd && item.tmdbId ? (
+        <button
+          type="button"
+          className={`saved-card-add${isAdded ? " is-added" : ""}`}
+          onClick={() => onAdd(item)}
+          disabled={isAdded}
+        >
+          {isAdded ? "✓ Уже в тебе" : "+ Додати собі"}
+        </button>
+      ) : null}
     </article>
   );
 }

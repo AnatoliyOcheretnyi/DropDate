@@ -34,6 +34,8 @@ type Props = {
   shownCount: number;
   totalCount: number;
   isFiltered: boolean;
+  /** Whose list is being narrowed — the friend page says so in the field. */
+  searchPlaceholder?: string;
 };
 
 const titleWord = (count: number) => {
@@ -73,6 +75,7 @@ export function SavedControlPanel({
   shownCount,
   totalCount,
   isFiltered,
+  searchPlaceholder = "Пошук у списку",
 }: Props) {
   return (
     <div className="saved-panel">
@@ -147,8 +150,8 @@ export function SavedControlPanel({
             <input
               type="search"
               value={query}
-              placeholder="Пошук у списку"
-              aria-label="Пошук у списку"
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
               onChange={(event) => onQueryChange(event.target.value)}
             />
           </label>

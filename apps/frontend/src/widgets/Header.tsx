@@ -15,6 +15,7 @@ import {
 import { CoverImage } from "../shared/ui/CoverImage";
 import { AuthModal } from "./AuthModal";
 import { HeaderSearch } from "./HeaderSearch";
+import { ProfileMenu } from "./ProfileMenu";
 
 export type ViewKey = "home" | "saved" | "games" | "mood" | "match" | "calendar";
 
@@ -49,6 +50,7 @@ export function Header({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const profileRef = useRef<HTMLDivElement | null>(null);
+  const profileButtonRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -110,6 +112,13 @@ export function Header({
     }
     setIsProfileOpen((prev) => !prev);
   }, [user]);
+
+  // Esc and any menu action send focus back to the avatar, so the popover is
+  // not a keyboard dead end.
+  const handleProfileClose = useCallback(() => {
+    setIsProfileOpen(false);
+    profileButtonRef.current?.focus();
+  }, []);
 
   const initials = `${(user?.email?.[0] || "U").toUpperCase()}${(
     user?.email?.[1] || ""
@@ -311,83 +320,25 @@ export function Header({
             <div className="header-profile-shell" ref={profileRef}>
               <button
                 type="button"
+                ref={profileButtonRef}
                 className={`profile-button${isProfileOpen ? " active" : ""}`}
                 onClick={handleProfileToggle}
                 aria-label={copy.auth.profile}
                 aria-expanded={isProfileOpen}
+                aria-haspopup="menu"
               >
                 <span className="profile-initials">{initials}</span>
               </button>
               {isProfileOpen && (
-                <div className="profile-popover">
-                  <div className="profile-popover-card">
-                    <div className="profile-avatar">{initials}</div>
-                    <div className="profile-meta">
-                      <strong>{copy.auth.profile}</strong>
-                      <span>{user.email}</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="profile-popover-action"
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      router.push("/profile");
-                    }}
-                  >
-                    {copy.auth.profile}
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-popover-action"
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      router.push("/saved");
-                    }}
-                  >
-                    {copy.header.savedList}
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-popover-action"
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      router.push("/friends");
-                    }}
-                  >
-                    Друзі
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-popover-action"
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      router.push("/calendar");
-                    }}
-                  >
-                    Календар релізів
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-popover-action"
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      router.push("/changelog");
-                    }}
-                  >
-                    Що нового
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-popover-action profile-popover-action--danger"
-                    onClick={async () => {
-                      setIsProfileOpen(false);
-                      await logout();
-                    }}
-                  >
-                    {copy.auth.signOut}
-                  </button>
-                </div>
+                <ProfileMenu
+                  email={user.email}
+                  username={user.username}
+                  initials={initials}
+                  savedCount={savedCount}
+                  isSuperuser={user.isSuperuser}
+                  onClose={handleProfileClose}
+                  onSignOut={logout}
+                />
               )}
             </div>
           )}

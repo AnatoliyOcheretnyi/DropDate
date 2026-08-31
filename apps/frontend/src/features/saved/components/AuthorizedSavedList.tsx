@@ -16,6 +16,10 @@ type Props = {
   onRate?: (item: SavedRelease, rating: number) => void;
   showBadges?: boolean;
   view?: SavedViewMode;
+  /** A friend's library: every mutating control is replaced by "Додати собі". */
+  readOnly?: boolean;
+  onAdd?: (item: SavedRelease) => void;
+  isAdded?: (item: SavedRelease) => boolean;
 };
 
 const isEnded = (item: SavedRelease) =>
@@ -68,6 +72,9 @@ export function AuthorizedSavedList({
   onRate,
   showBadges = false,
   view = "grid",
+  readOnly = false,
+  onAdd,
+  isAdded,
 }: Props) {
   const renderItem = (item: SavedRelease) =>
     view === "compact" ? (
@@ -78,6 +85,9 @@ export function AuthorizedSavedList({
         onChangeLists={onChangeLists}
         showBadges={showBadges}
         actionsDisabled={actionsDisabled}
+        readOnly={readOnly}
+        onAdd={onAdd}
+        isAdded={isAdded?.(item)}
       />
     ) : (
       <SavedPosterCard
@@ -88,6 +98,9 @@ export function AuthorizedSavedList({
         onRate={onRate}
         showBadges={showBadges}
         actionsDisabled={actionsDisabled}
+        readOnly={readOnly}
+        onAdd={onAdd}
+        isAdded={isAdded?.(item)}
       />
     );
 

@@ -10,9 +10,10 @@ import type { SavedRelease } from "../../../shared/types/releases";
 import { FriendAvatar } from "../../friends/components/FriendAvatar";
 import { fetchFriendSaved } from "../../friends/api/friendsApi";
 import { useFriends } from "../../friends/hooks/useFriends";
-import { Confetti } from "../components/Confetti";
 import { GameShell } from "../components/GameShell";
-import { ShareResultButton } from "../components/ShareResultButton";
+import { GameHud } from "../components/GameHud";
+import { GameStage } from "../components/GameStage";
+import { GameSummary } from "../components/GameSummary";
 import { useGameStats } from "../hooks/useGameStats";
 
 const ROUNDS = 10;
@@ -268,37 +269,28 @@ export function FriendTasteScreen() {
 
       {status === "playing" && pair && (
         <div className="games-round">
-          <aside className="games-round__side">
-            <p className="games-kicker">Смак друга</p>
-            <p className="games-prompt">Що @{friendName} оцінює вище?</p>
-            <div className="games-scorebar">
-              <span>
-                Раунд {index + 1} / {pairs.length}
-              </span>
-              <span>Вгадано: {score}</span>
-            </div>
-            <div className="games-progress-bar" aria-hidden="true">
-              <span
-                style={{
-                  width: `${((index + (revealed ? 1 : 0)) / Math.max(1, pairs.length)) * 100}%`,
-                }}
-              />
-            </div>
-          </aside>
+          <GameHud
+            kicker={`Смак @${friendName}`}
+            avatar={<FriendAvatar label={friendName} size="sm" />}
+            metrics={[
+              { label: "Раунд", value: `${index + 1} / ${pairs.length}` },
+              { label: "Вгадано", value: `${score}` },
+            ]}
+            progress={(index + (revealed ? 1 : 0)) / Math.max(1, pairs.length)}
+          />
 
           <div className="games-round__board">
-            <div
-              key={`${pair.left.id}-${pair.right.id}`}
-              className={`games-board games-board--enter${
-                revealed && selected !== pair.answer ? " games-board--missed" : ""
-              }`}
+            <GameStage
+              roundKey={`${pair.left.id}-${pair.right.id}`}
+              state={revealed ? (selected === pair.answer ? "correct" : "wrong") : "idle"}
+              className="games-board"
             >
               {renderCard("left")}
               <div className="games-vs" aria-hidden="true">
                 VS
               </div>
               {renderCard("right")}
-            </div>
+            </GameStage>
           </div>
 
           {revealed && (
@@ -317,31 +309,19 @@ export function FriendTasteScreen() {
       )}
 
       {status === "finished" && (
-        <div className="games-summary">
-          {results.length > 0 && score / results.length >= 0.7 ? <Confetti /> : null}
-          <h2>
-            {score >= results.length * 0.8
+        <GameSummary
+          title={
+            score >= results.length * 0.8
               ? `Ти читаєш @${friendName} як відкриту книгу 👀`
-              : "Гру завершено"}
-          </h2>
-          <div className="games-summary-stats">
-            <div>
-              <strong>
-                {score} / {results.length}
-              </strong>
-              <span>Вгадано</span>
-            </div>
-          </div>
-          <div className="games-summary-actions">
-            <button type="button" className="primary" onClick={() => setStatus("pick")}>
-              Інший друг
-            </button>
-            <ShareResultButton text={shareText} />
-            <button type="button" onClick={() => router.push("/games")}>
-              До ігор
-            </button>
-          </div>
-        </div>
+              : "Гру завершено"
+          }
+          stats={[{ label: "Вгадано", value: `${score} / ${results.length}` }]}
+          squares={results}
+          shareText={shareText}
+          celebrate={results.length > 0 && score / results.length >= 0.7}
+          replayLabel="Інший друг"
+          onReplay={() => setStatus("pick")}
+        />
       )}
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

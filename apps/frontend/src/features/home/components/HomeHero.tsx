@@ -71,7 +71,6 @@ export function HomeHero({
             alt=""
             sizes="100vw"
             priority
-            quality={90}
             ariaHidden
             className="home-hero__image"
           />

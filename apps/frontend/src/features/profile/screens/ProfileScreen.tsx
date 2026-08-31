@@ -1,23 +1,33 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppPageShell } from "../../../widgets/AppPageShell";
 import { AuthModal } from "../../../widgets/AuthModal";
 import { Reveal } from "../../../shared/ui/Reveal";
 import { useAuth } from "../../../shared/state/auth";
 import { useProfile } from "../hooks/useProfile";
-import { useTasteRanking } from "../hooks/useTasteRanking";
 import { useAchievements } from "../hooks/useAchievements";
 import { useFollowedPeople } from "../../people/hooks/useFollowedPeople";
-import { ProfileCard } from "../components/ProfileCard";
-import { TasteRanker } from "../components/TasteRanker";
+import { PeopleSection } from "../../people/components/PeopleSection";
 import { TasteTournament } from "../components/TasteTournament";
 import { TasteCalibrationCard } from "../components/TasteCalibrationCard";
 import { AchievementsSection } from "../components/AchievementsSection";
-import { UsernameEditor } from "../../friends/components/UsernameEditor";
+import { IdentityHeader } from "../components/IdentityHeader";
+import { StatRow } from "../components/StatRow";
+import { ProfileSettingsSheet } from "../components/ProfileSettingsSheet";
 import { CoverImage } from "../../../shared/ui/CoverImage";
+import { savedMediaType, savedMetaLine } from "../../saved/utils/savedPresentation";
 import type { SavedRelease } from "../../../shared/types/releases";
+
+const PROFILE_TABS = [
+  { key: "overview", label: "Огляд" },
+  { key: "taste", label: "Смаки" },
+  { key: "achievements", label: "Досягнення" },
+  { key: "people", label: "Люди" },
+] as const;
+
+type ProfileTabKey = (typeof PROFILE_TABS)[number]["key"];
 
 const isSeries = (item: SavedRelease) =>
   item.mediaType === "tv" || item.type === "series";
@@ -28,11 +38,45 @@ const inList = (item: SavedRelease, list: string) =>
     : ["follow"]
   ).includes(list as never);
 
-export function ProfileScreen() {
+const parseTab = (value: string | null): ProfileTabKey =>
+  PROFILE_TABS.some((tab) => tab.key === value) ? (value as ProfileTabKey) : "overview";
+
+const monthYear = (value?: string) => {
+  if (!value) {
+    return "";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("uk-UA", { month: "long", year: "numeric" }).format(parsed);
+};
+
+const fullDate = (value?: string) => {
+  if (!value) {
+    return "";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(parsed);
+};
+
+function ProfileScreenContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { accessToken } = useAuth();
   const [isResettingCache, setIsResettingCache] = useState(false);
   const [cacheResetStatus, setCacheResetStatus] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [tab, setTabState] = useState<ProfileTabKey>(() =>
+    parseTab(searchParams.get("tab"))
+  );
   const {
     authLoading,
     blurTimeoutRef,
@@ -47,7 +91,6 @@ export function ProfileScreen() {
     isSearchOpen,
     isSuggestionSaved,
     isFetchingSuggestions,
-    listCopy,
     saved,
     savedCount,
     setIsAuthOpen,
@@ -57,38 +100,67 @@ export function ProfileScreen() {
     user,
   } = useProfile();
 
-  const { genres, countries, reorder, reset } = useTasteRanking();
   const { people } = useFollowedPeople();
   const { lists: achievementLists, isLoading: achievementsLoading } =
     useAchievements();
 
+  // The tab is addressable, so the avatar menu can link straight to ?tab=people.
+  const setTab = useCallback(
+    (next: ProfileTabKey) => {
+      setTabState(next);
+      router.replace(next === "overview" ? "/profile" : `/profile?tab=${next}`, {
+        scroll: false,
+      });
+    },
+    [router]
+  );
+
+  // The avatar menu links to /profile?tab=people from the profile page itself,
+  // where Next keeps the component mounted — so the tab follows the query.
+  const tabParam = searchParams.get("tab");
+  useEffect(() => {
+    setTabState(parseTab(tabParam));
+  }, [tabParam]);
+
   const stats = useMemo(() => {
     const movies = saved.filter((item) => !isSeries(item)).length;
-    const series = saved.length - movies;
     const watched = saved.filter((item) => inList(item, "watched")).length;
-    const rated = saved
-      .map((item) => item.userRating)
-      .filter((value): value is number => typeof value === "number");
-    const avg =
-      rated.length > 0
-        ? Math.round((rated.reduce((a, b) => a + b, 0) / rated.length) * 10) / 10
-        : 0;
-    return { movies, series, watched, avg };
+    return { movies, series: saved.length - movies, watched };
   }, [saved]);
 
   const statTiles = [
-    { value: savedCount, label: "у бібліотеці", tone: "green" },
-    { value: stats.movies, label: "фільмів", tone: "blue" },
-    { value: stats.series, label: "серіалів", tone: "violet" },
-    { value: stats.watched, label: "переглянуто", tone: "amber" },
-    {
-      value: stats.avg > 0 ? `${stats.avg}` : "—",
-      label: "середня оцінка",
-      tone: "pink",
-    },
+    { key: "saved", value: savedCount, label: "у списку" },
+    { key: "watched", value: stats.watched, label: "переглянуто" },
+    { key: "movies", value: stats.movies, label: "фільмів" },
+    { key: "series", value: stats.series, label: "серіалів" },
+    { key: "people", value: people.length, label: "людей" },
   ];
 
-  const peoplePreview = people.slice(0, 8);
+  const recent = useMemo(
+    () =>
+      [...saved]
+        .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
+        .slice(0, 6),
+    [saved]
+  );
+
+  const nextRelease = useMemo(() => {
+    const now = Date.now();
+    return [...saved]
+      .filter((item) => {
+        if (!item.nextRelease) {
+          return false;
+        }
+        const parsed = new Date(item.nextRelease).getTime();
+        return !Number.isNaN(parsed) && parsed >= now;
+      })
+      .sort((a, b) => (a.nextRelease ?? "").localeCompare(b.nextRelease ?? ""))[0];
+  }, [saved]);
+
+  const memberSince = monthYear(
+    [...saved].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))[0]
+      ?.createdAt
+  );
 
   const handleCacheReset = async () => {
     if (!user?.isSuperuser) {
@@ -123,6 +195,133 @@ export function ProfileScreen() {
     }
   };
 
+  const openTitle = (item: SavedRelease) => {
+    if (item.tmdbId) {
+      router.push(`/title/${savedMediaType(item)}/${item.tmdbId}`);
+    }
+  };
+
+  const renderOverview = () => (
+    <div className="profile-panel">
+      {user?.isSuperuser ? (
+        <section className="profile-dev-card">
+          <div>
+            <p className="trend-kicker">Dev Access</p>
+            <h2>Твоя dev-зона</h2>
+            <p>
+              Тут можна одразу скинути кеш релізів і рекомендацій та примусово
+              перевалідувати головну.
+            </p>
+          </div>
+          <div className="profile-dev-card__actions">
+            <button
+              type="button"
+              className="profile-people-manage"
+              onClick={() => router.push("/profile/dev")}
+            >
+              Відкрити dev-сторінку →
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void handleCacheReset()}
+              disabled={isResettingCache}
+            >
+              {isResettingCache ? "Скидаю кеш..." : "Скинути кеш зараз"}
+            </button>
+          </div>
+          {cacheResetStatus ? (
+            <p className="profile-dev-card__status">{cacheResetStatus}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="profile-block">
+        <div className="profile-block__head">
+          <h2>Останні додані</h2>
+          <button
+            type="button"
+            className="profile-people-manage"
+            onClick={() => router.push("/saved")}
+          >
+            Мій список →
+          </button>
+        </div>
+        {recent.length === 0 ? (
+          <p className="profile-block__empty">
+            Список поки порожній — додай перший тайтл із головної.
+          </p>
+        ) : (
+          <div className="profile-recent">
+            {recent.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="profile-recent__card"
+                onClick={() => openTitle(item)}
+              >
+                <span className="profile-recent__poster">
+                  {item.posterUrl ? (
+                    <CoverImage src={item.posterUrl} alt={item.title} sizes="172px" />
+                  ) : (
+                    <span aria-hidden="true">{item.title.slice(0, 1)}</span>
+                  )}
+                </span>
+                <strong>{item.title}</strong>
+                <span className="profile-recent__meta">{savedMetaLine(item)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {nextRelease ? (
+        <section className="profile-block">
+          <div className="profile-block__head">
+            <h2>Найближчий реліз</h2>
+          </div>
+          <button
+            type="button"
+            className="profile-next"
+            onClick={() => openTitle(nextRelease)}
+          >
+            <span className="profile-next__poster">
+              {nextRelease.posterUrl ? (
+                <CoverImage src={nextRelease.posterUrl} alt={nextRelease.title} sizes="92px" />
+              ) : (
+                <span aria-hidden="true">{nextRelease.title.slice(0, 1)}</span>
+              )}
+            </span>
+            <span className="profile-next__text">
+              <strong>{nextRelease.title}</strong>
+              <span>{fullDate(nextRelease.nextRelease)}</span>
+            </span>
+          </button>
+        </section>
+      ) : null}
+    </div>
+  );
+
+  const renderTaste = () => (
+    <div className="profile-panel">
+      {/* Guests get the same layout behind a blur instead of a different
+          component under the same name. */}
+      <div className={`taste-grid${user ? "" : " taste-grid--locked"}`}>
+        <TasteCalibrationCard />
+        <TasteTournament kind="genre" title="Жанри" />
+        <TasteTournament kind="country" title="Країни" />
+      </div>
+      {user ? null : (
+        <div className="taste-lock">
+          <p>Увійди, щоб калібрувати смаки — вибір пар зберігається до акаунта.</p>
+          <button type="button" className="btn-pill btn-pill--accent" onClick={() => setIsAuthOpen(true)}>
+            Увійти
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <main className="page page--profile">
       <AppPageShell
@@ -150,174 +349,92 @@ export function ProfileScreen() {
         }}
       >
         <section className="profile-shell">
-          <div className="profile-hero">
-            <div className="profile-hero-copy">
-              <p className="eyebrow">Твій простір</p>
-              <h1>{user ? "Твій профіль" : "Персональний профіль"}</h1>
-              <p>Твоя статистика, смаки та люди, за якими ти стежиш.</p>
-            </div>
-            <ProfileCard
-              initials={initials}
-              email={user?.email || null}
-              loginPrompt={listCopy.loginPrompt}
-              authLoading={authLoading}
-              isAuthenticated={Boolean(user)}
-              onSignOut={handleLogout}
-              onSignIn={() => setIsAuthOpen(true)}
-            />
-            {user ? <UsernameEditor /> : null}
+          <IdentityHeader
+            initials={initials}
+            title={user ? `@${user.username || "без юзернейму"}` : "Персональний профіль"}
+            meta={[
+              user?.email,
+              memberSince ? `У DropDate з ${memberSince}` : null,
+            ]}
+            action={
+              user ? (
+                <button
+                  type="button"
+                  className="identity-header__icon-btn"
+                  aria-label="Налаштування профілю"
+                  onClick={() => setIsSettingsOpen(true)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm9 4a8.7 8.7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3 1a8.8 8.8 0 0 0-2.3-1.3L15.9 3h-3.8l-.4 2.5a8.8 8.8 0 0 0-2.3 1.3l-2.3-1-2 3.4 2 1.5a8.9 8.9 0 0 0 0 2.6l-2 1.5 2 3.4 2.3-1a8.8 8.8 0 0 0 2.3 1.3l.4 2.5h3.8l.4-2.5a8.8 8.8 0 0 0 2.3-1.3l2.3 1 2-3.4-2-1.5c.06-.43.1-.86.1-1.3Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-pill btn-pill--accent"
+                  onClick={() => setIsAuthOpen(true)}
+                  disabled={authLoading}
+                >
+                  Увійти
+                </button>
+              )
+            }
+          />
+
+          <StatRow items={statTiles} />
+
+          <div className="profile-tabs-row" role="tablist" aria-label="Розділи профілю">
+            {PROFILE_TABS.map((entry) => (
+              <button
+                key={entry.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === entry.key}
+                className={`profile-tab-btn${tab === entry.key ? " is-active" : ""}`}
+                onClick={() => setTab(entry.key)}
+              >
+                {entry.label}
+              </button>
+            ))}
           </div>
 
-          {user?.isSuperuser ? (
-            <Reveal>
-              <section className="profile-dev-card">
-                <div>
-                  <p className="trend-kicker">Dev Access</p>
-                  <h2>Твоя dev-зона</h2>
-                  <p>
-                    Тут можна одразу скинути кеш релізів і рекомендацій та
-                    примусово перевалідувати головну.
-                  </p>
-                </div>
-                <div className="profile-dev-card__actions">
-                  <button
-                    type="button"
-                    className="profile-people-manage"
-                    onClick={() => router.push("/profile/dev")}
-                  >
-                    Відкрити dev-сторінку →
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => void handleCacheReset()}
-                    disabled={isResettingCache}
-                  >
-                    {isResettingCache ? "Скидаю кеш..." : "Скинути кеш зараз"}
-                  </button>
-                </div>
-                {cacheResetStatus ? (
-                  <p className="profile-dev-card__status">{cacheResetStatus}</p>
-                ) : null}
-              </section>
-            </Reveal>
-          ) : null}
-
-          <Reveal>
-            <div className="profile-metrics">
-              {statTiles.map((tile) => (
-                <div
-                  key={tile.label}
-                  className={`profile-metric profile-metric--${tile.tone}`}
-                >
-                  <strong>{tile.value}</strong>
-                  <span>{tile.label}</span>
-                </div>
-              ))}
-            </div>
-          </Reveal>
-
-          {user ? (
-            <Reveal>
-              <div className="profile-section-head">
-                <div>
-                  <p className="trend-kicker">Твій прогрес</p>
-                  <h2>Досягнення</h2>
-                </div>
+          <Reveal key={tab}>
+            {tab === "overview" ? renderOverview() : null}
+            {tab === "taste" ? renderTaste() : null}
+            {tab === "achievements" ? (
+              <div className="profile-panel">
+                <AchievementsSection
+                  lists={achievementLists}
+                  isLoading={achievementsLoading}
+                />
               </div>
-              <AchievementsSection
-                lists={achievementLists}
-                isLoading={achievementsLoading}
-              />
-            </Reveal>
-          ) : null}
-
-          <Reveal>
-            <div className="profile-section-head">
-              <div>
-                <p className="trend-kicker">Що тобі заходить</p>
-                <h2>Смаки</h2>
+            ) : null}
+            {tab === "people" ? (
+              <div className="profile-panel">
+                <PeopleSection />
               </div>
-              <p className="profile-section-hint">
-                Обирай між парами — рейтинг ставатиме точнішим і впливатиме
-                на рекомендації без жорстких фільтрів.
-              </p>
-            </div>
-            <div className="taste-grid">
-              {user ? (
-                <>
-                  <TasteCalibrationCard />
-                  <TasteTournament kind="genre" title="Жанри" />
-                  <TasteTournament kind="country" title="Країни" />
-                </>
-              ) : (
-                <>
-                  <TasteRanker
-                kind="genre"
-                title="Жанри"
-                kicker="Перетягни, щоб ранжувати"
-                items={genres}
-                onReorder={reorder}
-                onReset={reset}
-              />
-                  <TasteRanker
-                kind="country"
-                title="Країни"
-                kicker="Перетягни, щоб ранжувати"
-                items={countries}
-                onReorder={reorder}
-                onReset={reset}
-                  />
-                </>
-              )}
-            </div>
-          </Reveal>
-
-          <Reveal>
-            <div className="profile-section-head">
-              <div>
-                <p className="trend-kicker">Стежиш за творцями</p>
-                <h2>Люди</h2>
-              </div>
-              <button
-                type="button"
-                className="profile-people-manage"
-                onClick={() => router.push("/saved")}
-              >
-                Керувати →
-              </button>
-            </div>
-            {peoplePreview.length === 0 ? (
-              <div className="profile-people-empty">
-                Ще ні за ким не стежиш. Відкрий сторінку фільму й познач акторів,
-                щоб не пропустити їхні нові релізи.
-              </div>
-            ) : (
-              <div className="profile-people-row">
-                {peoplePreview.map((person) => (
-                  <div key={person.tmdbId} className="profile-people-chip">
-                    <div className="profile-people-avatar">
-                      {person.profileUrl ? (
-                        <CoverImage src={person.profileUrl} alt={person.name} sizes="64px" />
-                      ) : (
-                        <span aria-hidden="true">{person.name.slice(0, 1)}</span>
-                      )}
-                    </div>
-                    <span>{person.name}</span>
-                  </div>
-                ))}
-                {people.length > peoplePreview.length ? (
-                  <div className="profile-people-more">
-                    +{people.length - peoplePreview.length}
-                  </div>
-                ) : null}
-              </div>
-            )}
+            ) : null}
           </Reveal>
         </section>
       </AppPageShell>
 
+      <ProfileSettingsSheet
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSignOut={handleLogout}
+      />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>
+  );
+}
+
+export function ProfileScreen() {
+  return (
+    <Suspense fallback={<main className="page page--profile" />}>
+      <ProfileScreenContent />
+    </Suspense>
   );
 }

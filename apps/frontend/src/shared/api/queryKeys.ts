@@ -26,4 +26,5 @@ export const webQueryKeys = {
     ["friend-saved", friendId, listType] as const,
   friendAchievements: (friendId: string) =>
     ["friend-achievements", friendId] as const,
+  friendFollows: (friendId: string) => ["friend-follows", friendId] as const,
 };

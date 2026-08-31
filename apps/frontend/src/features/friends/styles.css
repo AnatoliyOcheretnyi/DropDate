@@ -1219,3 +1219,14 @@ main.page--friend-profile {
     aspect-ratio: 4 / 3;
   }
 }
+
+.friends-empty__reset {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--dd-accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}

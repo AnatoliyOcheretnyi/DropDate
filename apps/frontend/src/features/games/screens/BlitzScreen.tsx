@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { fetchGameQuestions, type GameQuestion } from "../api/games";
-import { Confetti } from "../components/Confetti";
 import { GameShell } from "../components/GameShell";
-import { ShareResultButton } from "../components/ShareResultButton";
+import { GameHud } from "../components/GameHud";
+import { GameStage } from "../components/GameStage";
+import { GameSummary } from "../components/GameSummary";
+import { GameCountdown } from "../components/GameCountdown";
 import { useGameStats } from "../hooks/useGameStats";
 
 const ROUNDS = 10;
@@ -14,7 +16,7 @@ const ROUND_MS = 12000;
 const TICK_MS = 100;
 const ADVANCE_DELAY_MS = 1700;
 
-type Status = "loading" | "playing" | "finished" | "error";
+type Status = "loading" | "countdown" | "playing" | "finished" | "error";
 
 const squares = (results: boolean[]) =>
   results.map((ok) => (ok ? "🟩" : "🟥")).join("");
@@ -52,7 +54,9 @@ export function BlitzScreen() {
         return;
       }
       setQuestions(playable);
-      setStatus("playing");
+      // The clock starts with the round, so the first frame gets a 3-2-1
+      // instead of eating a second while the player reads the options.
+      setStatus("countdown");
     } catch {
       setStatus("error");
     }
@@ -129,27 +133,26 @@ export function BlitzScreen() {
         </div>
       )}
 
+      {status === "countdown" && (
+        <GameCountdown onDone={() => setStatus("playing")} label="Дивись уважно" />
+      )}
+
       {status === "error" && (
         <div className="games-error">Не вдалося зібрати гру. Спробуй пізніше.</div>
       )}
 
       {status === "playing" && question && question.card && (
-        <div className="blitz" key={question.id}>
-          <div className="blitz__top">
-            <p className="games-kicker">
-              {daily ? "Щоденний виклик · Постер-бліц" : "Постер-бліц"}
-            </p>
-            <span className="blitz__counter">
-              {index + 1} / {questions.length} · Рахунок: {score}
-            </span>
-          </div>
-
-          <div className="blitz__timer" aria-hidden="true">
-            <span
-              className={timeLeft < ROUND_MS * 0.25 ? "is-critical" : ""}
-              style={{ width: `${(timeLeft / ROUND_MS) * 100}%` }}
-            />
-          </div>
+        <GameStage roundKey={question.id} className="blitz">
+          <GameHud
+            kicker={daily ? "Щоденний виклик · Постер-бліц" : "Постер-бліц"}
+            mode="timed"
+            metrics={[
+              { label: "Кадр", value: `${index + 1} / ${questions.length}` },
+              { label: "Рахунок", value: `${score}` },
+            ]}
+            timeRatio={timeLeft / ROUND_MS}
+            timeLabel={`${Math.ceil(timeLeft / 1000)}с`}
+          />
 
           <div className={`blitz__frame${revealed ? " is-revealed" : ""}`}>
             <CoverImage
@@ -200,35 +203,20 @@ export function BlitzScreen() {
               );
             })}
           </div>
-        </div>
+        </GameStage>
       )}
 
       {status === "finished" && (
-        <div className="games-summary">
-          {results.length > 0 && score / results.length >= 0.7 ? <Confetti /> : null}
-          <h2>{score >= 8 ? "Кіноман! 🎬" : "Гру завершено"}</h2>
-          <div className="games-summary-stats">
-            <div>
-              <strong>
-                {score} / {results.length}
-              </strong>
-              <span>Вгадано кадрів</span>
-            </div>
-          </div>
-          <p className="games-squares" aria-hidden="true">
-            {squares(results)}
-          </p>
-          <div className="games-summary-actions">
-            <button type="button" className="primary" onClick={() => void load()}>
-              Зіграти ще
-            </button>
-            <ShareResultButton text={shareText} />
-            <button type="button" onClick={() => router.push("/games")}>
-              До ігор
-            </button>
-          </div>
-        </div>
+        <GameSummary
+          title={score >= 8 ? "Кіноман! 🎬" : "Гру завершено"}
+          stats={[{ label: "Вгадано кадрів", value: `${score} / ${results.length}` }]}
+          squares={results}
+          shareText={shareText}
+          celebrate={results.length > 0 && score / results.length >= 0.7}
+          onReplay={() => void load()}
+        />
       )}
+
     </GameShell>
   );
 }

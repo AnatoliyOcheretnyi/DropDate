@@ -9,6 +9,9 @@ type Props = {
   role: PersonRole;
   profileUrl?: string;
   className?: string;
+  /** A friend's grid says "Стежити теж" instead of the bare "Стежити". */
+  followLabel?: string;
+  followingLabel?: string;
 };
 
 export function PersonFollowButton({
@@ -17,8 +20,12 @@ export function PersonFollowButton({
   role,
   profileUrl,
   className,
+  followLabel = "Стежити",
+  followingLabel = "Відстежується",
 }: Props) {
-  const { isFollowing, toggle } = useFollowedPeople();
+  // toggleLike, not the bare store toggle: a follow written only to
+  // localStorage is wiped by the next sync with the backend.
+  const { isFollowing, toggleLike } = useFollowedPeople();
   const following = isFollowing(tmdbId);
 
   return (
@@ -30,13 +37,13 @@ export function PersonFollowButton({
       aria-pressed={following}
       onClick={(event) => {
         event.stopPropagation();
-        toggle({ tmdbId, name, role, profileUrl });
+        toggleLike({ tmdbId, name, role, profileUrl });
       }}
     >
       <span className="person-follow__icon" aria-hidden="true">
         {following ? "✓" : "+"}
       </span>
-      {following ? "Відстежується" : "Стежити"}
+      {following ? followingLabel : followLabel}
     </button>
   );
 }

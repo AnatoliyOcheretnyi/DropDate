@@ -312,7 +312,6 @@
   letter-spacing: 0.04rem;
 }
 
-.profile-popover,
 .notifications-popover {
   position: absolute;
   right: 0;
@@ -324,69 +323,229 @@
   backdrop-filter: blur(10px);
 }
 
-.profile-popover {
+/* Avatar menu: two labelled groups with counters, and sign-out on its own
+   below a divider — instead of six identical pills where nothing outranked
+   anything else. */
+.profile-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 160;
   width: 300px;
-  padding: 1rem;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  z-index: 160;
+  background: var(--dd-surface-1);
+  border: 1px solid var(--dd-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(1, 6, 13, 0.45);
 }
 
-.profile-popover-card {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 0.9rem;
+.profile-menu__handle {
+  display: none;
+}
+
+.profile-menu-head {
+  display: flex;
   align-items: center;
-  padding: 0.7rem;
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.024);
+  text-align: left;
+  cursor: pointer;
 }
 
-.profile-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: rgba(115, 240, 193, 0.14);
-  border: 1px solid rgba(115, 240, 193, 0.35);
+.profile-menu-head:hover,
+.profile-menu-head:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.profile-menu-head__avatar {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--text);
-}
-
-.profile-meta strong {
-  display: block;
-  font-size: 1rem;
-}
-
-.profile-meta span {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.88rem;
-  color: var(--text-dim);
-}
-
-.profile-popover-action {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
-  padding: 0.75rem 0.9rem;
-  border-radius: 999px;
+  background: var(--dd-accent-soft);
+  color: var(--dd-accent);
   font-weight: 700;
-  cursor: pointer;
+  font-size: 1rem;
+}
+
+.profile-menu-head__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.profile-menu-head__meta strong {
+  font-size: 0.906rem;
+  font-weight: 700;
+  color: var(--dd-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-menu-head__cta {
+  color: var(--dd-accent);
+  text-decoration: underline;
+}
+
+.profile-menu-head__meta span {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--dd-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-menu-group__title {
+  margin: 0;
+  padding: 10px 12px 4px;
+  font-size: 0.656rem;
+  font-weight: 800;
+  letter-spacing: 0.075rem;
+  text-transform: uppercase;
+  color: var(--dd-faint);
+}
+
+.profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--dd-text);
+  font-size: 0.844rem;
+  font-weight: 600;
   text-align: left;
+  cursor: pointer;
 }
 
-.profile-popover-action:hover {
-  border-color: var(--border-strong);
+.profile-menu-item:hover,
+.profile-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.031);
+  outline: none;
 }
 
-.profile-popover-action--danger {
-  border-color: rgba(255, 140, 150, 0.3);
-  color: #ffb3ba;
+.profile-menu-item__icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--dd-muted);
+}
+
+.profile-menu-item__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.profile-menu-item:hover .profile-menu-item__icon,
+.profile-menu-item:focus-visible .profile-menu-item__icon {
+  color: var(--dd-accent);
+}
+
+.profile-menu-item__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-menu-item__count {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--dd-faint);
+}
+
+.profile-menu-item__badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--dd-warn);
+  color: var(--dd-accent-ink);
+  font-size: 0.688rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.profile-menu-item__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--dd-accent);
+}
+
+.profile-menu-divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--dd-border);
+}
+
+.profile-menu-item--danger {
+  color: #ff8b8b;
+}
+
+.profile-menu-item--danger .profile-menu-item__icon {
+  color: #ff8b8b;
+}
+
+.profile-menu-item--danger:hover,
+.profile-menu-item--danger:focus-visible {
+  background: rgba(255, 139, 139, 0.1);
+}
+
+.profile-menu-item--danger:hover .profile-menu-item__icon,
+.profile-menu-item--danger:focus-visible .profile-menu-item__icon {
+  color: #ff8b8b;
+}
+
+/* On a phone the popover would hang off the edge of the viewport, so it
+   becomes a bottom sheet with a drag handle. */
+@media (max-width: 700px) {
+  .profile-menu {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: auto;
+    padding: 10px 10px 22px;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+  }
+
+  .profile-menu__handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 4px auto 8px;
+    border-radius: 999px;
+    background: var(--dd-border-strong);
+  }
+
+  .profile-menu-item {
+    height: 48px;
+  }
 }
 
 .search-backdrop {

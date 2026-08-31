@@ -243,3 +243,63 @@
   background: rgba(6, 20, 15, 0.25);
   color: #06140f;
 }
+
+/* The grid is now the whole people view (profile tab and friend profile), so
+   the role filter gained an "Усі" option and a search field. */
+.people-section__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.people-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 240px;
+  padding: 0 0.9rem;
+  height: 38px;
+  border: 1px solid var(--dd-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dd-faint);
+}
+
+.people-search svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.people-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--dd-text);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.person-card--loading {
+  min-height: 220px;
+  background: rgba(255, 255, 255, 0.04);
+  animation: person-card-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes person-card-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.person-card__follow {
+  width: 100%;
+  justify-content: center;
+}

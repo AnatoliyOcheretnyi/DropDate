@@ -427,3 +427,54 @@ func (s *Server) friendAchievementsHandler(w http.ResponseWriter, r *http.Reques
 
 	writeJSON(w, http.StatusOK, map[string]any{"lists": progress})
 }
+
+// friendFollowsHandler returns the people a friend follows — gated on an
+// accepted friendship — GET /friends/follows?friendId=
+//
+// Mirrors friendSavedHandler: /people/follows only ever reads the caller's own
+// follows, so a friend's list needs its own friendship-checked route.
+func (s *Server) friendFollowsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	userID, err := s.requireUserID(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.friends == nil || s.people == nil {
+		writeError(w, http.StatusServiceUnavailable, "storage unavailable")
+		return
+	}
+
+	friendID := strings.TrimSpace(r.URL.Query().Get("friendId"))
+	if friendID == "" {
+		writeError(w, http.StatusBadRequest, "friendId is required")
+		return
+	}
+
+	ok, err := s.friends.IsFriend(r.Context(), userID, friendID)
+	if err != nil {
+		s.logger.Printf("friendship check failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to verify friendship")
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusForbidden, "not friends")
+		return
+	}
+
+	follows, err := s.people.List(r.Context(), friendID)
+	if err != nil {
+		s.logger.Printf("friend people list failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to fetch followed people")
+		return
+	}
+
+	payload := make([]personFollowItem, 0, len(follows))
+	for _, item := range follows {
+		payload = append(payload, mapPersonFollow(item))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": payload})
+}

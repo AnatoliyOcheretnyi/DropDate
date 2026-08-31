@@ -54,7 +54,14 @@ const parseGenres = (value: string | null): string[] =>
         .filter(Boolean)
     : [];
 
-export function useSavedFilters(saved: SavedRelease[]) {
+type Options = {
+  /** Where the filter state is mirrored: /saved for my library, the friend
+   *  route for someone else's. */
+  basePath?: string;
+};
+
+export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
+  const basePath = options.basePath ?? "/saved";
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -147,8 +154,8 @@ export function useSavedFilters(saved: SavedRelease[]) {
       params.set("view", view);
     }
     const search = params.toString();
-    router.replace(search ? `/saved?${search}` : "/saved", { scroll: false });
-  }, [direction, genres, query, router, sortKey, sortPinned, tab, view]);
+    router.replace(search ? `${basePath}?${search}` : basePath, { scroll: false });
+  }, [basePath, direction, genres, query, router, sortKey, sortPinned, tab, view]);
 
   const tabCounts = useMemo(() => countByList(saved), [saved]);
 

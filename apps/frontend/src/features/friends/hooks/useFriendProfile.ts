@@ -5,7 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import { useAuth } from "../../../shared/state/auth";
 import { normalizeSavedRelease } from "../../saved/utils/savedState";
-import { fetchFriendAchievements, fetchFriendSaved } from "../api/friendsApi";
+import {
+  fetchFriendAchievements,
+  fetchFriendFollows,
+  fetchFriendSaved,
+} from "../api/friendsApi";
 import { useFriends } from "./useFriends";
 
 export function useFriendProfile(friendId: string) {
@@ -32,6 +36,13 @@ export function useFriendProfile(friendId: string) {
     staleTime: 1000 * 30,
   });
 
+  const followsQuery = useQuery({
+    queryKey: webQueryKeys.friendFollows(friendId),
+    enabled: isAuthed && Boolean(friendId),
+    queryFn: ({ signal }) => fetchFriendFollows(accessToken!, friendId, signal),
+    staleTime: 1000 * 60,
+  });
+
   const saved = useMemo(
     () => (savedQuery.data ?? []).map((item) => normalizeSavedRelease(item)),
     [savedQuery.data]
@@ -45,5 +56,7 @@ export function useFriendProfile(friendId: string) {
     savedError: savedQuery.error,
     achievements: achievementsQuery.data ?? [],
     isAchievementsLoading: achievementsQuery.isLoading,
+    follows: followsQuery.data ?? [],
+    isFollowsLoading: followsQuery.isLoading,
   };
 }

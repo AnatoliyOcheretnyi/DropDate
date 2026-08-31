@@ -192,6 +192,33 @@ export function WheelScreen() {
                 role="img"
                 aria-label="Колесо фортуни зі збереженими тайтлами"
               >
+                {/* Each segment is its own poster, clipped by the wedge: the
+                    wheel shows what is actually in the pool instead of eight
+                    flat colours. */}
+                <defs>
+                  {segments.map((item, index) =>
+                    item.posterUrl ? (
+                      <pattern
+                        key={item.key}
+                        id={`wheel-poster-${index}`}
+                        patternUnits="userSpaceOnUse"
+                        x="0"
+                        y="0"
+                        width={WHEEL_SIZE}
+                        height={WHEEL_SIZE}
+                      >
+                        <image
+                          href={item.posterUrl}
+                          x="0"
+                          y="0"
+                          width={WHEEL_SIZE}
+                          height={WHEEL_SIZE}
+                          preserveAspectRatio="xMidYMid slice"
+                        />
+                      </pattern>
+                    ) : null
+                  )}
+                </defs>
                 {segments.map((item, index) => {
                   const a0 = index * segmentAngle;
                   const a1 = (index + 1) * segmentAngle;
@@ -200,7 +227,19 @@ export function WheelScreen() {
                     <g key={item.key}>
                       <path
                         d={segmentPath(a0, a1)}
+                        fill={
+                          item.posterUrl
+                            ? `url(#wheel-poster-${index})`
+                            : PALETTE[index % PALETTE.length]
+                        }
+                        stroke="rgba(255,255,255,0.08)"
+                        strokeWidth="1"
+                      />
+                      {/* Tint keeps the label readable over any poster. */}
+                      <path
+                        d={segmentPath(a0, a1)}
                         fill={PALETTE[index % PALETTE.length]}
+                        fillOpacity={item.posterUrl ? 0.62 : 0}
                         stroke="rgba(255,255,255,0.08)"
                         strokeWidth="1"
                       />

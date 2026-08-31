@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { fetchGameQuestions, type GameQuestion } from "../api/games";
-import { Confetti } from "../components/Confetti";
 import { GameShell } from "../components/GameShell";
-import { ShareResultButton } from "../components/ShareResultButton";
+import { GameHud } from "../components/GameHud";
+import { GameStage } from "../components/GameStage";
+import { GameSummary } from "../components/GameSummary";
 import { useGameStats } from "../hooks/useGameStats";
 
 const ROUNDS = 8;
@@ -89,6 +90,15 @@ export function YearScreen() {
     }
   }, [status, record, total]);
 
+  const decades = useMemo(() => {
+    const first = Math.ceil(MIN_YEAR / 20) * 20;
+    const ticks: number[] = [];
+    for (let year = first; year <= maxYear; year += 20) {
+      ticks.push(year);
+    }
+    return ticks;
+  }, [maxYear]);
+
   const maxTotal = questions.length * 50;
   const shareText = `DropDate · Вгадай рік${daily ? ` · ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(new Date())}` : ""}\n${total}/${maxTotal} очок`;
 
@@ -106,15 +116,19 @@ export function YearScreen() {
       )}
 
       {status === "playing" && question && question.card && (
-        <div className="yeargame" key={question.id}>
-          <div className="blitz__top">
-            <p className="games-kicker">
-              {daily ? "Щоденний виклик · Вгадай рік" : "Вгадай рік"}
-            </p>
-            <span className="blitz__counter">
-              {index + 1} / {questions.length} · Очки: {total}
-            </span>
-          </div>
+        <GameStage
+          roundKey={question.id}
+          state={revealed ? (diff <= 2 ? "correct" : "wrong") : "idle"}
+          className="yeargame"
+        >
+          <GameHud
+            kicker={daily ? "Щоденний виклик · Вгадай рік" : "Вгадай рік"}
+            metrics={[
+              { label: "Тайтл", value: `${index + 1} / ${questions.length}` },
+              { label: "Очки", value: `${total}` },
+            ]}
+            progress={(index + (revealed ? 1 : 0)) / Math.max(1, questions.length)}
+          />
 
           <div className="yeargame__stage">
             <div className={`yeargame__poster${revealed ? " is-revealed" : ""}`}>
@@ -155,9 +169,15 @@ export function YearScreen() {
                 onChange={(event) => setGuess(Number(event.target.value))}
                 aria-label="Рік виходу"
               />
+              {/* Decade ticks instead of two bare endpoints: the slider is the
+                  whole game, so it should read as a timeline. */}
               <div className="yeargame__scale" aria-hidden="true">
-                <span>{MIN_YEAR}</span>
-                <span>{maxYear}</span>
+                {decades.map((decade) => (
+                  <span key={decade} className="yeargame__tick">
+                    <i />
+                    {decade}
+                  </span>
+                ))}
               </div>
 
               {revealed ? (
@@ -186,30 +206,19 @@ export function YearScreen() {
               )}
             </div>
           </div>
-        </div>
+        </GameStage>
       )}
 
       {status === "finished" && (
-        <div className="games-summary">
-          {maxTotal > 0 && total / maxTotal >= 0.6 ? <Confetti /> : null}
-          <h2>{total >= maxTotal * 0.8 ? "Машина часу! 📅" : "Гру завершено"}</h2>
-          <div className="games-summary-stats">
-            <div>
-              <strong>{total}</strong>
-              <span>Очок із {maxTotal}</span>
-            </div>
-          </div>
-          <div className="games-summary-actions">
-            <button type="button" className="primary" onClick={() => void load()}>
-              Зіграти ще
-            </button>
-            <ShareResultButton text={shareText} />
-            <button type="button" onClick={() => router.push("/games")}>
-              До ігор
-            </button>
-          </div>
-        </div>
+        <GameSummary
+          title={total >= maxTotal * 0.8 ? "Машина часу! 📅" : "Гру завершено"}
+          stats={[{ label: `Очок із ${maxTotal}`, value: total }]}
+          shareText={shareText}
+          celebrate={maxTotal > 0 && total / maxTotal >= 0.6}
+          onReplay={() => void load()}
+        />
       )}
+
     </GameShell>
   );
 }

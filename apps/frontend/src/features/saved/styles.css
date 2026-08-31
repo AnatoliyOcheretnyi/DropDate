@@ -1095,3 +1095,42 @@
     display: none;
   }
 }
+
+/* Read-only cards (a friend's library) trade list changes, rating and removal
+   for one action: copy the title into my own watchlist. */
+.saved-card-add,
+.saved-row-add {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(115, 240, 193, 0.24);
+  border-radius: 0.7rem;
+  background: var(--dd-accent-soft);
+  color: var(--dd-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.saved-card-add {
+  width: 100%;
+}
+
+.saved-card-add:hover:not(:disabled),
+.saved-row-add:hover:not(:disabled) {
+  border-color: var(--dd-accent);
+}
+
+.saved-card-add.is-added,
+.saved-row-add.is-added {
+  border-color: var(--dd-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dd-faint);
+  cursor: default;
+}
+
+.saved-card--loading {
+  aspect-ratio: 2 / 3;
+  border: 1px solid var(--dd-border);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+}
