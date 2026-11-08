@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { copy } from "../shared/lib/strings";
+import { BrandMark } from "../shared/ui/BrandMark";
 import { Icon, type IconName } from "../shared/ui/Icon";
 
 type LinkColumn = {
@@ -58,14 +59,7 @@ export function Footer() {
           <div className="footer-brand">
             <div className="footer-brand__mark">
               <span className="brand-mark">
-                <Image
-                  src="/logo.png"
-                  alt=""
-                  className="brand-logo"
-                  width={56}
-                  height={56}
-                  aria-hidden="true"
-                />
+                <BrandMark className="brand-logo" size={44} />
               </span>
               <strong>{copy.appName}</strong>
             </div>

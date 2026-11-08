@@ -10,6 +10,7 @@ import type {
   SavedViewMode,
 } from "../types";
 import {
+  collectDecadeFacets,
   collectGenreFacets,
   countByList,
   defaultDirectionFor,
@@ -18,6 +19,7 @@ import {
   selectTabItems,
   sortSavedItems,
 } from "../utils/savedFilters";
+import { DECADES } from "../../../shared/lib/decades";
 
 const LIST_TYPES: ListType[] = [
   "follow",
@@ -46,6 +48,12 @@ const parseTab = (value: string | null): SavedTabKey => {
 const parseSort = (value: string | null): SavedSortKey | null =>
   SORT_KEYS.includes(value as SavedSortKey) ? (value as SavedSortKey) : null;
 
+const parseDecades = (value: string | null): string[] =>
+  (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => DECADES.some((decade) => decade.id === entry));
+
 const parseGenres = (value: string | null): string[] =>
   value
     ? value
@@ -73,6 +81,9 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
   const [genres, setGenres] = useState<string[]>(() =>
     parseGenres(searchParams.get("genre"))
   );
+  const [decades, setDecades] = useState<string[]>(() =>
+    parseDecades(searchParams.get("decade"))
+  );
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [sortKey, setSortKeyState] = useState<SavedSortKey>(
     () => parseSort(searchParams.get("sort")) ?? defaultSortFor(parseTab(searchParams.get("list")))
@@ -97,6 +108,7 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
     (next: SavedTabKey) => {
       setTabState(next);
       setGenres([]);
+      setDecades([]);
       if (!sortPinned) {
         const nextSort = defaultSortFor(next);
         setSortKeyState(nextSort);
@@ -125,8 +137,15 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
     );
   }, []);
 
+  const toggleDecade = useCallback((id: string) => {
+    setDecades((prev) =>
+      prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
+    );
+  }, []);
+
   const resetFilters = useCallback(() => {
     setGenres([]);
+    setDecades([]);
     setQuery("");
     const nextSort = defaultSortFor(tab);
     setSortKeyState(nextSort);
@@ -143,6 +162,9 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
     if (genres.length > 0) {
       params.set("genre", genres.join(","));
     }
+    if (decades.length > 0) {
+      params.set("decade", decades.join(","));
+    }
     if (query.trim()) {
       params.set("q", query.trim());
     }
@@ -155,7 +177,18 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
     }
     const search = params.toString();
     router.replace(search ? `${basePath}?${search}` : basePath, { scroll: false });
-  }, [basePath, direction, genres, query, router, sortKey, sortPinned, tab, view]);
+  }, [
+    basePath,
+    decades,
+    direction,
+    genres,
+    query,
+    router,
+    sortKey,
+    sortPinned,
+    tab,
+    view,
+  ]);
 
   const tabCounts = useMemo(() => countByList(saved), [saved]);
 
@@ -163,9 +196,11 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
 
   const genreFacets = useMemo(() => collectGenreFacets(tabItems), [tabItems]);
 
+  const decadeFacets = useMemo(() => collectDecadeFacets(tabItems), [tabItems]);
+
   const filteredItems = useMemo(
-    () => filterSavedItems(tabItems, genres, query),
-    [genres, query, tabItems]
+    () => filterSavedItems(tabItems, genres, query, decades),
+    [decades, genres, query, tabItems]
   );
 
   const displayItems = useMemo(
@@ -174,9 +209,14 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
   );
 
   const hasActiveFilters =
-    genres.length > 0 || query.trim().length > 0 || sortPinned;
+    genres.length > 0 ||
+    decades.length > 0 ||
+    query.trim().length > 0 ||
+    sortPinned;
 
   return {
+    decadeFacets,
+    decades,
     direction,
     displayItems,
     filteredItems,
@@ -194,6 +234,7 @@ export function useSavedFilters(saved: SavedRelease[], options: Options = {}) {
     tab,
     tabCounts,
     tabItems,
+    toggleDecade,
     toggleDirection,
     toggleGenre,
     view,

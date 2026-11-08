@@ -190,6 +190,7 @@ export function useGameSession() {
     status: state.status,
     mode: state.mode,
     question: current,
+    playedQuestions: state.questions.slice(0, state.index + 1),
     questionNumber: state.index + 1,
     totalQuestions: state.questions.length,
     selected: state.selected,

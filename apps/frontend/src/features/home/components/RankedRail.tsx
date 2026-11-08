@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import { memo } from "react";
 import type { Suggestion } from "../../../shared/lib/release";
@@ -34,11 +35,10 @@ function RankedRailComponent({ title, kicker, items, onSelect }: Props) {
           <div className="ranked-carousel" aria-label={title}>
             <div className="ranked-track">
               {ranked.map((item, index) => (
-                <button
+                <MovieCardSurface tmdbId={item.id} mediaType={item.mediaType} title={item.title}
                   key={`${item.mediaType}-${item.id}`}
-                  type="button"
                   className="ranked-card"
-                  onClick={() => onSelect(item)}
+                  onActivate={() => onSelect(item)}
                 >
                   <span className="ranked-number" aria-hidden="true">
                     {index + 1}
@@ -65,7 +65,7 @@ function RankedRailComponent({ title, kicker, items, onSelect }: Props) {
                       {item.year ? ` · ${item.year}` : ""}
                     </span>
                   </span>
-                </button>
+                </MovieCardSurface>
               ))}
             </div>
           </div>

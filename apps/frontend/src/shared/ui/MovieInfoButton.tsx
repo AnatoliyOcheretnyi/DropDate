@@ -12,7 +12,7 @@ const HOVER_DELAY = 200;
 const CLOSE_DELAY = 160;
 
 // Module-level cache shared across every button instance (home, search, mood…).
-const detailsCache = new Map<number, Details>();
+const detailsCache = new Map<string, Details>();
 
 async function loadDetails(
   tmdbId: number,
@@ -44,8 +44,8 @@ type Props = {
 /**
  * MovieInfoButton is a drop-in ⓘ button for any poster card. Hovering (or
  * focusing) the button shows an animated details preview via a portal; the
- * preview itself is hoverable (scroll long text, click actions). Clicking the
- * button runs `onActivate`. The parent should be `position: relative`.
+ * preview itself is hoverable (scroll long text, click actions). Clicking also
+ * opens the preview for touch users. The parent should be `position: relative`.
  */
 export function MovieInfoButton({
   tmdbId,
@@ -89,7 +89,8 @@ export function MovieInfoButton({
       }
       setAnchor(element.getBoundingClientRect());
 
-      const cached = detailsCache.get(tmdbId);
+      const cacheKey = `${mediaType}:${tmdbId}`;
+      const cached = detailsCache.get(cacheKey);
       if (cached) {
         setDetails(cached);
         setLoading(false);
@@ -105,10 +106,11 @@ export function MovieInfoButton({
             return;
           }
           if (result) {
-            detailsCache.set(tmdbId, result);
+            detailsCache.set(cacheKey, result);
             setDetails(result);
           }
         })
+        .catch(() => { /* The preview renders an unavailable state. */ })
         .finally(() => {
           if (reqId === reqIdRef.current) {
             setLoading(false);
@@ -134,9 +136,24 @@ export function MovieInfoButton({
     () => () => {
       clearOpenTimer();
       clearCloseTimer();
+      reqIdRef.current++;
     },
     []
   );
+
+  useEffect(() => {
+    if (!anchor) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearOpenTimer();
+        clearCloseTimer();
+        reqIdRef.current++;
+        setAnchor(null);
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [anchor]);
 
   return (
     <>
@@ -149,9 +166,20 @@ export function MovieInfoButton({
         onFocus={open}
         onBlur={scheduleClose}
         onClick={(event) => {
+          event.preventDefault();
           event.stopPropagation();
-          onActivate?.();
+          open();
         }}
+        onKeyDown={event => {
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            clearOpenTimer();
+            clearCloseTimer();
+            reqIdRef.current++;
+            setAnchor(null);
+          }
+        }}
+        aria-expanded={Boolean(anchor)}
         aria-label={`Опис: ${title}`}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -170,6 +198,7 @@ export function MovieInfoButton({
         onHoverLeave={scheduleClose}
         activeLists={activeLists}
         onChangeLists={onChangeLists}
+        onActivate={onActivate}
       />
     </>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -254,11 +255,10 @@ function ProfileScreenContent() {
         ) : (
           <div className="profile-recent">
             {recent.map((item) => (
-              <button
+              <MovieCardSurface tmdbId={item.tmdbId} mediaType={savedMediaType(item)} title={item.title}
                 key={item.id}
-                type="button"
                 className="profile-recent__card"
-                onClick={() => openTitle(item)}
+                onActivate={() => openTitle(item)}
               >
                 <span className="profile-recent__poster">
                   {item.posterUrl ? (
@@ -269,7 +269,7 @@ function ProfileScreenContent() {
                 </span>
                 <strong>{item.title}</strong>
                 <span className="profile-recent__meta">{savedMetaLine(item)}</span>
-              </button>
+              </MovieCardSurface>
             ))}
           </div>
         )}
@@ -280,10 +280,9 @@ function ProfileScreenContent() {
           <div className="profile-block__head">
             <h2>Найближчий реліз</h2>
           </div>
-          <button
-            type="button"
+          <MovieCardSurface tmdbId={nextRelease.tmdbId} mediaType={savedMediaType(nextRelease)} title={nextRelease.title}
             className="profile-next"
-            onClick={() => openTitle(nextRelease)}
+            onActivate={() => openTitle(nextRelease)}
           >
             <span className="profile-next__poster">
               {nextRelease.posterUrl ? (
@@ -296,7 +295,7 @@ function ProfileScreenContent() {
               <strong>{nextRelease.title}</strong>
               <span>{fullDate(nextRelease.nextRelease)}</span>
             </span>
-          </button>
+          </MovieCardSurface>
         </section>
       ) : null}
     </div>

@@ -116,6 +116,8 @@ export function useSavedReleases() {
       void queryClient.invalidateQueries({
         queryKey: webQueryKeys.recommendations(user.id),
       });
+      void queryClient.invalidateQueries({ queryKey: ["home-collection", user.id] });
+      void queryClient.invalidateQueries({ queryKey: ["daily-pick-state", user.id] });
     }
   }, [queryClient, user?.id]);
 

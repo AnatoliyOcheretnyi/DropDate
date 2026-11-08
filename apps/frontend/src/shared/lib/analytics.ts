@@ -1,5 +1,10 @@
 export type AnalyticsEvent =
   | "page_view"
+  | "world_country_selected"
+  | "recommendations_shown"
+  | "recommendation_opened"
+  | "recommendation_feedback"
+  | "title_watched"
   | "taste_onboarding_started"
   | "taste_onboarding_completed"
   | "daily_pick_revealed"

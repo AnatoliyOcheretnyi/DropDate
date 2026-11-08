@@ -43,6 +43,17 @@ func questionValue(result StepResult) Question {
 }
 
 func (e *Engine) Next(history []AnsweredQuestion) (StepResult, error) {
+	return e.NextExcluding(history, nil)
+}
+
+// Rejected guesses stay excluded while retaining all previous answers.
+func (e *Engine) NextExcluding(history []AnsweredQuestion, rejected []int) (StepResult, error) {
+	if len(history) > maxQuestions || len(rejected) > 5 {
+		return StepResult{}, ErrInvalidHistory
+	}
+	if len(rejected) == 5 {
+		return StepResult{Type: "give_up", Step: len(history) + 1}, nil
+	}
 	if len(e.movies) == 0 || len(e.features) == 0 {
 		return StepResult{Type: "give_up", Step: len(history) + 1}, nil
 	}
@@ -60,6 +71,16 @@ func (e *Engine) Next(history []AnsweredQuestion) (StepResult, error) {
 		feature := e.features[featureIndex]
 		for i := range weights {
 			weights[i] *= answerLikelihood(item.Answer, feature.Has[i])
+		}
+	}
+	for _, id := range rejected {
+		if id <= 0 {
+			return StepResult{}, ErrInvalidHistory
+		}
+		for i, movie := range e.movies {
+			if movie.TMDBID == id {
+				weights[i] = 0
+			}
 		}
 	}
 

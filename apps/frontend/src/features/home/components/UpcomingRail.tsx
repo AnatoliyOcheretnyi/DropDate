@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import Link from "next/link";
 import type { Suggestion } from "../../../shared/lib/release";
@@ -79,6 +80,7 @@ export function UpcomingRail({
                 const isTracked = lists.includes("follow");
                 return (
                   <article key={`${item.mediaType}-${item.id}`} className="new-release">
+                    <MovieInfoButton className="upcoming-rail__info" tmdbId={item.id} mediaType={item.mediaType} title={item.title} activeLists={lists} onChangeLists={next => onChangeLists(item, next)} onActivate={() => onSelect(item)} />
                     <button
                       type="button"
                       className="new-release__poster"

@@ -1,3 +1,4 @@
+import { DECADES, matchesDecades, yearOfDate } from "../../../shared/lib/decades";
 import type { ListType, SavedRelease } from "../../../shared/types/releases";
 import type {
   GenreFacet,
@@ -98,13 +99,45 @@ export const collectGenreFacets = (items: SavedRelease[]): GenreFacet[] => {
 };
 
 /**
- * Genres combine with OR, not AND: the library is small and the intersection
- * of two genres usually returns nothing.
+ * The release year a decade chip is matched against. `nextRelease` is the
+ * release-tracking date the whole page already sorts and groups by, so the
+ * filter cannot disagree with the date printed on the card.
+ */
+export const savedYear = (item: SavedRelease): number | undefined =>
+  yearOfDate(item.nextRelease);
+
+/** Decade counts, scoped to the list being viewed — same rule as genres. */
+export const collectDecadeFacets = (items: SavedRelease[]) => {
+  const counts = new Map<string, number>();
+  items.forEach((item) => {
+    const year = savedYear(item);
+    if (year === undefined) {
+      return;
+    }
+    const decade = DECADES.find(
+      (entry) =>
+        year >= entry.from && (entry.to === undefined || year <= entry.to)
+    );
+    if (decade) {
+      counts.set(decade.id, (counts.get(decade.id) || 0) + 1);
+    }
+  });
+  // Keep the canonical newest-first order; drop the empty ones.
+  return DECADES.filter((decade) => counts.has(decade.id)).map((decade) => ({
+    decade,
+    count: counts.get(decade.id) ?? 0,
+  }));
+};
+
+/**
+ * Genres and decades combine with OR inside each group and AND between them:
+ * "Трилер or Драма, released in the 90s".
  */
 export const filterSavedItems = (
   items: SavedRelease[],
   genres: string[],
-  query: string
+  query: string,
+  decades: string[] = []
 ): SavedRelease[] => {
   const needle = query.trim().toLowerCase();
   return items.filter((item) => {
@@ -113,6 +146,9 @@ export const filterSavedItems = (
       if (!genres.some((genre) => itemGenres.includes(genre))) {
         return false;
       }
+    }
+    if (!matchesDecades(savedYear(item), decades)) {
+      return false;
     }
     if (needle && !item.title.toLowerCase().includes(needle)) {
       return false;

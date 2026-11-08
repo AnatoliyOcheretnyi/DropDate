@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getApiErrorMessage, requestApi } from "../../../shared/api/http";
+import { getApiErrorMessage } from "../../../shared/api/http";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
-import { useAuth } from "../../../shared/state/auth";
+import { fetchWithAuth, useAuth } from "../../../shared/state/auth";
 import { track } from "../../../shared/lib/analytics";
 
 export type DailyPick = {
@@ -21,6 +21,7 @@ export type DailyPickState = {
   pick?: Omit<DailyPick, "date">;
   revealed: boolean;
   action: "none" | "saved" | "disliked";
+  emptyReason?: "insufficient_data" | "exhausted";
 };
 
 export function useDailyPick() {
@@ -32,16 +33,14 @@ export function useDailyPick() {
     queryKey: webQueryKeys.dailyPickState(user?.id ?? "guest", utcDate),
     enabled,
     queryFn: async ({ signal }) => {
-      const response = await requestApi<DailyPickState>({
-        url: "/api/recommendations/daily",
-        method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const response = await fetchWithAuth("/api/recommendations/daily", {
         signal,
       });
-      if (!response.ok || !response.payload) return null;
-      return response.payload;
+      if (!response.ok) throw new Error("Не вдалося завантажити фільм дня");
+      return (await response.json()) as DailyPickState;
     },
-    staleTime: 1000 * 60 * 60 * 12,
+    staleTime: 60_000,
+    refetchOnMount: "always",
   });
 
   const update = useMutation({
@@ -50,48 +49,47 @@ export function useDailyPick() {
       revealed: boolean;
       action: "none" | "saved" | "disliked";
     }) => {
-      const response = await requestApi<DailyPickState>({
-        url: "/api/recommendations/daily",
+      const response = await fetchWithAuth("/api/recommendations/daily", {
         method: "POST",
-        data: payload,
+        body: JSON.stringify(payload),
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "content-type": "application/json",
         },
       });
-      if (!response.ok || !response.payload) {
-        throw new Error(
-          getApiErrorMessage(response.payload, "Не вдалося оновити фільм дня")
-        );
+      if (!response.ok) {
+        throw new Error("Не вдалося оновити фільм дня");
       }
-      return response.payload;
+      return (await response.json()) as DailyPickState;
     },
     onSuccess: (next) => {
       queryClient.setQueryData(
         webQueryKeys.dailyPickState(user?.id ?? "guest", utcDate),
-        next
+        next,
       );
     },
   });
 
-  const state = enabled ? query.data ?? null : null;
-  const pick =
-    state?.pick
-      ? {
-          date: state.date,
-          tmdbId: state.pick.tmdbId,
-          mediaType: state.pick.mediaType,
-          title: state.pick.title,
-          year: state.pick.year,
-          posterUrl: state.pick.posterUrl,
-          reason: state.pick.reason,
-        }
-      : null;
+  const state = enabled ? (query.data ?? null) : null;
+  const pick = state?.pick
+    ? {
+        date: state.date,
+        tmdbId: state.pick.tmdbId,
+        mediaType: state.pick.mediaType,
+        title: state.pick.title,
+        year: state.pick.year,
+        posterUrl: state.pick.posterUrl,
+        reason: state.pick.reason,
+      }
+    : null;
 
   return {
     pick,
     state,
     isLoading: query.isLoading,
+    isEmpty: enabled && query.isSuccess && !query.data?.pick && query.data?.emptyReason === "insufficient_data",
+    isUnavailable: enabled && !query.data?.pick && (query.isError || (query.isSuccess && query.data?.emptyReason !== "insufficient_data")),
+    retry: () => query.refetch(),
+    isRetrying: query.isFetching,
     isUpdating: update.isPending,
     reveal: async () => {
       try {
@@ -100,7 +98,9 @@ export function useDailyPick() {
           revealed: true,
           action: state?.action ?? "none",
         });
-        track("daily_pick_revealed", { mediaType: state?.pick?.mediaType ?? "unknown" });
+        track("daily_pick_revealed", {
+          mediaType: state?.pick?.mediaType ?? "unknown",
+        });
         return { ok: true as const, message: "" };
       } catch (error) {
         return {

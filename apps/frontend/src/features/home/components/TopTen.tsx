@@ -1,6 +1,9 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
 import { CoverImage } from "../../../shared/ui/CoverImage";
@@ -12,6 +15,11 @@ type Props = {
 };
 
 const SIZE = 10;
+const PERIODS = [
+  { id: "day", label: "Сьогодні" },
+  { id: "week", label: "Цього тижня" },
+  { id: "popular", label: "Популярне зараз" },
+] as const;
 
 /**
  * The weekly top ten: a ranked, horizontally scrolling row.
@@ -21,19 +29,40 @@ const SIZE = 10;
  * readable as a chart at a glance.
  */
 export function TopTen({ items, onSelect }: Props) {
-  const ranked = items.slice(0, SIZE);
+  const [period, setPeriod] = useState<"day" | "week" | "popular">("popular");
+  const query = useQuery({
+    queryKey: ["home-chart", period],
+    queryFn: async ({ signal }) => {
+      const endpoint = period === "popular" ? "/api/popular?limit=10" : `/api/trending?window=${period}&limit=10`;
+      const response = await fetch(endpoint, { signal });
+      if (!response.ok) throw new Error("Чарт тимчасово недоступний");
+      const data = await response.json() as { movies: Suggestion[] };
+      return data.movies;
+    },
+    initialData: period === "popular" && items.length ? items : undefined,
+    staleTime: 10 * 60_000,
+    retry: 1,
+  });
+  const ranked = (query.data ?? []).slice(0, SIZE);
 
   return (
     <section className="top-ten trend-bleed" aria-labelledby="top-ten-title">
       <div className="trend-inner">
         <header className="top-ten__head">
-          <p className="new-releases__kicker">ЩО ДИВЛЯТЬСЯ ЗАРАЗ</p>
+          <div>
+          <p className="new-releases__kicker">ПОПУЛЯРНЕ В TMDB</p>
           <h2 id="top-ten-title" className="new-releases__title">
-            Топ-10 цього тижня
+            {period === "day" ? "Популярне сьогодні" : period === "week" ? "Популярне цього тижня" : "Популярне зараз"}
           </h2>
+          </div>
+          <div className="home-periods" role="group" aria-label="Період популярності">
+            {PERIODS.map(({ id, label }) => <button type="button" key={id} aria-pressed={period === id} onClick={() => setPeriod(id)}>{label}</button>)}
+          </div>
         </header>
-
-        {ranked.length === 0 ? (
+        <div aria-live="polite">
+        {query.isPending ? <p className="home-collection__status">Завантажуємо чарт…</p> : query.isError ? <p className="home-collection__status">Не вдалося оновити чарт. <button type="button" className="home-collection__retry" onClick={() => void query.refetch()}>Повторити</button></p> : null}
+        </div>
+        {!query.isPending && !query.isError && ranked.length === 0 ? (
           <div className="section-empty">
             <span className="section-empty__badge" aria-hidden="true">
               <Icon name="chart-no-axes-column" size={20} />
@@ -41,19 +70,19 @@ export function TopTen({ items, onSelect }: Props) {
             <div className="section-empty__text">
               <strong>Чарт ще формується</strong>
               <p>
-                Тиждень щойно почався. Рейтинг оновиться, щойно набереться
-                достатньо переглядів.
+                Добірка тимчасово недоступна. Спробуй дослідити кіно за країнами.
               </p>
             </div>
-            <Link href="/catalog" className="section-empty__action">
+            <Link href="/world" className="section-empty__action">
               <Icon name="history" size={16} />
-              <span>Топ минулого тижня</span>
+              <span>Світ кіно</span>
             </Link>
           </div>
-        ) : (
+        ) : ranked.length > 0 ? (
         <ol className="top-ten__row">
           {ranked.map((item, index) => (
             <li key={`${item.mediaType}-${item.id}`} className="top-ten__item">
+              <MovieInfoButton tmdbId={item.id} mediaType={item.mediaType} title={item.title} onActivate={() => onSelect(item)} />
               <button
                 type="button"
                 className="top-ten__card"
@@ -91,7 +120,7 @@ export function TopTen({ items, onSelect }: Props) {
             </li>
           ))}
         </ol>
-        )}
+        ) : null}
       </div>
     </section>
   );

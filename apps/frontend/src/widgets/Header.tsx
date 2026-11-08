@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { copy } from "../shared/lib/strings";
@@ -12,12 +11,13 @@ import {
   formatNotificationDate,
   formatNotificationTitle,
 } from "../features/notifications/lib/presentation";
+import { BrandMark } from "../shared/ui/BrandMark";
 import { CoverImage } from "../shared/ui/CoverImage";
 import { AuthModal } from "./AuthModal";
 import { HeaderSearch } from "./HeaderSearch";
 import { ProfileMenu } from "./ProfileMenu";
 
-export type ViewKey = "home" | "saved" | "games" | "mood" | "match" | "calendar";
+export type ViewKey = "home" | "saved" | "games" | "mood" | "match" | "calendar" | "world";
 
 type Props = {
   active: ViewKey;
@@ -146,14 +146,7 @@ export function Header({
         <div className="header-brand-cluster">
           <Link href="/" className="header-brand" aria-label={copy.appName}>
             <span className="brand-mark">
-              <Image
-                src="/logo.png"
-                alt={copy.appName}
-                className="brand-logo"
-                width={56}
-                height={56}
-                priority
-              />
+              <BrandMark className="brand-logo" size={44} />
             </span>
             <div className="brand-text">
               <span className="brand-title">{copy.appName}</span>
@@ -177,18 +170,8 @@ export function Header({
             >
               Календар
             </Link>
-            <Link
-              href="/mood"
-              className={`header-nav-link${active === "mood" ? " active" : ""}`}
-            >
-              Настрій
-            </Link>
-            <Link
-              href="/match"
-              className={`header-nav-link${active === "match" ? " active" : ""}`}
-            >
-              Підбір
-            </Link>
+            <Link href="/mood" className={`header-nav-link${active === "mood" || active === "match" ? " active" : ""}`}>Підібрати фільм</Link>
+            <Link href="/world" className={`header-nav-link${active === "world" ? " active" : ""}`}>Світ кіно</Link>
             <Link
               href="/games"
               className={`header-nav-link${active === "games" ? " active" : ""}`}
@@ -379,20 +362,19 @@ export function Header({
               fill="currentColor"
             />
           </svg>
-          <span>Настрій</span>
+          <span>Підбір</span>
         </button>
         <button
           type="button"
-          className={active === "games" ? "active" : ""}
-          onClick={() => router.push("/games")}
+          className={active === "world" ? "active" : ""}
+          onClick={() => router.push("/world")}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M7 8h10a4 4 0 0 1 4 4v.5a3.5 3.5 0 0 1-6.2 2.2l-.4-.5H9.6l-.4.5A3.5 3.5 0 0 1 3 12.5V12a4 4 0 0 1 4-4Zm0-2a6 6 0 0 0-6 6v.5a5.5 5.5 0 0 0 9.8 3.5h2.4A5.5 5.5 0 0 0 23 12.5V12a6 6 0 0 0-6-6H7Z"
-              fill="currentColor"
-            />
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <circle cx="12" cy="12" r="9" />
+            <ellipse cx="12" cy="12" rx="4" ry="9" />
+            <path d="M3 12h18M5 6.5h14M5 17.5h14" />
           </svg>
-          <span>Ігри</span>
+          <span>Світ кіно</span>
         </button>
         {user ? (
           <>

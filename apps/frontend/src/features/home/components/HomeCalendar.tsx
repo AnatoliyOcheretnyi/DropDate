@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,11 +52,10 @@ function DayColumn({ day, onOpen }: { day: WeekDay; onOpen: (id?: number, media?
           </div>
         ) : (
           day.events.map((event) => (
-            <button
+            <MovieCardSurface tmdbId={event.tmdbId} mediaType={event.mediaType} title={event.title}
               key={event.id}
-              type="button"
               className="calendar-home__event"
-              onClick={() => onOpen(event.tmdbId, event.mediaType)}
+              onActivate={() => onOpen(event.tmdbId, event.mediaType)}
             >
               <span className="calendar-home__event-media" aria-hidden="true">
                 {event.backdropUrl || event.posterUrl ? (
@@ -71,7 +71,7 @@ function DayColumn({ day, onOpen }: { day: WeekDay; onOpen: (id?: number, media?
               <span className="calendar-home__event-meta">
                 {event.isSeries ? "СЕРІАЛ" : "ФІЛЬМ"}
               </span>
-            </button>
+            </MovieCardSurface>
           ))
         )}
       </div>

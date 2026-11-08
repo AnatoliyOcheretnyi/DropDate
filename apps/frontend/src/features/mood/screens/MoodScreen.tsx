@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "../../../widgets/Header";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
@@ -16,12 +17,12 @@ const DEPTHS: { id: string; title: string; description: string }[] = [
   {
     id: "quick",
     title: "Швидко",
-    description: "3 питання — і одразу добірка",
+    description: "Короткий шлях до добірки",
   },
   {
     id: "standard",
     title: "Звичайно",
-    description: "5 питань для точнішого підбору",
+    description: "Більше уточнень для точнішого підбору",
   },
 ];
 
@@ -44,6 +45,19 @@ const toRelease = (pick: MoodPick): ReleaseInfo => ({
 
 export function MoodScreen() {
   const router = useRouter();
+  const params = useSearchParams();
+  const mood = params.get("mood") ?? "";
+  const initialMood = [
+    "lift",
+    "cry",
+    "adrenaline",
+    "think",
+    "cozy",
+    "scary",
+  ].includes(mood)
+    ? mood
+    : "";
+  const started = useRef(false);
   const { accessToken } = useAuth();
   const { saved, getListTypes, setSuggestionLists } = useSavedReleases();
 
@@ -61,25 +75,31 @@ export function MoodScreen() {
     dismissPick,
     likePick,
     reset,
-  } = useMoodSession(accessToken);
+  } = useMoodSession(accessToken, initialMood);
+  useEffect(() => {
+    if (initialMood && !started.current) {
+      started.current = true;
+      void start("quick", true);
+    }
+  }, [initialMood, start]);
 
   const handleDetails = useCallback(
     (pick: MoodPick) => {
       router.push(`/title/${pick.mediaType}/${pick.tmdbId}`);
     },
-    [router]
+    [router],
   );
 
   const getPickLists = useCallback(
     (pick: MoodPick) => getListTypes(toSuggestion(pick)),
-    [getListTypes]
+    [getListTypes],
   );
 
   const handleListChange = useCallback(
     (pick: MoodPick, listTypes: ListType[]) => {
       setSuggestionLists(toSuggestion(pick), listTypes, toRelease(pick));
     },
-    [setSuggestionLists]
+    [setSuggestionLists],
   );
 
   return (
@@ -104,6 +124,11 @@ export function MoodScreen() {
               Дай відповідь на кілька питань — і ми підберемо фільм під твій
               настрій, час і компанію.
             </p>
+            <div className="tonight-bar">
+              <Link href="/vibe">Описати словами →</Link>
+              <Link href="/match">Точний підбір за вподобаннями →</Link>
+              <Link href="/world">Відкрити країну →</Link>
+            </div>
             <div className="mood-depths">
               {DEPTHS.map((option) => (
                 <button
@@ -152,7 +177,9 @@ export function MoodScreen() {
         {status === "empty" && (
           <div className="mood-empty">
             <h2>Нічого не знайшли</h2>
-            <p>Спробуй змінити відповіді — наприклад, послабити вимоги до часу.</p>
+            <p>
+              Спробуй змінити відповіді — наприклад, послабити вимоги до часу.
+            </p>
             <button type="button" className="primary" onClick={reset}>
               Спробувати ще раз
             </button>
@@ -169,7 +196,6 @@ export function MoodScreen() {
           </div>
         )}
       </section>
-
     </main>
   );
 }

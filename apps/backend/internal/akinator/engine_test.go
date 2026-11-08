@@ -70,3 +70,35 @@ func TestEngineRejectsUnknownAndDuplicateQuestions(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestRejectedGuessesAreExcludedWithoutLosingHistory(t *testing.T) {
+	engine := NewEngine(testMovies(), time.Now())
+	history := []AnsweredQuestion{}
+	for i := 0; i < maxQuestions; i++ {
+		step, err := engine.Next(history)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if step.Guess != nil {
+			break
+		}
+		feature := engine.features[engine.byID[step.Question.ID]]
+		answer := AnswerNo
+		if feature.Has[2] {
+			answer = AnswerYes
+		}
+		history = append(history, AnsweredQuestion{QuestionID: step.Question.ID, Answer: answer})
+	}
+	step, err := engine.NextExcluding(history, []int{1, 2, 3})
+	if err != nil || step.Guess == nil || step.Guess.TMDBID != 4 {
+		t.Fatalf("expected remaining film 4, got %+v, %v", step, err)
+	}
+	exhausted, err := engine.NextExcluding(history, []int{1, 2, 3, 4})
+	if err != nil || exhausted.Type != "give_up" {
+		t.Fatalf("expected give up, got %+v, %v", exhausted, err)
+	}
+	original, err := engine.Next(history)
+	if err != nil || original.Guess == nil || original.Guess.TMDBID != 3 {
+		t.Fatalf("rejections must not mutate shared engine: %+v, %v", original, err)
+	}
+}

@@ -1459,24 +1459,27 @@
   z-index: 2;
 }
 
-/* The clip lives here, not on the hero: the key art has to be cropped, but the
-   search suggestions drop out past the hero's bottom edge and must not be. */
+/* Clip only the media layer so search suggestions can extend past the hero. */
 .home-hero__media {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  background: #060b12;
 }
 
 .home-hero__image {
-  object-fit: cover;
-  object-position: center;
+  /* Preserve the entire composition; the dark left/bottom space blends into
+     the scrim instead of cropping faces to fill an ultrawide hero. */
+  object-fit: contain;
+  object-position: right top;
 }
 
 /* The poster standing in until the backdrop arrives: blurred and pushed out of
    frame so a portrait image reads as a colour wash rather than as art that
    failed to load. */
 .home-hero__image--placeholder {
+  object-fit: cover;
   transform: scale(1.15);
   filter: blur(28px) saturate(1.1);
   opacity: 0.7;
@@ -3169,3 +3172,69 @@
   width: 15px;
   height: 15px;
 }
+
+/* Home charts and personal collections share compact headings and poster rails. */
+.top-ten__head,
+.home-collection__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.home-periods {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(152, 176, 190, .22);
+  border-radius: 16px;
+  background: #101e29;
+}
+.home-periods button,
+.home-collection__retry {
+  border: 1px solid transparent;
+  border-radius: 11px;
+  padding: 10px 15px;
+  min-height: 42px;
+  font: inherit;
+  font-size: 14px;
+  color: #b7c7cf;
+  background: transparent;
+  cursor: pointer;
+}
+.home-periods button[aria-pressed="true"] {
+  color: #06271e;
+  background: #70eec6;
+}
+.home-periods button:hover:not([aria-pressed="true"]),
+.home-collection__retry:hover { background: rgba(112, 238, 198, .1); }
+.home-periods button:focus-visible,
+.home-collection__retry:focus-visible { outline: 2px solid #70eec6; outline-offset: 3px; }
+.home-collection { margin-top: 40px; }
+.home-collection__head { margin-bottom: 20px; }
+.home-collection__title { margin: 0; font-size: clamp(22px, 2.2vw, 32px); line-height: 1.2; letter-spacing: -.025em; }
+.home-collection__description,
+.home-collection__status { margin: 8px 0 0; color: #9aaeb9; font-size: 14px; line-height: 1.5; }
+.home-collection__row { display: flex; gap: 18px; overflow-x: auto; padding: 4px 3px 14px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #355360 transparent; }
+.home-collection__item,
+.home-collection__skeleton { flex: 0 0 180px; min-width: 0; scroll-snap-align: start; }
+.home-collection__item .poster-card { width: 100%; }
+.home-collection__reason { font-size: 12px; line-height: 1.5; color: #9aaeb9; margin: 10px 0 0; }
+.home-collection__rating { color: #70eec6; white-space: nowrap; }
+.home-collection__link { display: inline-block; padding: 8px 0; color: #70eec6; text-decoration: none; font-size: 12px; }
+.home-collection__retry { color: #70eec6; border-color: rgba(112, 238, 198, .25); }
+.home-collection__skeleton { height: 290px; border-radius: 16px; background: linear-gradient(135deg, #142733, #0c1822); }
+@media (max-width: 600px) {
+  .home-periods { width: 100%; }
+  .home-periods button { flex: 1; padding-inline: 8px; font-size: 12px; }
+  .home-collection__item, .home-collection__skeleton { flex-basis: 42vw; }
+}
+
+.top-ten__item,
+.discovery-pick,
+.tonight-pick { position: relative; }
+.upcoming-rail__info.card-info-btn { right: auto; left: 10px; top: 10px; }
+.discovery-pick .discovery-reason__body { padding-right: 30px; }
+.tonight-pick > a { display: flex; height: 100%; }
+.tonight-pick .card-info-btn { right: 6px; top: 6px; }

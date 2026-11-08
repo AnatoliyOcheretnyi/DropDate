@@ -24,8 +24,8 @@ export async function startAkinator(signal?: AbortSignal) {
   return response.payload;
 }
 
-export async function nextAkinator(sessionToken: string, answers: AkinatorAnswerItem[]) {
-  const response = await requestApi<AkinatorStep>({ url: "/api/akinator/next", method: "POST", data: { sessionToken, answers } });
+export async function nextAkinator(sessionToken: string, answers: AkinatorAnswerItem[], rejectedIds: number[] = []) {
+  const response = await requestApi<AkinatorStep>({ url: "/api/akinator/next", method: "POST", data: { sessionToken, answers, rejectedIds } });
   if (!response.ok || !response.payload) throw new Error("Не вдалося продовжити гру");
   return response.payload;
 }

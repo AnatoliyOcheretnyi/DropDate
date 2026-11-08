@@ -1,6 +1,12 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../../shared/state/auth";
+import { AuthModal } from "../../../widgets/AuthModal";
+import { useSavedReleases } from "../../saved/hooks/useSavedReleases";
+import { track } from "../../../shared/lib/analytics";
 import { useRouter } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
 import { CoverImage } from "../../../shared/ui/CoverImage";
@@ -17,11 +23,19 @@ type Props = {
   /** Shown instead of personal picks when there is no taste history yet. */
   fallbackItems: Suggestion[];
   onSelect: (suggestion: Suggestion) => void;
+  novelty: number;
+  onNovelty: (value: number) => void;
+  onFeedback: (
+    item: Suggestion,
+    action: "liked" | "disliked",
+  ) => Promise<boolean | undefined>;
+  onExclude: (item: Suggestion) => void;
+  exhausted: boolean;
+  onRestart: () => void;
+  error: Error | null;
 };
 
-// The six moods the picker opens with, shown here as a preview of that first
-// question. They all open /mood: the flow has no query-param entry point, so a
-// chip that claimed to preselect a mood would silently not.
+// Shortcuts retain the chosen mood throughout the adaptive flow.
 const MOODS = [
   { id: "cozy", label: "Спокійно", emoji: "🛋️" },
   { id: "lift", label: "Посміятись", emoji: "😄" },
@@ -43,7 +57,11 @@ function ReasonCard({
   onSelect: (suggestion: Suggestion) => void;
 }) {
   return (
-    <button type="button" className="discovery-reason" onClick={() => onSelect(item)}>
+    <button
+      type="button"
+      className="discovery-reason"
+      onClick={() => onSelect(item)}
+    >
       <span className="discovery-reason__thumb" aria-hidden="true">
         {item.posterUrl ? (
           <CoverImage src={item.posterUrl} alt="" sizes="68px" ariaHidden />
@@ -53,7 +71,9 @@ function ReasonCard({
         <span className="discovery-reason__chip">{reason}</span>
         <strong className="discovery-reason__title">{item.title}</strong>
         <span className="discovery-reason__meta">
-          {item.mediaType === "movie" ? copy.mediaType.movie : copy.mediaType.series}
+          {item.mediaType === "movie"
+            ? copy.mediaType.movie
+            : copy.mediaType.series}
           {item.year ? ` · ${item.year}` : ""}
         </span>
       </span>
@@ -68,8 +88,59 @@ export function DiscoverySection({
   isRefreshing,
   fallbackItems,
   onSelect,
+  novelty,
+  onNovelty,
+  onFeedback,
+  onExclude,
+  exhausted,
+  onRestart,
+  error,
 }: Props) {
   const router = useRouter();
+  const { user } = useAuth();
+  const { getListTypes, toggleListType } = useSavedReleases();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const react = async (item: Suggestion, action: "liked" | "disliked") => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    setBusy(`${item.mediaType}:${item.id}`);
+    try {
+      const ok = await onFeedback(item, action);
+      setNotice(ok ? "Врахували твій відгук" : "Не вдалося зберегти відгук");
+      if (ok && action === "disliked") onExclude(item);
+      track("recommendation_feedback", {
+        surface: "home",
+        action,
+        tmdbId: item.id,
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+  const save = async (item: Suggestion, kind: "watchlist" | "watched") => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    if (kind !== "watched" || !getListTypes(item).includes("watched"))
+      toggleListType(item, kind, {
+        title: item.title,
+        type: item.mediaType === "movie" ? "movie" : "series",
+        nextRelease: "",
+        source: "tmdb",
+        posterUrl: item.posterUrl,
+        status: "released",
+      });
+    if (kind === "watched") onExclude(item);
+    track(kind === "watched" ? "title_watched" : "title_saved", {
+      surface: "home",
+      tmdbId: item.id,
+    });
+  };
 
   // Personal picks come with their own explanation. Without a signed-in taste
   // profile there is nothing to explain, so the row degrades to popular titles
@@ -84,12 +155,28 @@ export function DiscoverySection({
           year: item.year,
           posterUrl: item.posterUrl,
         } satisfies Suggestion,
-        reason: item.reason?.text?.trim() || REASON_FALLBACK,
+        reason: item.reason?.text?.trim() || "За твоїми вподобаннями",
       }))
-    : fallbackItems.slice(0, 4).map((item) => ({ item, reason: REASON_FALLBACK }));
+    : (exhausted ? [] : fallbackItems)
+        .slice(0, 4)
+        .map((item) => ({ item, reason: REASON_FALLBACK }));
 
+  const shownIDs = cards
+    .map((c) => `${c.item.mediaType}:${c.item.id}`)
+    .join(",");
+  useEffect(() => {
+    if (shownIDs && !isLoading)
+      track("recommendations_shown", {
+        surface: "home",
+        items: shownIDs,
+        personal: hasPersonal,
+      });
+  }, [shownIDs, isLoading, hasPersonal]);
   return (
-    <section className="discovery trend-bleed" aria-labelledby="discovery-title">
+    <section
+      className="discovery trend-bleed"
+      aria-labelledby="discovery-title"
+    >
       <div className="trend-inner">
         <header className="discovery__head">
           <div>
@@ -102,7 +189,7 @@ export function DiscoverySection({
             type="button"
             className="discovery__refresh"
             onClick={onRefresh}
-            disabled={isRefreshing}
+            disabled={isRefreshing || !hasPersonal}
           >
             <Icon name="refresh-cw" size={16} />
             <span>{isRefreshing ? "Оновлюємо…" : "Інша добірка"}</span>
@@ -112,7 +199,9 @@ export function DiscoverySection({
         <div className="discovery__row">
           <div className="discovery-mood">
             <p className="discovery-mood__kicker">ПІДБІР ЗА НАСТРОЄМ</p>
-            <h3 className="discovery-mood__title">Обери настрій — отримай 5 варіантів</h3>
+            <h3 className="discovery-mood__title">
+              Обери настрій — знайди своє кіно
+            </h3>
             <p className="discovery-mood__hint">
               Кілька питань замість години гортання каталогу.
             </p>
@@ -123,7 +212,7 @@ export function DiscoverySection({
                   key={mood.id}
                   type="button"
                   className="discovery-mood__chip"
-                  onClick={() => router.push("/mood")}
+                  onClick={() => router.push(`/mood?mood=${mood.id}`)}
                 >
                   <span aria-hidden="true">{mood.emoji}</span>
                   <span>{mood.label}</span>
@@ -141,23 +230,34 @@ export function DiscoverySection({
               live here rather than in a separate strip: they are the same kind
               of thing as the other two -- one tap into a way of choosing. */}
           <div className="discovery__tiles">
-            <Link href="/games/battle" className="discovery-tile">
+            <Link href="/world" className="discovery-tile">
               <span className="discovery-tile__icon" aria-hidden="true">
-                <Icon name="swords" size={17} />
+                <span aria-hidden="true">◎</span>
               </span>
-              <Icon name="arrow-up-right" size={15} className="discovery-tile__arrow" />
-              <span className="discovery-tile__kicker">ГРА</span>
-              <strong className="discovery-tile__title">Кіно-баттл</strong>
+              <Icon
+                name="arrow-up-right"
+                size={15}
+                className="discovery-tile__arrow"
+              />
+              <span className="discovery-tile__kicker">КІНОПОДОРОЖ</span>
+              <strong className="discovery-tile__title">Світ кіно</strong>
               <span className="discovery-tile__hint">
-                Два постери — один вибір.
+                Обертай глобус. Відкривай країни.
               </span>
             </Link>
 
-            <Link href="/games/wheel" className="discovery-tile discovery-tile--accent">
+            <Link
+              href="/games/wheel"
+              className="discovery-tile discovery-tile--accent"
+            >
               <span className="discovery-tile__icon" aria-hidden="true">
                 <Icon name="dices" size={17} />
               </span>
-              <Icon name="arrow-up-right" size={15} className="discovery-tile__arrow" />
+              <Icon
+                name="arrow-up-right"
+                size={15}
+                className="discovery-tile__arrow"
+              />
               <span className="discovery-tile__kicker">ОДИН КЛІК</span>
               <strong className="discovery-tile__title">Здивуй мене</strong>
               <span className="discovery-tile__hint">
@@ -169,7 +269,11 @@ export function DiscoverySection({
               <span className="discovery-tile__icon" aria-hidden="true">
                 <Icon name="wand-sparkles" size={17} />
               </span>
-              <Icon name="arrow-up-right" size={15} className="discovery-tile__arrow" />
+              <Icon
+                name="arrow-up-right"
+                size={15}
+                className="discovery-tile__arrow"
+              />
               <span className="discovery-tile__kicker">ВІДКРИТТЯ</span>
               <strong className="discovery-tile__title">Культурний міст</strong>
               <span className="discovery-tile__hint">
@@ -181,7 +285,11 @@ export function DiscoverySection({
               <span className="discovery-tile__icon" aria-hidden="true">
                 <Icon name="bookmark-check" size={17} />
               </span>
-              <Icon name="arrow-up-right" size={15} className="discovery-tile__arrow" />
+              <Icon
+                name="arrow-up-right"
+                size={15}
+                className="discovery-tile__arrow"
+              />
               <span className="discovery-tile__kicker">ТВОЯ КОЛЕКЦІЯ</span>
               <strong className="discovery-tile__title">Мій список</strong>
               <span className="discovery-tile__hint">
@@ -196,25 +304,109 @@ export function DiscoverySection({
           <span>
             {hasPersonal
               ? "ПІДІБРАНО ДЛЯ ТЕБЕ — І МИ ПОЯСНЮЄМО ЧОМУ"
-              : "ПОПУЛЯРНЕ ЗАРАЗ — УВІЙДИ, ЩОБ ОТРИМУВАТИ ОСОБИСТІ ПІДБІРКИ"}
+              : user
+                ? isLoading
+                  ? "ПІДБИРАЄМО ДЛЯ ТЕБЕ…"
+                  : "ПОПУЛЯРНЕ ЗАРАЗ"
+                : "ПОПУЛЯРНЕ ЗАРАЗ — УВІЙДИ, ЩОБ ОТРИМУВАТИ ОСОБИСТІ ПІДБІРКИ"}
           </span>
         </p>
 
+        {user && (
+          <div className="discovery-controls">
+            <label>
+              Ближче до мого смаку{" "}
+              <input
+                aria-label="Рівень новизни рекомендацій"
+                type="range"
+                min="0"
+                max="100"
+                step="20"
+                value={novelty}
+                onChange={(e) => onNovelty(Number(e.target.value))}
+              />{" "}
+              Здивуй мене
+            </label>
+          </div>
+        )}
+        {notice && <p role="status">{notice}</p>}
+        {error && (
+          <p role="alert">
+            {error.message}{" "}
+            <button
+              className="discovery__refresh"
+              onClick={onRestart}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? "Оновлюємо…" : "Повторити"}
+            </button>
+          </p>
+        )}
+        {exhausted && (
+          <p role="status">
+            Ти переглянув усю добірку.{" "}
+            <button onClick={onRestart}>Повернутися до початку</button>
+          </p>
+        )}
         <div className="discovery__reasons">
           {isLoading && cards.length === 0
             ? Array.from({ length: 4 }).map((_, index) => (
-                <span key={index} className="discovery-reason discovery-reason--skeleton" />
+                <span
+                  key={index}
+                  className="discovery-reason discovery-reason--skeleton"
+                />
               ))
             : cards.map(({ item, reason }) => (
-                <ReasonCard
+                <article
+                  className="discovery-pick"
                   key={`${item.mediaType}-${item.id}`}
-                  item={item}
-                  reason={reason}
-                  onSelect={onSelect}
-                />
+                >
+                  <MovieInfoButton tmdbId={item.id} mediaType={item.mediaType} title={item.title} activeLists={getListTypes(item)} onActivate={() => onSelect(item)} />
+                  <ReasonCard
+                    item={item}
+                    reason={reason}
+                    onSelect={(picked) => {
+                      track("recommendation_opened", {
+                        surface: "home",
+                        tmdbId: picked.id,
+                      });
+                      onSelect(picked);
+                    }}
+                  />
+                  <div className="discovery-pick__actions">
+                    <button onClick={() => void save(item, "watchlist")}>
+                      {getListTypes(item).includes("watchlist")
+                        ? "Збережено ✓"
+                        : "+ Зберегти"}
+                    </button>
+                    <button onClick={() => void save(item, "watched")}>
+                      Вже бачив
+                    </button>
+                  </div>
+                  {hasPersonal && (
+                    <div className="discovery-pick__feedback">
+                      <button
+                        disabled={busy === `${item.mediaType}:${item.id}`}
+                        onClick={() => void react(item, "liked")}
+                      >
+                        Цікаво
+                      </button>
+                      <button
+                        disabled={busy === `${item.mediaType}:${item.id}`}
+                        onClick={() => void react(item, "disliked")}
+                      >
+                        Не моє
+                      </button>
+                      <button onClick={() => onExclude(item)}>
+                        Не сьогодні
+                      </button>
+                    </div>
+                  )}
+                </article>
               ))}
         </div>
       </div>
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
     </section>
   );
 }

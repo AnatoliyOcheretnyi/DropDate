@@ -1,14 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { requestApi } from "../../../shared/api/http";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import type { Suggestion } from "../../../shared/lib/release";
-import { useAuth } from "../../../shared/state/auth";
-
-// Minimum items required before we surface the personalized row, per spec.
-const MIN_VISIBLE = 6;
+import { fetchWithAuth, useAuth } from "../../../shared/state/auth";
 
 /**
  * One recommendation as the backend sends it, explanation included. The
@@ -54,46 +50,56 @@ export function useRecommendations() {
     Record<string, RecommendationFeedback | null>
   >({});
   const enabled = Boolean(accessToken && user?.id);
-  const queryKey = webQueryKeys.recommendations(user?.id ?? "guest");
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [novelty, setNovelty] = useState(20);
+  useEffect(() => {
+    setExcluded([]);
+    setOptimisticFeedback({});
+  }, [user?.id]);
+  const queryKey = [
+    ...webQueryKeys.recommendations(user?.id ?? "guest"),
+    novelty,
+    excluded.join(","),
+  ];
 
   const recommendationsQuery = useQuery({
     queryKey,
     enabled,
     queryFn: async ({ signal }) => {
-      const response = await requestApi<{ items?: RecommendationItem[] }>({
-        url: "/api/recommendations/me",
-        method: "GET",
-        params: { limit: 18 },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        signal,
+      const params = new URLSearchParams({
+        limit: "4",
+        ai: "1",
+        novelty: String(novelty),
+        exclude: excluded.join(","),
       });
+      const response = await fetchWithAuth(
+        `/api/recommendations/me?${params}`,
+        { signal },
+      );
 
       if (!response.ok) {
-        return [];
+        throw new Error("Не вдалося завантажити рекомендації");
       }
 
-      return Array.isArray(response.payload?.items) ? response.payload.items : [];
+      const payload: { items?: RecommendationItem[] } = await response.json();
+      return Array.isArray(payload.items) ? payload.items : [];
     },
     staleTime: 1000 * 60 * 5,
   });
 
   const feedbackQueryKey = webQueryKeys.recommendationFeedback(
-    user?.id ?? "guest"
+    user?.id ?? "guest",
   );
   const feedbackQuery = useQuery({
     queryKey: feedbackQueryKey,
     enabled,
     queryFn: async ({ signal }) => {
-      const response = await requestApi<{ items?: FeedbackItem[] }>({
-        url: "/api/recommendations/feedback",
-        method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const response = await fetchWithAuth("/api/recommendations/feedback", {
         signal,
       });
-      if (!response.ok) return [];
-      return response.payload?.items ?? [];
+      if (!response.ok) throw new Error("Не вдалося завантажити відгуки");
+      const payload: { items?: FeedbackItem[] } = await response.json();
+      return payload.items ?? [];
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -103,7 +109,7 @@ export function useRecommendations() {
       (feedbackQuery.data ?? []).map((item) => [
         `${item.mediaType}:${item.tmdbId}`,
         item.action,
-      ])
+      ]),
     ) as Record<string, RecommendationFeedback>;
     for (const [key, action] of Object.entries(optimisticFeedback)) {
       if (action === null) delete merged[key];
@@ -112,10 +118,9 @@ export function useRecommendations() {
     return merged;
   }, [feedbackQuery.data, optimisticFeedback]);
 
-  const items =
-    enabled && (recommendationsQuery.data?.length ?? 0) >= MIN_VISIBLE
-      ? (recommendationsQuery.data ?? []).map(toSuggestion)
-      : [];
+  const items = enabled
+    ? (recommendationsQuery.data ?? []).map(toSuggestion)
+    : [];
 
   const sendFeedback = useCallback(
     async (item: Suggestion, action: RecommendationFeedbackAction) => {
@@ -126,53 +131,81 @@ export function useRecommendations() {
         [key]: action === "none" ? null : action,
       }));
 
-      const response = await requestApi<{ action: RecommendationFeedbackAction }>({
-        url: "/api/recommendations/feedback",
+      const response = await fetchWithAuth("/api/recommendations/feedback", {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        data: {
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
           tmdbId: item.id,
           mediaType: item.mediaType,
           title: item.title,
           action,
-        },
-      });
+        }),
+      }).catch(() => null);
 
-      if (!response.ok) {
+      if (!response?.ok) {
         setOptimisticFeedback((current) => {
           const next = { ...current };
           if (previous) next[key] = previous;
           else delete next[key];
           return next;
         });
-        return;
+        return false;
       }
 
       await queryClient.invalidateQueries({ queryKey: feedbackQueryKey });
+      void queryClient.invalidateQueries({
+        queryKey: webQueryKeys.recommendations(user?.id ?? "guest"),
+      });
       setOptimisticFeedback((current) => {
         const next = { ...current };
         delete next[key];
         return next;
       });
+      return true;
     },
-    [accessToken, feedback, feedbackQueryKey, queryClient]
+    [feedback, feedbackQueryKey, queryClient, user?.id],
   );
 
   // Same gating as `items`, but keeping the explanation attached.
-  const itemsWithReasons =
-    enabled && (recommendationsQuery.data?.length ?? 0) >= MIN_VISIBLE
-      ? recommendationsQuery.data ?? []
-      : [];
+  const itemsWithReasons = enabled ? (recommendationsQuery.data ?? []) : [];
 
   return {
     items,
     itemsWithReasons,
     feedback,
     sendFeedback,
-    isLoading: recommendationsQuery.isLoading,
+    error: enabled ? recommendationsQuery.error : null,
+    novelty,
+    setNovelty: (value: number) => {
+      setNovelty(value);
+      setExcluded([]);
+    },
+    exclude: (item: Suggestion) =>
+      setExcluded((current) =>
+        Array.from(new Set([...current, `${item.mediaType}:${item.id}`])),
+      ),
+    exhausted:
+      enabled &&
+      excluded.length > 0 &&
+      recommendationsQuery.isSuccess &&
+      !recommendationsQuery.data?.length,
+    restart: () => {
+      if (excluded.length) setExcluded([]);
+      else void recommendationsQuery.refetch();
+    },
+    isLoading: enabled && recommendationsQuery.isLoading,
     isRefreshing: recommendationsQuery.isFetching,
     refresh: () => {
-      void recommendationsQuery.refetch();
+      setExcluded((current) =>
+        Array.from(
+          new Set([
+            ...current,
+            ...(recommendationsQuery.data ?? []).map(
+              (item) => `${item.mediaType}:${item.tmdbId}`,
+            ),
+          ]),
+        ),
+      );
     },
   };
 }

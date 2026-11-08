@@ -98,6 +98,7 @@ type Server struct {
 	jobsAccessToken  string
 	superuserEmails  map[string]struct{}
 	logger           *log.Logger
+	discovery        discoveryCache
 }
 
 func NewServer(

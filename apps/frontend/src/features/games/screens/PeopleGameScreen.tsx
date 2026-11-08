@@ -6,8 +6,10 @@ import { CoverImage } from "../../../shared/ui/CoverImage";
 import { GameShell } from "../components/GameShell";
 import { GameHud } from "../components/GameHud";
 import { GameStage } from "../components/GameStage";
+import { gameTitles } from "../gameTitles";
 import { GameSummary } from "../components/GameSummary";
 import { GameRevealPanel } from "../components/GameRevealPanel";
+import { PeopleReveal } from "../components/PeopleReveal";
 import { useGameStats } from "../hooks/useGameStats";
 import { fetchGameQuestions, type GameMode, type GameQuestion } from "../api/games";
 
@@ -186,6 +188,7 @@ export function PeopleGameScreen() {
     return (
       <GameShell>
         <GameSummary
+          titles={gameTitles(questions)}
           title={score >= 8 ? "Знавець облич! 🎭" : "Раунд завершено"}
           stats={[{ label: "Правильних", value: `${score} / ${results.length}` }]}
           squares={results}
@@ -304,6 +307,7 @@ export function PeopleGameScreen() {
           ))}
         </div>
 
+        {selected !== null ? <PeopleReveal question={question} /> : null}
         {selected !== null ? (
           <GameRevealPanel
             isCorrect={selected === question.answerId}

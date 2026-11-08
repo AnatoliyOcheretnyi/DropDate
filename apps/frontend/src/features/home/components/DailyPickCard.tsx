@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import { useMemo } from "react";
 import Link from "next/link";
@@ -8,16 +9,11 @@ import type { Suggestion } from "../../../shared/lib/release";
 import type { DailyPick } from "../hooks/useDailyPick";
 import { useCountdown } from "../hooks/useCountdown";
 
-/** The pick rolls over at 09:00 local time. */
-const REFRESH_HOUR = 9;
-
+/** Matches the backend's UTC calendar day. */
 const nextRefresh = () => {
   const now = new Date();
   const target = new Date(now);
-  target.setHours(REFRESH_HOUR, 0, 0, 0);
-  if (target.getTime() <= now.getTime()) {
-    target.setDate(target.getDate() + 1);
-  }
+  target.setUTCHours(24, 0, 0, 0);
   return target.getTime();
 };
 
@@ -36,11 +32,10 @@ export function DailyPickEmpty() {
       </span>
       <div className="section-empty__text">
         <strong id="pick-day-empty-title">
-          Ще трохи — і буде твій перший пік
+          Додай вподобання для першого піку
         </strong>
         <p>
-          Оціни 5 тайтлів, щоб ми зрозуміли смак. Тоді щоранку даватимемо одну
-          точну рекомендацію.
+          Познач улюблені фільми або ті, що сподобались — і ми підберемо фільм дня.
         </p>
       </div>
       <Link href="/search" className="section-empty__action">
@@ -112,7 +107,7 @@ export function DailyPickCard({
           : "--:--:--"}
       </p>
       <p className="pick-day__next-note">
-        Один тайтл на день. Оновлюється о 09:00.
+        Щодня нова рекомендація за твоїми вподобаннями.
       </p>
     </div>
   );
@@ -178,10 +173,9 @@ export function DailyPickCard({
 
   return (
     <section className="pick-day" aria-labelledby="pick-day-title">
-      <button
-        type="button"
+      <MovieCardSurface tmdbId={pick.tmdbId} mediaType={pick.mediaType} title={pick.title}
         className="pick-day__poster"
-        onClick={() => onSelect(suggestion)}
+        onActivate={() => onSelect(suggestion)}
         aria-label={pick.title}
       >
         {pick.posterUrl ? (
@@ -191,7 +185,7 @@ export function DailyPickCard({
             {pick.title.slice(0, 1)}
           </span>
         )}
-      </button>
+      </MovieCardSurface>
 
       <div className="pick-day__main">
         <p className="pick-day__kicker">

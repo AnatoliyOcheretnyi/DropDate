@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import type { PersonCredit } from "../../../shared/lib/release";
 import { Reveal } from "../../titleDetails/components/Reveal";
@@ -34,10 +35,9 @@ export function PersonTimeline({ entries, onSelect }: Props) {
                 <span className="ptl__dot" />
               </div>
 
-              <button
-                type="button"
+              <MovieCardSurface tmdbId={entry.tmdbId} mediaType={entry.mediaType}
                 className="ptl__card"
-                onClick={() => onSelect(entry)}
+                onActivate={() => onSelect(entry)}
                 title={entry.title}
               >
                 <span className="ptl__poster">
@@ -70,7 +70,7 @@ export function PersonTimeline({ entries, onSelect }: Props) {
                     ))}
                   </span>
                 </span>
-              </button>
+              </MovieCardSurface>
             </li>
           </Reveal>
         ))}

@@ -3,6 +3,8 @@
 import { LIST_META } from "../../../shared/lib/listMeta";
 import type { GenreFacet, SavedSortDirection, SavedSortKey, SavedTabKey, SavedViewMode } from "../types";
 import { SavedGenreRow } from "./SavedGenreRow";
+import { SavedDecadeRow } from "./SavedDecadeRow";
+import type { Decade } from "../../../shared/lib/decades";
 import { SavedSortMenu } from "./SavedSortMenu";
 
 const allIcon = (
@@ -23,6 +25,9 @@ type Props = {
   selectedGenres: string[];
   onToggleGenre: (genre: string) => void;
   onResetGenres: () => void;
+  decadeFacets: { decade: Decade; count: number }[];
+  selectedDecades: string[];
+  onToggleDecade: (id: string) => void;
   query: string;
   onQueryChange: (value: string) => void;
   sortKey: SavedSortKey;
@@ -64,6 +69,9 @@ export function SavedControlPanel({
   selectedGenres,
   onToggleGenre,
   onResetGenres,
+  decadeFacets,
+  selectedDecades,
+  onToggleDecade,
   query,
   onQueryChange,
   sortKey,
@@ -119,6 +127,12 @@ export function SavedControlPanel({
         selected={selectedGenres}
         onToggle={onToggleGenre}
         onReset={onResetGenres}
+      />
+
+      <SavedDecadeRow
+        facets={decadeFacets}
+        selected={selectedDecades}
+        onToggle={onToggleDecade}
       />
 
       <div className="saved-panel-row saved-panel-row--controls">

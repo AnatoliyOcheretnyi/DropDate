@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
@@ -15,7 +16,7 @@ import (
 
 // aiPoolLimit is the candidate pool size handed to the model when ?ai=1. Larger
 // than the returned limit so the model has room to re-rank.
-const aiPoolLimit = 30
+const aiPoolLimit = 60
 
 func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -41,29 +42,35 @@ func (s *Server) recommendationsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	limit = recommendations.NormalizeLimit(limit)
 
-	wantAI := parseBoolParam(r.URL.Query().Get("ai"))
-	if wantAI && s.ai != nil && s.saved != nil &&
-		s.aiEnabled(r.Context(), userID, capabilities.AIRecommendations) {
-		if cached, ok := s.recommendations.CachedAI(userID, limit); ok {
-			writeJSON(w, http.StatusOK, cached)
-			return
-		}
-		if result, ok := s.aiRecommendations(r.Context(), userID, limit); ok {
-			s.recommendations.StoreAI(userID, limit, result)
-			writeJSON(w, http.StatusOK, result)
-			return
-		}
-		// Any failure falls through to the deterministic path below (not cached).
-	}
-
-	result, err := s.recommendations.Generate(r.Context(), userID, limit)
-	if err != nil {
-		// Degrade gracefully: never block the home page on a recommendation failure.
-		s.logger.Printf("recommendations generation failed: %v", err)
-		writeJSON(w, http.StatusOK, recommendations.Result{Items: []recommendations.Item{}})
+	novelty, valid := boundedInt(r.URL.Query().Get("novelty"), 0, 100)
+	if !valid {
+		writeError(w, 400, "invalid novelty")
 		return
 	}
-
+	excluded := map[string]bool{}
+	for _, key := range strings.Split(r.URL.Query().Get("exclude"), ",") {
+		excluded[key] = true
+	}
+	poolLimit := recommendations.NormalizeLimit(60)
+	var result recommendations.Result
+	wantAI := parseBoolParam(r.URL.Query().Get("ai"))
+	if wantAI && s.ai != nil && s.saved != nil && s.aiEnabled(r.Context(), userID, capabilities.AIRecommendations) {
+		if cached, ok := s.recommendations.CachedAI(userID, poolLimit); ok {
+			result = cached
+		} else if generated, ok := s.aiRecommendations(r.Context(), userID, poolLimit); ok {
+			result = generated
+			s.recommendations.StoreAI(userID, poolLimit, result)
+		}
+	}
+	if len(result.Items) == 0 {
+		result, err = s.recommendations.Generate(r.Context(), userID, poolLimit)
+		if err != nil {
+			writeError(w, 503, "Рекомендації тимчасово недоступні")
+			return
+		}
+	}
+	result.Items = selectRecommendationPage(result.Items, excluded, limit, novelty)
+	w.Header().Set("Cache-Control", "private, no-store")
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -220,11 +227,35 @@ func (s *Server) aiRecommendations(ctx context.Context, userID string, limit int
 		return recommendations.Result{}, false
 	}
 
+	// Reserve profile slots for explicit preferences and negative feedback.
+	profile := s.rankedTasteSignals(ctx, userID)
+	feedback, _ := s.recommendations.Feedback(ctx, userID)
+	for _, f := range feedback {
+		if len(profile) >= 12 {
+			break
+		}
+		profile = append(profile, airecs.TasteSignal{Title: f.Title, MediaType: f.MediaType, Sentiment: f.Action})
+	}
+	profile = append(profile, tasteSignals(rows)...)
 	candidates := candidatesFromItems(pool.Items)
-	profile := tasteSignals(rows)
-	profile = append(profile, s.rankedTasteSignals(ctx, userID)...)
+	enriched := make([]worldItem, len(candidates))
+	for i, c := range candidates {
+		enriched[i].DiscoverItem.TMDBID = c.TMDBID
+		enriched[i].DiscoverItem.MediaType = c.MediaType
+	}
+	metadataCtx, cancelMetadata := context.WithTimeout(ctx, 2*time.Second)
+	s.enrichWorld(metadataCtx, enriched)
+	cancelMetadata()
+	for i := range candidates {
+		candidates[i].Overview = enriched[i].Overview
+		candidates[i].Genres = enriched[i].Genres
+		candidates[i].Countries = enriched[i].Countries
+		candidates[i].Runtime = enriched[i].Runtime
+	}
+	aiCtx, cancelAI := context.WithTimeout(ctx, 8*time.Second)
+	defer cancelAI()
 
-	selections, err := s.ai.Rerank(ctx, profile, candidates, limit)
+	selections, err := s.ai.Rerank(aiCtx, profile, candidates, min(limit, 30))
 	if err != nil {
 		s.logger.Printf("ai recommendations: rerank failed: %v", err)
 		return recommendations.Result{}, false
@@ -252,6 +283,15 @@ func (s *Server) aiRecommendations(ctx context.Context, userID string, limit int
 	}
 
 	result := pool
+	seen := map[string]bool{}
+	for _, item := range ordered {
+		seen[recKey(item.TMDBID, item.MediaType)] = true
+	}
+	for _, item := range pool.Items {
+		if !seen[recKey(item.TMDBID, item.MediaType)] {
+			ordered = append(ordered, item)
+		}
+	}
 	result.Items = ordered
 	return result, true
 }
@@ -267,6 +307,7 @@ func (s *Server) rankedTasteSignals(ctx context.Context, userID string) []airecs
 			s.logger.Printf("ai recommendations: load %s taste failed: %v", kind, err)
 			continue
 		}
+		added := 0
 		for _, item := range items {
 			if item.Comparisons < 2 || item.Confidence < 0.25 {
 				continue
@@ -276,8 +317,9 @@ func (s *Server) rankedTasteSignals(ctx context.Context, userID string) []airecs
 				MediaType: "preference",
 				Sentiment: "favorite",
 			})
-			if len(signals) >= 6 {
-				return signals
+			added++
+			if added >= 3 {
+				break
 			}
 		}
 	}
@@ -357,4 +399,37 @@ func parseBoolParam(value string) bool {
 	default:
 		return false
 	}
+}
+
+// Interleave familiar and exploratory sources in a gradual, user-controlled ratio.
+func selectRecommendationPage(pool []recommendations.Item, excluded map[string]bool, limit, novelty int) []recommendations.Item {
+	familiar, explore := []recommendations.Item{}, []recommendations.Item{}
+	seen := map[string]bool{}
+	for _, item := range pool {
+		key := recKey(item.TMDBID, item.MediaType)
+		if excluded[key] || seen[key] {
+			continue
+		}
+		seen[key] = true
+		if item.Reason.PrimarySource == "explore" {
+			explore = append(explore, item)
+		} else {
+			familiar = append(familiar, item)
+		}
+	}
+	out := []recommendations.Item{}
+	fi, ei := 0, 0
+	for len(out) < limit && (fi < len(familiar) || ei < len(explore)) {
+		target := (len(out) + 1) * novelty / 100
+		if ei < len(explore) && (ei < target || fi >= len(familiar)) {
+			out = append(out, explore[ei])
+			ei++
+		} else if fi < len(familiar) {
+			out = append(out, familiar[fi])
+			fi++
+		} else {
+			break
+		}
+	}
+	return out
 }

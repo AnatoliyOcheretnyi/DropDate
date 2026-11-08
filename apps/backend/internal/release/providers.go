@@ -226,7 +226,10 @@ func (p *tmdbSuggestionProvider) Discover(
 		ReleaseDateLTE:    params.ReleaseDateLTE,
 		SortBy:            params.SortBy,
 		VoteCountGTE:      params.VoteCountGTE,
+		VoteCountLTE:      params.VoteCountLTE,
 		VoteAverageGTE:    params.VoteAverageGTE,
+		WatchRegion:       params.WatchRegion,
+		WatchProviders:    params.WatchProviders,
 		CertificationLTE:  params.CertificationLTE,
 		CertCountry:       params.CertCountry,
 		WithType:          params.WithType,
@@ -243,14 +246,16 @@ func (p *tmdbSuggestionProvider) Discover(
 			mediaType = "movie"
 		}
 		out = append(out, DiscoverItem{
-			TMDBID:    result.ID,
-			Title:     result.Title,
-			MediaType: mediaType,
-			Year:      result.Year,
-			PosterURL: result.PosterURL,
-			Rating:    result.Rating,
-			GenreIDs:  result.GenreIDs,
-			Overview:  result.Overview,
+			TMDBID:     result.ID,
+			Title:      result.Title,
+			MediaType:  mediaType,
+			Year:       result.Year,
+			PosterURL:  result.PosterURL,
+			Rating:     result.Rating,
+			VoteCount:  result.VoteCount,
+			Popularity: result.Popularity,
+			GenreIDs:   result.GenreIDs,
+			Overview:   result.Overview,
 		})
 	}
 	return out, nil

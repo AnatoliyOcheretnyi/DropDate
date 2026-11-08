@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import { copy } from "../../../shared/lib/strings";
 import type { Details, Suggestion } from "../../../shared/lib/release";
@@ -45,6 +46,7 @@ export function FeaturedBanner({
     <section className="featured-shell">
       <div className="featured-banner">
         <div className="featured-media" style={{ position: "relative" }}>
+          <MovieInfoButton tmdbId={suggestion.id} mediaType={suggestion.mediaType} title={suggestion.title} onActivate={onOpen} />
           {heroImage ? (
             <CoverImage
               src={heroImage}

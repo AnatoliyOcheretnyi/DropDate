@@ -23,6 +23,16 @@ describe("tmdbImageLoader", () => {
     expect(tmdbImageLoader({ src: "/logo.png", width: 64 })).toBe("/logo.png");
   });
 
+  it("preserves explicit original artwork for wide and high-density heroes", () => {
+    const original = "https://image.tmdb.org/t/p/original/backdrop.jpg";
+    expect(tmdbImageLoader({ src: original, width: 1080 })).toBe(original);
+    expect(tmdbImageLoader({ src: original, width: 1920 })).toBe(original);
+    expect(tmdbImageLoader({ src: original, width: 3840 })).toBe(original);
+    expect(tmdbImageLoader({ src: original, width: 640 })).toBe(
+      "https://image.tmdb.org/t/p/w780/backdrop.jpg"
+    );
+  });
+
   it("leaves a TMDB url it cannot parse untouched", () => {
     expect(tmdbImageLoader({ src: "https://image.tmdb.org/t/p/w342", width: 64 })).toBe(
       "https://image.tmdb.org/t/p/w342"

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Confetti } from "./Confetti";
 import { ShareResultButton } from "./ShareResultButton";
 import { useCountUp } from "../hooks/useCountUp";
+import { GameFinds } from "./GameFinds";
+import type { GameTitleCard } from "../api/games";
 
 export type SummaryStat = {
   label: string;
@@ -23,6 +25,7 @@ type Props = {
   replayLabel?: string;
   celebrate?: boolean;
   extra?: ReactNode;
+  titles?: GameTitleCard[];
 };
 
 function StatValue({ stat }: { stat: SummaryStat }) {
@@ -49,6 +52,7 @@ export function GameSummary({
   replayLabel = "Зіграти ще",
   celebrate = false,
   extra,
+  titles,
 }: Props) {
   const router = useRouter();
 
@@ -85,6 +89,7 @@ export function GameSummary({
           До ігор
         </button>
       </div>
+      {titles?.length ? <GameFinds titles={titles} /> : null}
     </div>
   );
 }

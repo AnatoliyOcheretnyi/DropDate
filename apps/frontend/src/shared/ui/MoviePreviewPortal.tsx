@@ -7,6 +7,8 @@ import type { Details } from "../lib/release";
 import type { ListType } from "../types/releases";
 import { CoverImage } from "./CoverImage";
 import { ListStatusBar } from "./ListStatusBar";
+import Link from "next/link";
+import { useSavedReleases } from "../../features/saved/hooks/useSavedReleases";
 
 const PREVIEW_WIDTH = 340;
 const ESTIMATED_HEIGHT = 380;
@@ -22,9 +24,9 @@ type Props = {
   onHoverLeave?: () => void;
   /** Lists the title currently belongs to (drives the toggle buttons). */
   activeLists?: ListType[];
-  /** Called with the next selection when a list button is toggled. When
-   * omitted, the list buttons are hidden. */
+  /** Optional override for list updates; otherwise uses the shared saved lists. */
   onChangeLists?: (next: ListType[]) => void;
+  onActivate?: () => void;
 };
 
 /**
@@ -43,6 +45,7 @@ export function MoviePreviewPortal({
   onHoverLeave,
   activeLists,
   onChangeLists,
+  onActivate,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -70,8 +73,6 @@ export function MoviePreviewPortal({
     meta.push(`★ ${details.voteAverage.toFixed(1)}`);
   }
 
-  const showLists = Boolean(details && onChangeLists);
-
   return (
     <>
       {createPortal(
@@ -84,7 +85,25 @@ export function MoviePreviewPortal({
           onMouseEnter={onHoverEnter}
           onMouseLeave={onHoverLeave}
           onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Escape") onHoverLeave?.();
+          }}
+          onFocus={onHoverEnter}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onHoverLeave?.();
+          }}
         >
+          <Link
+            className="movie-preview-content"
+            href={details ? `/title/${details.mediaType}/${details.id}` : "#"}
+            aria-label={heading}
+            aria-disabled={!details}
+            onClick={(event) => {
+              if (!details || onActivate) event.preventDefault();
+              if (details) onActivate?.();
+            }}
+          >
           {backdrop ? (
             <div className="movie-preview-media">
               <CoverImage src={backdrop} alt="" sizes="340px" ariaHidden />
@@ -119,25 +138,25 @@ export function MoviePreviewPortal({
                   </p>
                 )}
               </>
-            ) : (
+            ) : loading ? (
               <div className="movie-preview-skeleton" aria-hidden="true">
                 <span />
                 <span />
                 <span />
               </div>
-            )}
+            ) : <p className="movie-preview-overview">Не вдалося завантажити опис. Спробуй відкрити ще раз.</p>}
             {loading && !details ? (
               <span className="movie-preview-loading">Завантажуємо…</span>
             ) : null}
           </div>
-
-          {showLists ? (
+          </Link>
+          {details ? (
             <div className="movie-preview-lists">
-              <ListStatusBar
+              {onChangeLists ? <ListStatusBar
                 selected={activeLists ?? []}
-                onChange={onChangeLists!}
+                onChange={onChangeLists}
                 variant="compact"
-              />
+              /> : <PreviewSavedLists details={details} />}
             </div>
           ) : null}
         </div>,
@@ -145,4 +164,22 @@ export function MoviePreviewPortal({
       )}
     </>
   );
+}
+
+// Mount the saved-list subscription only while a loaded preview is open.
+function PreviewSavedLists({ details }: { details: Details }) {
+  const { getListTypes, setSuggestionLists } = useSavedReleases();
+  return <ListStatusBar
+    selected={getListTypes(details)}
+    variant="compact"
+    onChange={(next) => setSuggestionLists(details, next, {
+      title: details.title,
+      type: details.mediaType === "movie" ? "movie" : "series",
+      nextRelease: details.nextAirDate ?? details.releaseDate ?? "",
+      source: "tmdb",
+      posterUrl: details.posterUrl,
+      backdropUrl: details.backdropUrl,
+      status: (details.nextAirDate || details.releaseDate || "") > new Date().toISOString().slice(0, 10) ? "upcoming" : "released",
+    })}
+  />;
 }

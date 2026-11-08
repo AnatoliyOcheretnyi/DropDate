@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import type { CSSProperties } from "react";
 import type { PersonCredit } from "../../../shared/lib/release";
@@ -51,12 +52,11 @@ export function PersonSavedStrip({ entries, onSelect }: Props) {
         {entries.map(({ credit, listTypes }, index) => {
           const badge = badgeFor(listTypes);
           return (
-            <button
+            <MovieCardSurface tmdbId={credit.tmdbId} mediaType={credit.mediaType}
               key={`${credit.mediaType}:${credit.tmdbId}`}
-              type="button"
               className="person-saved__card"
               style={{ ["--card-index" as string]: index } as CSSProperties}
-              onClick={() => onSelect(credit)}
+              onActivate={() => onSelect(credit)}
               title={credit.title}
             >
               <div className="person-saved__poster">
@@ -73,7 +73,7 @@ export function PersonSavedStrip({ entries, onSelect }: Props) {
                 ) : null}
               </div>
               <strong className="person-saved__title">{credit.title}</strong>
-            </button>
+            </MovieCardSurface>
           );
         })}
       </div>

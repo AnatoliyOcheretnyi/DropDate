@@ -44,10 +44,16 @@ export const metadata: Metadata = {
     canonical: "/"
   },
   manifest: "/manifest.webmanifest",
+  // The bare mark has a transparent ground, so it cannot serve as a favicon on
+  // light browser chrome. Tabs and home screens get the tile; app/icon.png is
+  // picked up by Next's file convention for the raster fallback.
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png"
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" }
+    ],
+    shortcut: "/icon.svg",
+    apple: "/apple-touch-icon.svg"
   },
   openGraph: {
     type: "website",

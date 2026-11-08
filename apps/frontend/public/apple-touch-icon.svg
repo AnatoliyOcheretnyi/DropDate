@@ -1,20 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="512" height="512" fill="none">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#67f3b2" />
-      <stop offset="1" stop-color="#0b1f1a" />
+    <linearGradient id="tile-t" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101825"/>
+      <stop offset="1" stop-color="#070C13"/>
     </linearGradient>
   </defs>
-  <rect width="256" height="256" rx="48" fill="url(#g)" />
-  <text
-    x="128"
-    y="152"
-    text-anchor="middle"
-    font-family="Arial, sans-serif"
-    font-size="96"
-    font-weight="700"
-    fill="#0b1418"
-  >
-    DD
-  </text>
+  <rect width="256" height="256" fill="url(#tile-t)"/>
+  <defs>
+    <mask id="cut-tile" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="#fff"/>
+      <path d="M113 62v132M113 62h26a66 66 0 0 1 0 132h-26" fill="none" stroke="#000" stroke-width="44"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <g transform="translate(20.480 20.480) scale(0.84000)" fill="none" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M51 62v132M51 62h26a66 66 0 0 1 0 132H51" stroke="#3C9E7E" mask="url(#cut-tile)"/>
+    <path d="M113 62v132M113 62h26a66 66 0 0 1 0 132h-26" stroke="#73F0C1"/>
+  </g>
 </svg>

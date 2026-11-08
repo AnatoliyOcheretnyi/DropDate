@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SavedControlPanel } from "./SavedControlPanel";
+import { DECADES } from "../../../shared/lib/decades";
 
 const baseProps = {
   tab: "all" as const,
@@ -22,6 +23,12 @@ const baseProps = {
   selectedGenres: [] as string[],
   onToggleGenre: vi.fn(),
   onResetGenres: vi.fn(),
+  decadeFacets: [
+    { decade: DECADES[0], count: 2 },
+    { decade: DECADES[2], count: 1 },
+  ],
+  selectedDecades: [] as string[],
+  onToggleDecade: vi.fn(),
   query: "",
   onQueryChange: vi.fn(),
   sortKey: "added" as const,

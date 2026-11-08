@@ -40,6 +40,7 @@ func (s *Server) akinatorNextHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		SessionToken string                      `json:"sessionToken"`
 		Answers      []akinator.AnsweredQuestion `json:"answers"`
+		RejectedIDs  []int                       `json:"rejectedIds"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -49,7 +50,7 @@ func (s *Server) akinatorNextHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "sessionToken is required")
 		return
 	}
-	result, err := s.akinator.Next(input.Answers)
+	result, err := s.akinator.NextExcluding(input.Answers, input.RejectedIDs)
 	if errors.Is(err, akinator.ErrInvalidHistory) {
 		writeError(w, http.StatusBadRequest, "invalid answer history")
 		return

@@ -37,10 +37,11 @@ type stubCandidates struct {
 	failSeeds     map[int]bool
 	calls         int
 	discoverItems []release.DiscoverItem
+	discoverErr   error
 }
 
 func (s *stubCandidates) Discover(_ context.Context, _ release.DiscoverParams) ([]release.DiscoverItem, error) {
-	return s.discoverItems, nil
+	return s.discoverItems, s.discoverErr
 }
 
 func (s *stubCandidates) Recommendations(_ context.Context, id int, _ string, _ int) ([]release.Suggestion, error) {
@@ -335,5 +336,56 @@ func TestDailyReturnsEmptyForColdStart(t *testing.T) {
 	}
 	if result.Pick != nil {
 		t.Fatalf("expected no pick, got %+v", result.Pick)
+	}
+}
+
+func TestDailyUsesSavedTasteWithoutCalibration(t *testing.T) {
+	for _, kind := range []string{"favorite", "liked", "watched"} {
+		t.Run(kind, func(t *testing.T) {
+			rows := stubSaved{rows: []saved.Title{{TMDBID: 1, MediaType: "movie", ListTypes: []string{kind}}}}
+			candidates := &stubCandidates{bySeed: map[int][]release.Suggestion{1: {{ID: 99, MediaType: "movie", Title: "Personal pick"}}}}
+			svc := newTestService(rows, candidates)
+			state, err := svc.DailyState(context.Background(), "saved-taste")
+			if err != nil || state.Pick == nil || state.Pick.TMDBID != 99 || state.EmptyReason != "" {
+				t.Fatalf("saved taste was ignored: %+v, %v", state, err)
+			}
+		})
+	}
+}
+
+func TestDailyEmptyDistinguishesColdStartAndExhaustedPool(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		rows   []saved.Title
+		reason string
+	}{
+		{"cold start", nil, "insufficient_data"},
+		{"existing library", []saved.Title{{TMDBID: 1, MediaType: "movie", ListTypes: []string{"liked"}}}, "exhausted"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newTestService(stubSaved{rows: tc.rows}, &stubCandidates{})
+			state, err := svc.DailyState(context.Background(), "empty")
+			if err != nil || state.Pick != nil || state.EmptyReason != tc.reason {
+				t.Fatalf("wrong empty state: %+v, %v", state, err)
+			}
+		})
+	}
+}
+
+func TestDailyDoesNotMaskUpstreamFailureAsMissingTaste(t *testing.T) {
+	svc := newTestService(stubSaved{}, &stubCandidates{discoverErr: errors.New("TMDB unavailable")})
+	state, err := svc.DailyState(context.Background(), "outage")
+	if err == nil || state.EmptyReason == "insufficient_data" {
+		t.Fatalf("upstream failure masked: %+v, %v", state, err)
+	}
+}
+
+func TestDailyRechecksCachedRecommendationsAgainstCurrentLibrary(t *testing.T) {
+	rows := stubSaved{rows: []saved.Title{{TMDBID: 99, MediaType: "movie", ListTypes: []string{"liked"}}}}
+	svc := newTestService(rows, &stubCandidates{})
+	svc.saveCache("fresh-library", maxLimit, "", Result{Items: []Item{{TMDBID: 99, MediaType: "movie", Title: "Already seen"}, {TMDBID: 100, MediaType: "movie", Title: "New"}}})
+	state, err := svc.DailyState(context.Background(), "fresh-library")
+	if err != nil || state.Pick == nil || state.Pick.TMDBID != 100 {
+		t.Fatalf("stale candidate selected: %+v, %v", state, err)
 	}
 }

@@ -65,6 +65,7 @@ func (l *rateLimiter) policy(path string) (string, int) {
 		return "auth", l.config.AuthPerMinute
 	case strings.HasPrefix(path, "/jobs/"),
 		strings.HasPrefix(path, "/recommendations/"),
+		strings.HasPrefix(path, "/world"),
 		strings.HasPrefix(path, "/mood/"),
 		strings.HasPrefix(path, "/match/"),
 		strings.HasPrefix(path, "/vibe"),

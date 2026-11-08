@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,6 +8,7 @@ import { fetchGameQuestions, type GameQuestion } from "../api/games";
 import { GameShell } from "../components/GameShell";
 import { GameHud } from "../components/GameHud";
 import { GameStage } from "../components/GameStage";
+import { gameTitles } from "../gameTitles";
 import { GameSummary } from "../components/GameSummary";
 import { useGameStats } from "../hooks/useGameStats";
 
@@ -132,6 +134,7 @@ export function YearScreen() {
 
           <div className="yeargame__stage">
             <div className={`yeargame__poster${revealed ? " is-revealed" : ""}`}>
+              {revealed ? <MovieInfoButton tmdbId={question.card.tmdbId} mediaType={question.card.mediaType} title={question.card.title} /> : null}
               {question.card.posterUrl ? (
                 <CoverImage
                   src={question.card.posterUrl}
@@ -211,6 +214,7 @@ export function YearScreen() {
 
       {status === "finished" && (
         <GameSummary
+          titles={gameTitles(questions)}
           title={total >= maxTotal * 0.8 ? "Машина часу! 📅" : "Гру завершено"}
           stats={[{ label: `Очок із ${maxTotal}`, value: total }]}
           shareText={shareText}

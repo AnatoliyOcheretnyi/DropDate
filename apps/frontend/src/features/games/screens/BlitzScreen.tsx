@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,6 +8,7 @@ import { fetchGameQuestions, type GameQuestion } from "../api/games";
 import { GameShell } from "../components/GameShell";
 import { GameHud } from "../components/GameHud";
 import { GameStage } from "../components/GameStage";
+import { gameTitles } from "../gameTitles";
 import { GameSummary } from "../components/GameSummary";
 import { GameCountdown } from "../components/GameCountdown";
 import { useGameStats } from "../hooks/useGameStats";
@@ -14,9 +16,8 @@ import { useGameStats } from "../hooks/useGameStats";
 const ROUNDS = 10;
 const ROUND_MS = 12000;
 const TICK_MS = 100;
-const ADVANCE_DELAY_MS = 1700;
 
-type Status = "loading" | "countdown" | "playing" | "finished" | "error";
+type Status = "setup" | "loading" | "countdown" | "playing" | "finished" | "error";
 
 const squares = (results: boolean[]) =>
   results.map((ok) => (ok ? "🟩" : "🟥")).join("");
@@ -25,9 +26,11 @@ export function BlitzScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const daily = searchParams.get("daily") === "1";
-  const { record } = useGameStats("blitz");
+  const relaxed = !daily && searchParams.get("tempo") === "relaxed";
+  const needsSetup = !daily && !["relaxed", "timed"].includes(searchParams.get("tempo") ?? "");
+  const { record } = useGameStats(relaxed ? "blitz_relaxed" : "blitz");
 
-  const [status, setStatus] = useState<Status>("loading");
+  const [status, setStatus] = useState<Status>("setup");
   const [questions, setQuestions] = useState<GameQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
@@ -56,30 +59,32 @@ export function BlitzScreen() {
       setQuestions(playable);
       // The clock starts with the round, so the first frame gets a 3-2-1
       // instead of eating a second while the player reads the options.
-      setStatus("countdown");
+      setStatus(relaxed ? "playing" : "countdown");
     } catch {
       setStatus("error");
     }
-  }, [daily]);
+  }, [daily, relaxed]);
 
   useEffect(() => {
+    if (needsSetup) { setStatus("setup"); return; }
     void load();
-  }, [load]);
+  }, [load, needsSetup]);
 
   const question = questions[index] ?? null;
 
   const reveal = useCallback(
     (tmdbId: number | null) => {
+      if (revealed) return;
       setPicked(tmdbId);
       setRevealed(true);
       setResults((prev) => [...prev, tmdbId !== null && tmdbId === question?.answerId]);
     },
-    [question]
+    [question, revealed]
   );
 
   // Round countdown; running out counts as a miss.
   useEffect(() => {
-    if (status !== "playing" || revealed) {
+    if (status !== "playing" || revealed || relaxed) {
       return;
     }
     setTimeLeft(ROUND_MS);
@@ -94,24 +99,12 @@ export function BlitzScreen() {
       setTimeLeft(left);
     }, TICK_MS);
     return () => window.clearInterval(interval);
-  }, [status, revealed, index, reveal]);
+  }, [status, revealed, index, reveal, relaxed]);
 
-  // Auto-advance after the reveal beat.
-  useEffect(() => {
-    if (!revealed) {
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      if (index + 1 >= questions.length) {
-        setStatus("finished");
-      } else {
-        setIndex((prev) => prev + 1);
-        setPicked(null);
-        setRevealed(false);
-      }
-    }, ADVANCE_DELAY_MS);
-    return () => window.clearTimeout(timeout);
-  }, [revealed, index, questions.length]);
+  const nextRound = () => {
+    if (index + 1 >= questions.length) setStatus("finished");
+    else { setIndex(prev => prev + 1); setPicked(null); setRevealed(false); }
+  };
 
   const score = results.filter(Boolean).length;
 
@@ -122,10 +115,17 @@ export function BlitzScreen() {
     }
   }, [status, record, score]);
 
-  const shareText = `DropDate · Постер-бліц${daily ? ` · ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(new Date())}` : ""}\n${score}/${results.length} ${squares(results)}`;
+  const shareText = `DropDate · Вгадай за кадром${daily ? ` · ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(new Date())}` : ""}\n${score}/${results.length} ${squares(results)}`;
 
   return (
     <GameShell playing={status === "playing"}>
+      {status === "setup" && <section className="games-setup">
+        <p className="eyebrow">Вгадай за кадром</p><h1>У своєму темпі</h1><p>10 кадрів. Після відповіді можна роздивитися фільм і зберегти його.</p>
+        <div className="games-setup__modes">
+          <button type="button" onClick={() => router.push("/games/blitz?tempo=relaxed")}><strong>Без поспіху</strong><small>Без таймера. Стільки часу, скільки потрібно.</small><b>Почати →</b></button>
+          <button type="button" onClick={() => router.push("/games/blitz?tempo=timed")}><strong>Бліц</strong><small>12 секунд на кожну відповідь.</small><b>Почати →</b></button>
+        </div>
+      </section>}
       {status === "loading" && (
         <div className="games-loading">
           <span className="games-loading__reel" aria-hidden="true" />
@@ -144,17 +144,18 @@ export function BlitzScreen() {
       {status === "playing" && question && question.card && (
         <GameStage roundKey={question.id} className="blitz">
           <GameHud
-            kicker={daily ? "Щоденний виклик · Постер-бліц" : "Постер-бліц"}
-            mode="timed"
+            kicker={daily ? "Щоденний виклик · Вгадай за кадром" : "Вгадай за кадром"}
+            mode={relaxed ? "rounds" : "timed"}
             metrics={[
               { label: "Кадр", value: `${index + 1} / ${questions.length}` },
               { label: "Рахунок", value: `${score}` },
             ]}
-            timeRatio={timeLeft / ROUND_MS}
-            timeLabel={`${Math.ceil(timeLeft / 1000)}с`}
+            timeRatio={relaxed ? undefined : timeLeft / ROUND_MS}
+            timeLabel={relaxed ? undefined : `${Math.ceil(timeLeft / 1000)}с`}
           />
 
           <div className={`blitz__frame${revealed ? " is-revealed" : ""}`}>
+            {revealed ? <MovieInfoButton tmdbId={question.card.tmdbId} mediaType={question.card.mediaType} title={question.card.title} /> : null}
             <CoverImage
               src={question.card.backdropUrl || question.card.posterUrl || ""}
               alt="Кадр з фільму"
@@ -203,11 +204,13 @@ export function BlitzScreen() {
               );
             })}
           </div>
+          {revealed ? <div className="game-reveal"><span>{picked === question.answerId ? "Правильно!" : `Це «${question.card.title}»`}</span><button type="button" className="primary" onClick={nextRound}>{index + 1 >= questions.length ? "Підсумок" : "Далі"}</button></div> : null}
         </GameStage>
       )}
 
       {status === "finished" && (
         <GameSummary
+          titles={gameTitles(questions)}
           title={score >= 8 ? "Кіноман! 🎬" : "Гру завершено"}
           stats={[{ label: "Вгадано кадрів", value: `${score} / ${results.length}` }]}
           squares={results}

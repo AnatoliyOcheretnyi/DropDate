@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppPageShell } from "../../../widgets/AppPageShell";
 import { SearchResultsGrid } from "../../../widgets/SearchResultsGrid";
@@ -169,7 +170,8 @@ export function TitleDetailsScreen() {
                   formatDate={formatDate}
                 />
               </Reveal>
-              <Reveal><WatchProvidersPanel providers={details.watchProviders} /></Reveal>
+              <Reveal>{details?.mediaType === "movie" && <div className="tonight-bar"><Link href={`/world?country=${details.originCountry?.includes("JP")?"KR":"JP"}&mode=personal&seed=${details.id}&intent=${encodeURIComponent("Схожі теми з іншої кінотрадиції")}`}>Цей, але з іншої країни ↗</Link></div>}
+          <WatchProvidersPanel providers={details.watchProviders} /></Reveal>
               <Reveal className="details-recommend-row"><RecommendToFriend details={details} /></Reveal>
               <AddToSharedList details={details} />
               <Reveal><EpisodeTracker details={details} /></Reveal>

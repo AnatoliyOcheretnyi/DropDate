@@ -48,54 +48,22 @@ const CARDS: HubCard[] = [
     accentA: "rgba(255, 190, 92, 0.38)",
   },
   {
-    id: "battle_release_date",
-    href: "/games/battle?mode=release_date",
-    emoji: "🎬",
-    title: "Що вийшло раніше?",
-    description: "Класичний баттл двох фільмів за датою виходу",
+    id: "cinema_time",
+    href: "/games/battle?choose=time",
+    emoji: "🕰️",
+    title: "Кіночас",
+    description: "Що раніше, який рік і хронологія — три способи відчути історію кіно",
     accentA: "rgba(115, 240, 193, 0.35)",
-    statsKey: "battle_release_date",
-    statUnit: "/10",
-  },
-  {
-    id: "battle_rating",
-    href: "/games/battle?mode=rating",
-    emoji: "⭐",
-    title: "У кого рейтинг вищий?",
-    description: "Порівняй оцінки TMDB двох фільмів",
-    accentA: "rgba(115, 170, 240, 0.35)",
-    statsKey: "battle_rating",
-    statUnit: "/10",
   },
   {
     id: "blitz",
     href: "/games/blitz",
     emoji: "🖼️",
-    title: "Постер-бліц",
-    description: "Вгадай фільм за кадром, поки тікає таймер",
+    title: "Вгадай за кадром",
+    description: "Впізнавай кіно за кадрами — з таймером або без поспіху",
     accentA: "rgba(240, 115, 162, 0.35)",
     statsKey: "blitz",
     statUnit: "/10",
-  },
-  {
-    id: "timeline",
-    href: "/games/timeline",
-    emoji: "🕰️",
-    title: "Хронологія",
-    description: "Розстав фільми в порядку виходу",
-    accentA: "rgba(195, 240, 115, 0.35)",
-    statsKey: "timeline",
-    statUnit: "/5",
-  },
-  {
-    id: "year",
-    href: "/games/year",
-    emoji: "📅",
-    title: "Вгадай рік",
-    description: "Наскільки точно ти відчуваєш епохи кіно?",
-    accentA: "rgba(255, 212, 121, 0.35)",
-    statsKey: "year",
-    statUnit: " очок",
   },
   {
     id: "wheel",
@@ -121,7 +89,7 @@ const CARDS: HubCard[] = [
 // player lands on the same game with the same backend-seeded questions.
 const DAILY_ROTATION = [
   { label: "Кіно-баттл: дати", href: "/games/battle?mode=release_date&daily=1", statsKey: "battle_release_date" },
-  { label: "Постер-бліц", href: "/games/blitz?daily=1", statsKey: "blitz" },
+  { label: "Вгадай за кадром", href: "/games/blitz?daily=1", statsKey: "blitz" },
   { label: "Кіно-баттл: рейтинги", href: "/games/battle?mode=rating&daily=1", statsKey: "battle_rating" },
   { label: "Вгадай рік", href: "/games/year?daily=1", statsKey: "year" },
 ];
@@ -332,7 +300,7 @@ export function GamesHubScreen() {
       <div className="games-grid-head">
         <div>
           <h2>Усі ігри</h2>
-          <p>Фон картки — постери з тієї ж вибірки, яку гра використовує всередині</p>
+          <p>Обери настрій: перевір знання, здивуй друга або знайди кіно на вечір</p>
         </div>
         <span>{CARDS.length} ігор</span>
       </div>
@@ -345,7 +313,8 @@ export function GamesHubScreen() {
             card.id === "wheel"
               ? watchlistCount > 0
                 ? `У колі: ${watchlistCount}`
-                : "Крутимо трендове"
+                : "Додай тайтли у «Хочу»"
+              : card.id === "cinema_time" ? "3 режими"
               : hasRecord
                 ? `Рекорд ${stat!.bestScore}${card.statUnit ?? ""}`
                 : "Ще не грав";

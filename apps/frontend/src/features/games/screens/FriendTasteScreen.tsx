@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -170,6 +171,8 @@ export function FriendTasteScreen() {
           ? " is-wrong"
           : "";
     return (
+      <div className="taste-card-wrap">
+      {revealed && item.tmdbId ? <MovieInfoButton tmdbId={item.tmdbId} mediaType={item.mediaType ?? "movie"} title={item.title} /> : null}
       <button
         type="button"
         className={`taste-card${stateClass}`}
@@ -190,6 +193,7 @@ export function FriendTasteScreen() {
           </span>
         ) : null}
       </button>
+      </div>
     );
   };
 
@@ -310,6 +314,7 @@ export function FriendTasteScreen() {
 
       {status === "finished" && (
         <GameSummary
+          titles={pairs.flatMap(pair => [pair.left, pair.right]).filter(item => item.tmdbId).map(item => ({ tmdbId: item.tmdbId!, mediaType: item.mediaType ?? (item.type === "movie" ? "movie" : "tv"), title: item.title, posterUrl: item.posterUrl }))}
           title={
             score >= results.length * 0.8
               ? `Ти читаєш @${friendName} як відкриту книгу 👀`

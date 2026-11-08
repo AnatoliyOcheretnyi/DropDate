@@ -16,7 +16,8 @@ const TMDB_IMAGE_PREFIX = "https://image.tmdb.org/t/p/";
 
 /**
  * Widths TMDB serves for poster/profile/backdrop paths alike. We deliberately
- * stop at w780 rather than `original`: backdrops at original run into megabytes.
+ * cap ordinary cards at w780. Explicit original sources opt into full-size
+ * artwork on wide/high-density displays, without enlarging every poster.
  */
 const TMDB_WIDTHS = [92, 154, 185, 342, 500, 780] as const;
 
@@ -42,5 +43,8 @@ export default function tmdbImageLoader({ src, width }: LoaderArgs): string {
   }
 
   const filePath = path.slice(separator + 1);
+  if (path.slice(0, separator) === "original" && width > 780) {
+    return src;
+  }
   return `${TMDB_IMAGE_PREFIX}w${pickBucket(width)}/${filePath}`;
 }

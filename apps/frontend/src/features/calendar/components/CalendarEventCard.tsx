@@ -1,6 +1,7 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
-import type { MouseEvent } from "react";
+
 import { useRouter } from "next/navigation";
 import { getReleaseStatusLabel } from "../../../shared/lib/release";
 import { CoverImage } from "../../../shared/ui/CoverImage";
@@ -15,8 +16,7 @@ export function CalendarEventCard({ event, variant = "card" }: Props) {
   const router = useRouter();
   const imageUrl = event.posterUrl || event.backdropUrl;
 
-  const open = (e: MouseEvent) => {
-    e.stopPropagation();
+  const open = () => {
     if (event.tmdbId) {
       router.push(`/title/${event.mediaType}/${event.tmdbId}`);
     } else {
@@ -26,10 +26,9 @@ export function CalendarEventCard({ event, variant = "card" }: Props) {
 
   if (variant === "pill") {
     return (
-      <button
-        type="button"
+      <MovieCardSurface tmdbId={event.tmdbId} mediaType={event.mediaType}
         className="calendar-event-pill"
-        onClick={open}
+        onActivate={open}
         title={event.title}
       >
         <span className="calendar-event-pill-thumb" aria-hidden="true">
@@ -40,15 +39,14 @@ export function CalendarEventCard({ event, variant = "card" }: Props) {
           )}
         </span>
         <span className="calendar-event-pill-title">{event.title}</span>
-      </button>
+      </MovieCardSurface>
     );
   }
 
   return (
-    <button
-      type="button"
+    <MovieCardSurface tmdbId={event.tmdbId} mediaType={event.mediaType}
       className="calendar-event-card"
-      onClick={open}
+      onActivate={open}
       title={event.title}
     >
       <span className="calendar-event-card-thumb" aria-hidden="true">
@@ -69,6 +67,6 @@ export function CalendarEventCard({ event, variant = "card" }: Props) {
           </span>
         </span>
       </span>
-    </button>
+    </MovieCardSurface>
   );
 }

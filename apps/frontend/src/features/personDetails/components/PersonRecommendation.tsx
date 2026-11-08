@@ -1,4 +1,5 @@
 "use client";
+import { MovieCardSurface } from "../../../shared/ui/MovieCardSurface";
 
 import type { PersonPick } from "../../../shared/lib/release";
 import { CoverImage } from "../../../shared/ui/CoverImage";
@@ -13,10 +14,9 @@ export function PersonRecommendation({ pick, personName, onSelect }: Props) {
   return (
     <section className="person-pick">
       <div className="person-pick__glow" aria-hidden="true" />
-      <button
-        type="button"
+      <MovieCardSurface tmdbId={pick.tmdbId} mediaType={pick.mediaType} title={pick.title}
         className="person-pick__inner"
-        onClick={() => onSelect(pick)}
+        onActivate={() => onSelect(pick)}
       >
         <div className="person-pick__poster">
           {pick.posterUrl ? (
@@ -39,7 +39,7 @@ export function PersonRecommendation({ pick, personName, onSelect }: Props) {
             <span aria-hidden="true"> →</span>
           </span>
         </div>
-      </button>
+      </MovieCardSurface>
     </section>
   );
 }

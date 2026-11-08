@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthModal } from "../../../widgets/AuthModal";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
@@ -13,6 +14,7 @@ import { GameRevealPanel } from "../components/GameRevealPanel";
 import { GameShell } from "../components/GameShell";
 import { GameHud } from "../components/GameHud";
 import { GameStage } from "../components/GameStage";
+import { gameTitles } from "../gameTitles";
 import { GameSummary } from "../components/GameSummary";
 import type { GameMode, GameTitleCard } from "../api/games";
 
@@ -67,6 +69,7 @@ export function BattleScreen() {
     status,
     question,
     questionNumber,
+    playedQuestions,
     totalQuestions,
     selected,
     isRevealed,
@@ -157,6 +160,17 @@ export function BattleScreen() {
     : `DropDate · ${MODE_TITLES[mode]}${daily ? ` · ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(new Date())}` : ""}\n${score}/${results.length} ${squares(results)}`;
 
   const won = endless ? bestStreak >= 10 : results.length > 0 && score / results.length >= 0.7;
+
+  if (searchParams.get("choose") === "time") return <GameShell>
+    <section className="games-setup"><p className="eyebrow">Кіночас</p><h1>Відчуй історію кіно</h1><p>Три режими — від простого порівняння до цілої хронології.</p>
+      <div className="games-mode-links">
+        <Link href="/games/battle?mode=release_date"><strong>Що вийшло раніше?</strong><span>Два фільми — обери старший.</span></Link>
+        <Link href="/games/year"><strong>Вгадай рік</strong><span>Чим ближче до справжнього року, тим більше очок.</span></Link>
+        <Link href="/games/timeline"><strong>Хронологія</strong><span>Розстав фільми від найстарішого до найновішого.</span></Link>
+      </div>
+      <Link className="games-secondary-mode" href="/games/battle?mode=rating">Або порівняй рейтинги TMDB →</Link>
+    </section>
+  </GameShell>;
 
   return (
     <GameShell playing={status === "playing"}>
@@ -253,6 +267,7 @@ export function BattleScreen() {
 
       {status === "finished" && (
         <GameSummary
+          titles={gameTitles(playedQuestions)}
           title={
             endless
               ? bestStreak >= 10

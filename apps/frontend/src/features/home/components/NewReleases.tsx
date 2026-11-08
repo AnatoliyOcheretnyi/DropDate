@@ -4,11 +4,10 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
-import { webQueryKeys } from "../../../shared/api/queryKeys";
+
 import { copy } from "../../../shared/lib/strings";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
-import { fetchDiscoverResults } from "../api/discoverApi";
 
 type TabId = "all" | "movie" | "tv" | "anime";
 
@@ -87,55 +86,65 @@ function PosterCard({
 
       <h3 className="new-release__title">{item.title}</h3>
       <p className="new-release__meta">
-        {item.mediaType === "movie" ? copy.mediaType.movie : copy.mediaType.series}
+        {item.mediaType === "movie"
+          ? copy.mediaType.movie
+          : copy.mediaType.series}
         {item.year ? ` · ${item.year}` : ""}
       </p>
     </article>
   );
 }
 
-export function NewReleases({
-  movies,
-  series,
-  isLoading,
-  getListTypes,
-  onChangeLists,
-  onSelect,
-}: Props) {
+export function NewReleases({ getListTypes, onChangeLists, onSelect }: Props) {
   const [tab, setTab] = useState<TabId>("all");
 
-  // Anime is not a media type the home payload knows about, so that tab asks
-  // /discover for Japanese animation instead of filtering what is already here.
-  const animeQuery = useQuery({
-    queryKey: webQueryKeys.discover(["animation"], ["jp"]),
-    enabled: tab === "anime",
-    staleTime: 1000 * 60 * 30,
-    queryFn: async ({ signal }) =>
-      (await fetchDiscoverResults(["animation"], ["jp"], 1, signal)).results,
+  const recentQuery = useQuery({
+    queryKey: ["new-releases"],
+    staleTime: 30 * 60 * 1000,
+    queryFn: async ({
+      signal,
+    }): Promise<{
+      movies: Suggestion[];
+      series: Suggestion[];
+      anime: Suggestion[];
+    }> => {
+      const response = await fetch("/api/new-releases", { signal });
+      if (!response.ok) throw new Error("Не вдалося завантажити новинки");
+      return response.json();
+    },
   });
-
   const items = useMemo(() => {
-    if (tab === "movie") return movies;
-    if (tab === "tv") return series;
-    if (tab === "anime") return animeQuery.data ?? [];
-    return interleave(movies, series);
-  }, [tab, movies, series, animeQuery.data]);
+    const data = recentQuery.data;
+    if (!data) return [];
+    if (tab === "movie") return data.movies;
+    if (tab === "tv") return data.series;
+    if (tab === "anime") return data.anime;
+    return interleave(data.movies, data.series);
+  }, [tab, recentQuery.data]);
 
   const visible = items.slice(0, VISIBLE);
-  const showSkeleton =
-    (tab === "anime" && animeQuery.isLoading) || (isLoading && visible.length === 0);
+  const showSkeleton = recentQuery.isLoading;
 
   return (
-    <section className="new-releases trend-bleed" aria-labelledby="new-releases-title">
+    <section
+      className="new-releases trend-bleed"
+      aria-labelledby="new-releases-title"
+    >
       <div className="trend-inner">
         <header className="new-releases__head">
           <div>
-            <p className="new-releases__kicker">ЩОЙНО ВИЙШЛО</p>
+            <p className="new-releases__kicker">
+              ПРЕМ’ЄРИ ОСТАННІХ ТРЬОХ МІСЯЦІВ
+            </p>
             <h2 id="new-releases-title" className="new-releases__title">
               Нові релізи
             </h2>
           </div>
-          <div className="new-releases__tabs" role="tablist" aria-label="Фільтр релізів">
+          <div
+            className="new-releases__tabs"
+            role="tablist"
+            aria-label="Фільтр релізів"
+          >
             {TABS.map((item) => (
               <button
                 key={item.id}
@@ -154,7 +163,10 @@ export function NewReleases({
         <div className="new-releases__grid">
           {showSkeleton
             ? Array.from({ length: VISIBLE }).map((_, index) => (
-                <span key={index} className="new-release new-release--skeleton" />
+                <span
+                  key={index}
+                  className="new-release new-release--skeleton"
+                />
               ))
             : visible.map((item) => {
                 return (
@@ -170,7 +182,11 @@ export function NewReleases({
         </div>
 
         {!showSkeleton && visible.length === 0 ? (
-          <p className="new-releases__empty">Тут поки порожньо — спробуй інший фільтр.</p>
+          <p className="new-releases__empty">
+            {recentQuery.error
+              ? "Не вдалося завантажити новинки. Спробуй пізніше."
+              : "Тут поки порожньо — спробуй інший фільтр."}
+          </p>
         ) : null}
       </div>
     </section>

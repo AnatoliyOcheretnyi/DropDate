@@ -48,7 +48,7 @@ type AuthStore = {
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{
     status: "ok" | "verification_required";
     message?: string;
@@ -84,11 +84,14 @@ const toAuthResult = (payload: AuthPayload | null): AuthResult | null => {
     user: {
       id: payload.user.id,
       email: payload.user.email,
-      username: typeof payload.user.username === "string" ? payload.user.username : "",
+      username:
+        typeof payload.user.username === "string" ? payload.user.username : "",
       isSuperuser: payload.user.isSuperuser === true,
     },
   };
 };
+
+let refreshInFlight: Promise<void> | null = null;
 
 const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
@@ -120,7 +123,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           break;
         }
         await new Promise((resolve) =>
-          window.setTimeout(resolve, baseDelay * 2 ** attempt)
+          window.setTimeout(resolve, baseDelay * 2 ** attempt),
         );
       }
     }
@@ -134,14 +137,14 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       {
         headers: { "content-type": "application/json" },
         validateStatus: () => true,
-      }
+      },
     );
 
     if (response.status < 200 || response.status >= 300) {
       throw new AuthError(
         getAuthMessage(response.data, "Auth request failed"),
         response.data?.code,
-        response.status
+        response.status,
       );
     }
 
@@ -159,10 +162,13 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       {
         headers: { "content-type": "application/json" },
         validateStatus: () => true,
-      }
+      },
     );
 
-    if (response.status === 202 && response.data?.status === "verification_required") {
+    if (
+      response.status === 202 &&
+      response.data?.status === "verification_required"
+    ) {
       return {
         status: "verification_required" as const,
         message:
@@ -176,7 +182,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       throw new AuthError(
         getAuthMessage(response.data, "Auth request failed"),
         response.data?.code,
-        response.status
+        response.status,
       );
     }
 
@@ -196,7 +202,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
         {
           headers: { "content-type": "application/json" },
           validateStatus: () => true,
-        }
+        },
       );
     } finally {
       set({ user: null, accessToken: null });
@@ -205,40 +211,48 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       }
     }
   },
-  refresh: async () => {
-    if (get().isVerifyRoute) {
-      return;
-    }
+  refresh: () => {
+    // Multiple requests can discover expiry together. Rotate the refresh
+    // cookie once so parallel requests cannot invalidate each other's session.
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = (async () => {
+      if (get().isVerifyRoute) {
+        return;
+      }
 
-    let response;
-    try {
-      response = await webApi.post<AuthPayload>(
-        "/api/auth/refresh",
-        {},
-        {
-          headers: { "content-type": "application/json" },
-          validateStatus: () => true,
-        }
-      );
-    } catch {
-      throw new AuthTransientError("refresh failed");
-    }
+      let response;
+      try {
+        response = await webApi.post<AuthPayload>(
+          "/api/auth/refresh",
+          {},
+          {
+            headers: { "content-type": "application/json" },
+            validateStatus: () => true,
+          },
+        );
+      } catch {
+        throw new AuthTransientError("refresh failed");
+      }
 
-    if (response.status === 401 || response.status === 403) {
-      set({ user: null, accessToken: null });
-      return;
-    }
+      if (response.status === 401 || response.status === 403) {
+        set({ user: null, accessToken: null });
+        return;
+      }
 
-    if (response.status < 200 || response.status >= 300) {
-      throw new AuthTransientError(`refresh failed with ${response.status}`);
-    }
+      if (response.status < 200 || response.status >= 300) {
+        throw new AuthTransientError(`refresh failed with ${response.status}`);
+      }
 
-    const result = toAuthResult(response.data);
-    if (!result) {
-      throw new AuthTransientError("refresh returned invalid JSON");
-    }
+      const result = toAuthResult(response.data);
+      if (!result) {
+        throw new AuthTransientError("refresh returned invalid JSON");
+      }
 
-    set({ user: result.user, accessToken: result.accessToken });
+      set({ user: result.user, accessToken: result.accessToken });
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
   },
   updateUsername: async (username: string) => {
     const current = get().user;
@@ -256,17 +270,41 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       throw new AuthError(
         getAuthMessage(response.data, "Не вдалося оновити юзернейм"),
         response.data?.code,
-        response.status
+        response.status,
       );
     }
 
     const nextUsername =
-      typeof response.data?.username === "string" ? response.data.username : username;
+      typeof response.data?.username === "string"
+        ? response.data.username
+        : username;
     if (current) {
       set({ user: { ...current, username: nextUsername } });
     }
   },
 }));
+
+/** Fetch an app API with the current session, refreshing once after expiry. */
+export async function fetchWithAuth(url: string, init: RequestInit = {}) {
+  const initial = useAuthStore.getState();
+  const send = (token: string | null) => {
+    const headers = new Headers(init.headers);
+    if (token) headers.set("authorization", `Bearer ${token}`);
+    else headers.delete("authorization");
+    return fetch(url, { ...init, headers });
+  };
+  const response = await send(initial.accessToken);
+  if (response.status !== 401 || !initial.accessToken) return response;
+  init.signal?.throwIfAborted();
+  const current = useAuthStore.getState();
+  if (current.user?.id !== initial.user?.id) return response;
+  if (current.accessToken === initial.accessToken) await current.refresh();
+  init.signal?.throwIfAborted();
+  const refreshed = useAuthStore.getState();
+  if (!refreshed.accessToken || refreshed.user?.id !== initial.user?.id)
+    return response;
+  return send(refreshed.accessToken);
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -291,7 +329,7 @@ export function useAuth() {
       logout: state.logout,
       refresh: state.refresh,
       updateUsername: state.updateUsername,
-    }))
+    })),
   );
 }
 

@@ -8,10 +8,11 @@ import (
 )
 
 type DailyState struct {
-	Date     string `json:"date"`
-	Pick     *Item  `json:"pick,omitempty"`
-	Revealed bool   `json:"revealed"`
-	Action   string `json:"action"`
+	Date        string `json:"date"`
+	Pick        *Item  `json:"pick,omitempty"`
+	Revealed    bool   `json:"revealed"`
+	Action      string `json:"action"`
+	EmptyReason string `json:"emptyReason,omitempty"`
 }
 
 type dailyRecord struct {

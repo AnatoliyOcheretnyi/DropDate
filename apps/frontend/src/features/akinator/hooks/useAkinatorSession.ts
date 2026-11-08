@@ -1,53 +1,79 @@
 "use client";
 
-import { useState } from "react";
-import { AkinatorApiError, logAkinatorResult, nextAkinator, startAkinator, type AkinatorAnswer, type AkinatorAnswerItem, type AkinatorStep } from "../api/akinator";
+import { useEffect, useRef, useState } from "react";
+import { logAkinatorResult, nextAkinator, startAkinator, type AkinatorAnswer, type AkinatorAnswerItem, type AkinatorStep } from "../api/akinator";
 
-const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+type Snapshot = { current: AkinatorStep; answers: AkinatorAnswerItem[]; rejected: number[] };
 
 export function useAkinatorSession() {
   const [sessionToken, setSessionToken] = useState("");
   const [answers, setAnswers] = useState<AkinatorAnswerItem[]>([]);
+  const [rejected, setRejected] = useState<number[]>([]);
   const [current, setCurrent] = useState<AkinatorStep | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState<"correct" | "wrong" | null>(null);
+  const history = useRef<Snapshot[]>([]);
+  const generation = useRef(0);
+  const pending = useRef(false);
+  const prepared = useRef<Promise<Awaited<ReturnType<typeof startAkinator>> | null> | null>(null);
+
+  // Prepare the first question while the player reads the introduction.
+  useEffect(() => {
+    const controller = new AbortController();
+    prepared.current = startAkinator(controller.signal).catch(() => null);
+    return () => { controller.abort(); generation.current++; };
+  }, []);
 
   const start = async () => {
-    setLoading(true); setError(""); setOutcome(null); setAnswers([]);
+    if (pending.current) return;
+    pending.current = true;
+    const request = ++generation.current;
+    setLoading(true); setError("");
     try {
-      let result: Awaited<ReturnType<typeof startAkinator>>;
-      for (let attempt = 0; ; attempt++) {
-        try {
-          result = await startAkinator();
-          break;
-        } catch (cause) {
-          if (!(cause instanceof AkinatorApiError) || cause.status !== 503 || attempt >= 19) throw cause;
-          setError(cause.message);
-          await wait(3000);
-        }
-      }
+      const warm = await prepared.current;
+      prepared.current = null;
+      const result = warm ?? await startAkinator();
+      if (request !== generation.current) return;
+      history.current = [];
+      setAnswers([]); setRejected([]); setOutcome(null);
       setSessionToken(result.sessionToken);
       setCurrent({ type: "question", question: result.question, step: result.step, candidates: result.candidates });
-      setError("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Не вдалося почати гру"); }
-    finally { setLoading(false); }
+    } catch (cause) {
+      if (request === generation.current) setError(cause instanceof Error ? cause.message : "Не вдалося почати гру");
+    } finally { pending.current = false; if (request === generation.current) setLoading(false); }
   };
 
-  const answer = async (value: AkinatorAnswer) => {
-    if (!current?.question || loading) return;
-    const nextAnswers = [...answers, { questionId: current.question.id, answer: value }];
-    setAnswers(nextAnswers); setLoading(true); setError("");
-    try { setCurrent(await nextAkinator(sessionToken, nextAnswers)); }
-    catch (cause) { setAnswers(answers); setError(cause instanceof Error ? cause.message : "Не вдалося продовжити гру"); }
-    finally { setLoading(false); }
+  const advance = async (nextAnswers: AkinatorAnswerItem[], nextRejected: number[]) => {
+    if (!current || pending.current) return;
+    pending.current = true;
+    const request = ++generation.current;
+    setLoading(true); setError("");
+    try {
+      const next = await nextAkinator(sessionToken, nextAnswers, nextRejected);
+      if (request !== generation.current) return;
+      history.current.push({ current, answers, rejected });
+      setAnswers(nextAnswers); setRejected(nextRejected); setCurrent(next); setOutcome(null);
+    } catch (cause) {
+      if (request === generation.current) setError(cause instanceof Error ? cause.message : "Не вдалося продовжити гру");
+    } finally { pending.current = false; if (request === generation.current) setLoading(false); }
   };
 
+  const answer = (value: AkinatorAnswer) => {
+    if (current?.question) void advance([...answers, { questionId: current.question.id, answer: value }], rejected);
+  };
+  const undo = () => {
+    if (pending.current) return;
+    const previous = history.current.pop();
+    if (!previous) return;
+    setCurrent(previous.current); setAnswers(previous.answers); setRejected(previous.rejected); setOutcome(null); setError("");
+  };
   const finish = async (correct: boolean) => {
-    if (!current?.guess) return;
-    setOutcome(correct ? "correct" : "wrong");
-    void logAkinatorResult(sessionToken, current.guess.tmdbId, correct, answers);
+    if (!current?.guess || pending.current) return;
+    void logAkinatorResult(sessionToken, current.guess.tmdbId, correct, answers).catch(() => undefined);
+    if (correct) setOutcome("correct");
+    else await advance(answers, [...rejected, current.guess.tmdbId]);
   };
 
-  return { current, loading, error, outcome, answers, start, answer, finish };
+  return { current, loading, error, outcome, answers, start, answer, finish, undo, canUndo: history.current.length > 0 };
 }

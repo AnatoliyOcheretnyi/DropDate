@@ -31,25 +31,30 @@ type DiscoverParams struct {
 	ReleaseDateLTE    string   // "YYYY-MM-DD", "" = unset
 	SortBy            string   // default "popularity.desc"
 	VoteCountGTE      int      // 0 = unset
-	VoteAverageGTE    float64  // 0 = unset
-	CertificationLTE  string   // movie only, e.g. "PG-13"
-	CertCountry       string   // movie only, e.g. "US"
-	WithType          string   // tv only, e.g. "2" (miniseries), "4" (scripted)
-	WithStatus        string   // tv only, e.g. "0" (returning), "3" (ended)
-	Page              int      // 1-based; 0 -> 1
+	VoteCountLTE      int
+	VoteAverageGTE    float64 // 0 = unset
+	WatchRegion       string
+	WatchProviders    []int
+	CertificationLTE  string // movie only, e.g. "PG-13"
+	CertCountry       string // movie only, e.g. "US"
+	WithType          string // tv only, e.g. "2" (miniseries), "4" (scripted)
+	WithStatus        string // tv only, e.g. "0" (returning), "3" (ended)
+	Page              int    // 1-based; 0 -> 1
 }
 
 // DiscoverItem is one /discover result, enriched with the fields the pickers
 // need (rating and genre ids) on top of the basic suggestion shape.
 type DiscoverItem struct {
-	ID        int
-	MediaType string
-	Title     string
-	Year      string
-	PosterURL string
-	Rating    float64
-	GenreIDs  []int
-	Overview  string
+	ID         int
+	MediaType  string
+	Title      string
+	Year       string
+	PosterURL  string
+	Rating     float64
+	GenreIDs   []int
+	Overview   string
+	VoteCount  int
+	Popularity float64
 }
 
 type discoverResponse struct {
@@ -66,6 +71,8 @@ type discoverEntry struct {
 	VoteAverage  float64 `json:"vote_average"`
 	GenreIDs     []int   `json:"genre_ids"`
 	Overview     string  `json:"overview"`
+	VoteCount    int     `json:"vote_count"`
+	Popularity   float64 `json:"popularity"`
 }
 
 // Discover queries TMDB /discover/{movie,tv} with the given filters.
@@ -88,6 +95,11 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
 	q.Set("include_adult", "false")
+	if p.WatchRegion != "" && len(p.WatchProviders) > 0 {
+		q.Set("watch_region", p.WatchRegion)
+		q.Set("with_watch_providers", joinInts(p.WatchProviders, "|"))
+		q.Set("with_watch_monetization_types", "flatrate|free|ads")
+	}
 
 	if len(p.WithGenres) > 0 {
 		// TMDB reads "," as AND and "|" as OR inside with_genres.
@@ -137,6 +149,9 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 		} else {
 			q.Set("primary_release_date.lte", p.ReleaseDateLTE)
 		}
+	}
+	if p.VoteCountLTE > 0 {
+		q.Set("vote_count.lte", strconv.Itoa(p.VoteCountLTE))
 	}
 	if p.VoteCountGTE > 0 {
 		q.Set("vote_count.gte", strconv.Itoa(p.VoteCountGTE))
@@ -189,14 +204,16 @@ func (c *Client) Discover(ctx context.Context, p DiscoverParams) ([]DiscoverItem
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, DiscoverItem{
-			ID:        result.ID,
-			MediaType: mediaType,
-			Title:     title,
-			Year:      yearFromDate(date),
-			PosterURL: poster,
-			Rating:    result.VoteAverage,
-			GenreIDs:  result.GenreIDs,
-			Overview:  strings.TrimSpace(result.Overview),
+			ID:         result.ID,
+			MediaType:  mediaType,
+			Title:      title,
+			Year:       yearFromDate(date),
+			PosterURL:  poster,
+			Rating:     result.VoteAverage,
+			VoteCount:  result.VoteCount,
+			Popularity: result.Popularity,
+			GenreIDs:   result.GenreIDs,
+			Overview:   strings.TrimSpace(result.Overview),
 		})
 	}
 	return out, nil

@@ -947,3 +947,16 @@ dd.date span:last-child {
   background: var(--dd-accent-soft, rgba(115, 240, 193, 0.12));
   color: var(--dd-accent, #73f0c1);
 }
+
+.movie-card-surface { position: relative; cursor: pointer; font-family: inherit; }
+.movie-card-surface:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.movie-card-surface.calendar-event-card,
+.movie-card-surface.calendar-event-pill { padding-right: 42px; }
+.movie-card-surface .card-info-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.movie-preview-content { display: flex; flex-direction: column; min-height: 0; color: inherit; text-decoration: none; cursor: pointer; }
+.movie-preview-content:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.suggestions > li { position: relative; }
+.suggestions > li > button:not(.card-info-btn) { padding-right: 44px; }
+.game-card { position: relative; }
+.taste-card-wrap, .timeline__slot { position: relative; min-width: 0; }
+.taste-card-wrap > .taste-card { width: 100%; }

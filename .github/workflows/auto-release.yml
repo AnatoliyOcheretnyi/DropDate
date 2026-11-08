@@ -211,11 +211,21 @@ jobs:
         run: |
           if [ -n "${{ steps.versions.outputs.frontend }}" ]; then
             tag="frontend/v${{ steps.versions.outputs.frontend }}"
-            gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Frontend v${{ steps.versions.outputs.frontend }}" --notes "Verified frontend deployment."
+            notes="docs/releases/frontend-v${{ steps.versions.outputs.frontend }}.md"
+            if [ -f "$notes" ]; then
+              gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Frontend v${{ steps.versions.outputs.frontend }}" --notes-file "$notes"
+            else
+              gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Frontend v${{ steps.versions.outputs.frontend }}" --notes "Verified frontend deployment."
+            fi
           fi
           if [ -n "${{ steps.versions.outputs.backend }}" ]; then
             tag="backend/v${{ steps.versions.outputs.backend }}"
-            gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Backend v${{ steps.versions.outputs.backend }}" --notes "Verified backend deployment."
+            notes="docs/releases/backend-v${{ steps.versions.outputs.backend }}.md"
+            if [ -f "$notes" ]; then
+              gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Backend v${{ steps.versions.outputs.backend }}" --notes-file "$notes"
+            else
+              gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Backend v${{ steps.versions.outputs.backend }}" --notes "Verified backend deployment."
+            fi
           fi
           if [ -n "${{ steps.versions.outputs.mobile }}" ]; then
             tag="mobile/v${{ steps.versions.outputs.mobile }}"

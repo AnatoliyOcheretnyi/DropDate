@@ -38,6 +38,9 @@
   --dd-border-strong: rgba(255, 255, 255, 0.14);
   --dd-accent: #73f0c1;
   --dd-accent-soft: rgba(115, 240, 193, 0.12);
+  /* The monogram's recessive D — the accent, stepped back far enough to
+     read as "behind" without going transparent. */
+  --dd-accent-dim: #3c9e7e;
   --dd-accent-ink: #04120d;
   --dd-warn: #ffb86b;
   --dd-text: #f4f7fb;

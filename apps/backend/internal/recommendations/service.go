@@ -46,7 +46,7 @@ const (
 	// the whole feed with lookalikes.
 	diversityCapPerSeed = 4
 	defaultLimit        = 18
-	maxLimit            = 30
+	maxLimit            = 60
 	defaultCacheTTL     = 6 * time.Hour
 	// dirtyActionThreshold: after this many impactful actions inside the
 	// debounce window the cache is purged immediately instead of waiting.
@@ -216,6 +216,32 @@ func (s *Service) Generate(ctx context.Context, userID string, limit int) (Resul
 	s.addTasteCandidates(ctx, userID, candidates)
 
 	ranked := rankCandidates(candidates, exclusions, limit)
+	// Keep discovery candidates available to the downstream novelty control.
+	if limit >= 20 {
+		exploration := map[string]*mergedCandidate{}
+		for key, candidate := range candidates {
+			if candidate.primarySource == "explore" {
+				exploration[key] = candidate
+			}
+		}
+		extra := rankCandidates(exploration, exclusions, limit/3)
+		if len(extra) > 0 {
+			keys := map[string]bool{}
+			for _, item := range extra {
+				keys[candidateKey(item.TMDBID, item.MediaType)] = true
+			}
+			base := []Item{}
+			for _, item := range ranked {
+				if !keys[candidateKey(item.TMDBID, item.MediaType)] {
+					base = append(base, item)
+				}
+			}
+			if len(base) > limit-len(extra) {
+				base = base[:limit-len(extra)]
+			}
+			ranked = append(base, extra...)
+		}
+	}
 	result := Result{
 		Items: ranked,
 		Meta: Meta{
@@ -245,32 +271,52 @@ func (s *Service) addTasteCandidates(ctx context.Context, userID string, merged 
 		return
 	}
 	countries, _ := s.taste.Rankings(ctx, userID, "country")
-	params := release.DiscoverParams{MediaType: "movie", SortBy: "vote_average.desc", VoteCountGTE: 100, VoteAverageGTE: 6.5}
+	params := release.DiscoverParams{MediaType: "movie", SortBy: "vote_average.desc", VoteCountGTE: 30, VoteAverageGTE: 6.5, ReleaseDateLTE: s.now().UTC().Format("2006-01-02")}
 	for _, item := range genres {
-		if item.Comparisons >= 2 {
-			params.WithGenres = []int{tasteGenreIDs[item.ID]}
-			break
+		if item.Comparisons >= 2 && tasteGenreIDs[item.ID] > 0 {
+			params.WithGenres = append(params.WithGenres, tasteGenreIDs[item.ID])
+			if len(params.WithGenres) == 3 {
+				break
+			}
 		}
 	}
 	for _, item := range countries {
 		if item.Comparisons >= 2 {
-			params.WithOriginCountry = []string{item.ID}
-			break
+			params.WithOriginCountry = append(params.WithOriginCountry, item.ID)
+			if len(params.WithOriginCountry) == 3 {
+				break
+			}
 		}
 	}
-	items, err := discoverer.Discover(ctx, params)
-	if err != nil {
-		return
+	legs := []release.DiscoverParams{params, params, params}
+	legs[1].WithOriginCountry = []string{"KR", "JP", "IN", "TH"}
+	legs[2].WithOriginCountry = []string{"FR", "IR", "BR", "AR", "UA"}
+	type batch struct{ items []release.DiscoverItem }
+	batches := make([]batch, len(legs))
+	var wg sync.WaitGroup
+	for i, p := range legs {
+		wg.Add(1)
+		go func(i int, p release.DiscoverParams) {
+			defer wg.Done()
+			batches[i].items, _ = discoverer.Discover(ctx, p)
+		}(i, p)
 	}
-	for i, item := range items {
-		if i >= 8 {
-			break
+	wg.Wait()
+	for i, b := range batches {
+		for n, item := range b.items {
+			if n >= 8 {
+				break
+			}
+			key := candidateKey(item.TMDBID, item.MediaType)
+			if _, exists := merged[key]; exists {
+				continue
+			}
+			source := "taste"
+			if i > 0 {
+				source = "explore"
+			}
+			merged[key] = &mergedCandidate{suggestion: release.Suggestion{ID: item.TMDBID, Title: item.Title, MediaType: item.MediaType, Year: item.Year, PosterURL: item.PosterURL}, weightSum: 3, seedCount: 1, primarySource: source, primaryWeight: 3}
 		}
-		key := candidateKey(item.TMDBID, item.MediaType)
-		if _, exists := merged[key]; exists {
-			continue
-		}
-		merged[key] = &mergedCandidate{suggestion: release.Suggestion{ID: item.TMDBID, Title: item.Title, MediaType: item.MediaType, Year: item.Year, PosterURL: item.PosterURL}, weightSum: 2, seedCount: 1, primarySource: "taste", primaryWeight: 2}
 	}
 }
 
@@ -294,13 +340,64 @@ func (s *Service) DailyState(ctx context.Context, userID string) (DailyState, er
 
 	pool := s.dailyContrastPool(ctx, userID, date)
 	if len(pool) == 0 {
-		// A new user, or one who has disliked their way through the personal
-		// pool, would otherwise get no pick and the card would vanish. Fall
-		// back to a broad popular pool so a pick is always present.
-		pool = s.dailyFallbackPool(ctx, userID)
+		// Calibration is optional. Saved favorites, likes and viewing history
+		// already provide enough signals to generate a personal daily pick.
+		personal, err := s.Generate(ctx, userID, maxLimit)
+		if err != nil {
+			return DailyState{}, err
+		}
+		pool = personal.Items
+		// A cached recommendation feed may predate the latest library change.
+		if s.saved != nil {
+			rows, err := s.saved.SeedRows(ctx, userID)
+			if err != nil {
+				return DailyState{}, err
+			}
+			exclusions := buildExclusions(rows)
+			filtered := make([]Item, 0, len(pool))
+			for _, item := range pool {
+				if !exclusions[candidateKey(item.TMDBID, item.MediaType)] {
+					filtered = append(filtered, item)
+				}
+			}
+			pool = filtered
+		}
 	}
 	if len(pool) == 0 {
-		return DailyState{Date: date, Action: "none"}, nil
+		var err error
+		pool, err = s.dailyFallbackPool(ctx, userID)
+		if err != nil {
+			return DailyState{}, err
+		}
+	}
+	if len(pool) == 0 {
+		// Empty results do not imply insufficient taste data. Only a verified
+		// absence of both saved signals and calibration warrants onboarding.
+		reason := "exhausted"
+		if s.saved != nil {
+			rows, err := s.saved.SeedRows(ctx, userID)
+			if err != nil {
+				return DailyState{}, err
+			}
+			hasSignals := len(selectSeeds(rows, s.now())) > 0
+			if !hasSignals && s.taste != nil {
+				for _, kind := range []string{"genre", "country"} {
+					rankings, err := s.taste.Rankings(ctx, userID, kind)
+					if err != nil {
+						return DailyState{}, err
+					}
+					for _, ranking := range rankings {
+						if ranking.Comparisons > 0 {
+							hasSignals = true
+						}
+					}
+				}
+			}
+			if !hasSignals {
+				reason = "insufficient_data"
+			}
+		}
+		return DailyState{Date: date, Action: "none", EmptyReason: reason}, nil
 	}
 	poolSize := len(pool)
 	if poolSize > 8 {
@@ -314,6 +411,14 @@ func (s *Service) DailyState(ctx context.Context, userID string) (DailyState, er
 	}
 	if err := s.saveDailyRecord(ctx, userID, date, pick); err != nil {
 		return DailyState{}, err
+	}
+	// Concurrent initial requests must both return the record that won the insert.
+	if s.db != nil {
+		record, err := s.loadDailyRecord(ctx, userID, date)
+		if err != nil {
+			return DailyState{}, err
+		}
+		return dailyStateFromRecord(record), nil
 	}
 	return DailyState{
 		Date:     date,
@@ -444,16 +549,19 @@ func (s *Service) SetDailyAction(ctx context.Context, userID, date, action strin
 // dailyFallbackPool returns a broad, high-quality set of titles to draw the
 // daily pick from when the personalized pool is empty. Titles the user has
 // already saved or disliked are filtered out so the pick still feels fresh.
-// Returns nil (never an error) so a TMDB hiccup degrades to "no pick" exactly
-// as before rather than failing the whole daily request.
-func (s *Service) dailyFallbackPool(ctx context.Context, userID string) []Item {
+// Upstream failures remain errors rather than masquerading as a new user.
+func (s *Service) dailyFallbackPool(ctx context.Context, userID string) ([]Item, error) {
 	discoverer, ok := s.candidates.(discoverReader)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
 	exclusions := map[string]bool{}
-	if rows, err := s.saved.SeedRows(ctx, userID); err == nil {
+	if s.saved != nil {
+		rows, err := s.saved.SeedRows(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
 		exclusions = buildExclusions(rows)
 	}
 	if feedback, err := s.dailyFeedback(ctx, userID, 200); err == nil {
@@ -472,14 +580,17 @@ func (s *Service) dailyFallbackPool(ctx context.Context, userID string) []Item {
 	}
 
 	var pool []Item
+	var upstreamErr error
 	for _, mediaType := range []string{"movie", "tv"} {
 		items, err := discoverer.Discover(ctx, release.DiscoverParams{
 			MediaType:      mediaType,
 			SortBy:         "popularity.desc",
 			VoteCountGTE:   200,
 			VoteAverageGTE: 6.5,
+			ReleaseDateLTE: todayUTC(s.now()),
 		})
 		if err != nil {
+			upstreamErr = err
 			continue
 		}
 		for _, item := range items {
@@ -497,7 +608,10 @@ func (s *Service) dailyFallbackPool(ctx context.Context, userID string) []Item {
 			})
 		}
 	}
-	return pool
+	if len(pool) == 0 && upstreamErr != nil {
+		return nil, upstreamErr
+	}
+	return pool, nil
 }
 
 func (s *Service) applyDailyFeedback(ctx context.Context, userID string, exclusions *map[string]bool, seeds *[]seed) {
@@ -843,6 +957,12 @@ func rankCandidates(candidates map[string]*mergedCandidate, exclusions map[strin
 // seedReasonText writes the human-readable "why this" line for a candidate
 // based on its strongest seed. Kept short — it renders under the rail header.
 func seedReasonText(source, title string, seedCount int) string {
+	if source == "explore" {
+		return "Відкрий іншу кінотрадицію через близькі тобі жанри"
+	}
+	if source == "taste" {
+		return "За твоїми вподобаннями жанрів і країн"
+	}
 	if title == "" {
 		return ""
 	}

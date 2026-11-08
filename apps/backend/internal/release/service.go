@@ -214,7 +214,10 @@ type DiscoverParams struct {
 	ReleaseDateLTE    string
 	SortBy            string
 	VoteCountGTE      int
+	VoteCountLTE      int
 	VoteAverageGTE    float64
+	WatchRegion       string
+	WatchProviders    []int
 	CertificationLTE  string
 	CertCountry       string
 	WithType          string
@@ -224,13 +227,15 @@ type DiscoverParams struct {
 
 // DiscoverItem is a discover result enriched with rating and genre ids.
 type DiscoverItem struct {
-	TMDBID    int     `json:"tmdbId"`
-	Title     string  `json:"title"`
-	MediaType string  `json:"mediaType"`
-	Year      string  `json:"year,omitempty"`
-	PosterURL string  `json:"posterUrl,omitempty"`
-	Rating    float64 `json:"rating,omitempty"`
-	GenreIDs  []int   `json:"genreIds,omitempty"`
+	TMDBID     int     `json:"tmdbId"`
+	Title      string  `json:"title"`
+	MediaType  string  `json:"mediaType"`
+	Year       string  `json:"year,omitempty"`
+	PosterURL  string  `json:"posterUrl,omitempty"`
+	Rating     float64 `json:"rating,omitempty"`
+	VoteCount  int     `json:"voteCount,omitempty"`
+	Popularity float64 `json:"popularity,omitempty"`
+	GenreIDs   []int   `json:"genreIds,omitempty"`
 	// Overview is what the title is about — the reranker reads it, the client
 	// does not, so it stays out of the JSON the frontend receives.
 	Overview string `json:"-"`

@@ -45,13 +45,17 @@ func (s *Service) Start() (StartResult, error) {
 }
 
 func (s *Service) Next(answers []AnsweredQuestion) (StepResult, error) {
+	return s.NextExcluding(answers, nil)
+}
+
+func (s *Service) NextExcluding(answers []AnsweredQuestion, rejected []int) (StepResult, error) {
 	s.mu.RLock()
 	engine := s.engine
 	s.mu.RUnlock()
 	if engine == nil {
 		return StepResult{}, ErrUnavailable
 	}
-	return engine.Next(answers)
+	return engine.NextExcluding(answers, rejected)
 }
 
 func (s *Service) LogResult(ctx context.Context, input ResultInput) error {

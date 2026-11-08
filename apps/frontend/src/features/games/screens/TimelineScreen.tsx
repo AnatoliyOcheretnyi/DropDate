@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,6 +8,7 @@ import { fetchGameQuestions, type GameQuestion, type GameTitleCard } from "../ap
 import { GameShell } from "../components/GameShell";
 import { GameHud } from "../components/GameHud";
 import { GameStage } from "../components/GameStage";
+import { gameTitles } from "../gameTitles";
 import { GameSummary } from "../components/GameSummary";
 import { GameRevealPanel } from "../components/GameRevealPanel";
 import { useGameStats } from "../hooks/useGameStats";
@@ -152,6 +154,7 @@ export function TimelineScreen() {
                     revealed ? (good ? " is-correct" : " is-wrong") : ""
                   }`}
                 >
+                  {revealed && card ? <MovieInfoButton tmdbId={card.tmdbId} mediaType={card.mediaType} title={card.title} /> : null}
                   <span className="timeline__slot-index">{slotIndex + 1}</span>
                   {card ? (
                     <button
@@ -234,6 +237,7 @@ export function TimelineScreen() {
 
       {status === "finished" && (
         <GameSummary
+          titles={gameTitles(questions)}
           title={score === results.length ? "Ходяча енциклопедія! 🕰️" : "Гру завершено"}
           stats={[{ label: "Ідеальних раундів", value: `${score} / ${results.length}` }]}
           squares={results}

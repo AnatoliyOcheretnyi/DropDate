@@ -13,12 +13,7 @@ import {
 const STORAGE_KEY = "dropdate:mood-session";
 
 export type MoodStatus =
-  | "config"
-  | "asking"
-  | "loading"
-  | "results"
-  | "empty"
-  | "error";
+  "config" | "asking" | "loading" | "results" | "empty" | "error";
 
 const DEFAULT_COUNT = 6;
 
@@ -27,7 +22,7 @@ const DEFAULT_COUNT = 6;
 // Both paths include the mood sub-branch and the thematic step.
 const ESTIMATED_TOTAL: Record<string, number> = { quick: 6, standard: 8 };
 
-export function useMoodSession(accessToken?: string | null) {
+export function useMoodSession(accessToken?: string | null, initialMood = "") {
   const [status, setStatus] = useState<MoodStatus>("config");
   const [depth, setDepth] = useState("standard");
   const [current, setCurrent] = useState<MoodQuestion | undefined>(undefined);
@@ -39,6 +34,7 @@ export function useMoodSession(accessToken?: string | null) {
   const answersRef = useRef<Record<string, string>>({});
   const depthRef = useRef("standard");
   const shownRef = useRef<Set<number>>(new Set());
+  const restoredRef = useRef(false);
 
   // Restore a resumable session on mount (soft back from details).
   useEffect(() => {
@@ -62,6 +58,8 @@ export function useMoodSession(accessToken?: string | null) {
       if (snap.status !== "asking" && snap.status !== "results") {
         return;
       }
+      if (initialMood && snap.answers?.mood !== initialMood) return;
+      restoredRef.current = true;
       setStatus(snap.status);
       setDepth(snap.depth ?? "standard");
       depthRef.current = snap.depth ?? "standard";
@@ -75,7 +73,7 @@ export function useMoodSession(accessToken?: string | null) {
     } catch {
       // ignore malformed storage
     }
-  }, []);
+  }, [initialMood]);
 
   // Persist resumable states; clear once the flow is reset to config.
   useEffect(() => {
@@ -83,13 +81,25 @@ export function useMoodSession(accessToken?: string | null) {
       return;
     }
     if (status !== "asking" && status !== "results") {
-      window.sessionStorage.removeItem(STORAGE_KEY);
+      if (!restoredRef.current) {
+        try {
+          window.sessionStorage.removeItem(STORAGE_KEY);
+        } catch {}
+      }
       return;
     }
     try {
       window.sessionStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ status, depth, current, history, answers, picks, relaxed })
+        JSON.stringify({
+          status,
+          depth,
+          current,
+          history,
+          answers,
+          picks,
+          relaxed,
+        }),
       );
     } catch {
       // ignore quota/serialization errors
@@ -107,7 +117,7 @@ export function useMoodSession(accessToken?: string | null) {
             count: DEFAULT_COUNT,
             excludeTmdbIds: Array.from(shownRef.current),
           },
-          accessToken
+          accessToken,
         );
         setRelaxed(result.meta?.relaxed ?? []);
         if (result.items.length === 0) {
@@ -126,7 +136,7 @@ export function useMoodSession(accessToken?: string | null) {
         setStatus("error");
       }
     },
-    [accessToken]
+    [accessToken],
   );
 
   // advance fetches the next adaptive question; when the flow is done it resolves
@@ -138,7 +148,7 @@ export function useMoodSession(accessToken?: string | null) {
         const res = await fetchMoodNext(
           depthRef.current,
           nextAnswers,
-          accessToken
+          accessToken,
         );
         if (res.done || !res.question) {
           await submit(nextAnswers);
@@ -150,21 +160,26 @@ export function useMoodSession(accessToken?: string | null) {
         setStatus("error");
       }
     },
-    [accessToken, submit]
+    [accessToken, submit],
   );
 
   const start = useCallback(
-    async (chosenDepth: string) => {
+    async (chosenDepth: string, resume = false) => {
+      if (resume && restoredRef.current) return;
+      restoredRef.current = false;
       setDepth(chosenDepth);
       depthRef.current = chosenDepth;
       setStatus("loading");
       setHistory([]);
-      setAnswers({});
-      answersRef.current = {};
+      const initial: Record<string, string> = initialMood
+        ? { mood: initialMood }
+        : {};
+      setAnswers(initial);
+      answersRef.current = initial;
       setCurrent(undefined);
       shownRef.current = new Set();
       try {
-        const res = await fetchMoodNext(chosenDepth, {}, accessToken);
+        const res = await fetchMoodNext(chosenDepth, initial, accessToken);
         if (res.done || !res.question) {
           setStatus("error");
           return;
@@ -175,7 +190,7 @@ export function useMoodSession(accessToken?: string | null) {
         setStatus("error");
       }
     },
-    [accessToken]
+    [accessToken, initialMood],
   );
 
   const answer = useCallback(
@@ -192,7 +207,7 @@ export function useMoodSession(accessToken?: string | null) {
         return question;
       });
     },
-    [advance]
+    [advance],
   );
 
   const back = useCallback(() => {
@@ -217,17 +232,45 @@ export function useMoodSession(accessToken?: string | null) {
 
   const dismissPick = useCallback(
     (tmdbId: number) => {
-      setPicks((currentPicks) => currentPicks.filter((pick) => pick.tmdbId !== tmdbId));
+      setPicks((currentPicks) =>
+        currentPicks.filter((pick) => pick.tmdbId !== tmdbId),
+      );
       void submit(answersRef.current, true);
     },
-    [submit]
+    [submit],
   );
   const likePick = useCallback(async (pick: MoodPick) => {
     setStatus("loading");
-    try { const response=await fetch(`/api/recommendations/similar?tmdbId=${pick.tmdbId}&mediaType=${pick.mediaType}`);const payload=await response.json();const next=(payload.items??[]).map((item:{id:number;mediaType:"movie"|"tv";title:string;year?:string;posterUrl?:string})=>({tmdbId:item.id,mediaType:item.mediaType,title:item.title,year:item.year,posterUrl:item.posterUrl,reason:`Схоже на «${pick.title}»`}));setPicks([pick,...next].slice(0,DEFAULT_COUNT));setStatus("results"); } catch { setStatus("results"); }
+    try {
+      const response = await fetch(
+        `/api/recommendations/similar?tmdbId=${pick.tmdbId}&mediaType=${pick.mediaType}`,
+      );
+      const payload = await response.json();
+      const next = (payload.items ?? []).map(
+        (item: {
+          id: number;
+          mediaType: "movie" | "tv";
+          title: string;
+          year?: string;
+          posterUrl?: string;
+        }) => ({
+          tmdbId: item.id,
+          mediaType: item.mediaType,
+          title: item.title,
+          year: item.year,
+          posterUrl: item.posterUrl,
+          reason: `Схоже на «${pick.title}»`,
+        }),
+      );
+      setPicks([pick, ...next].slice(0, DEFAULT_COUNT));
+      setStatus("results");
+    } catch {
+      setStatus("results");
+    }
   }, []);
 
   const reset = useCallback(() => {
+    restoredRef.current = false;
     setStatus("config");
     setCurrent(undefined);
     setHistory([]);

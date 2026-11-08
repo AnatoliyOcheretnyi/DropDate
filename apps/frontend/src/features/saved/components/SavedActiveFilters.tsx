@@ -2,14 +2,17 @@
 
 import { SAVED_SORT_LABELS } from "../types";
 import type { SavedSortDirection, SavedSortKey } from "../types";
+import { decadeById } from "../../../shared/lib/decades";
 
 type Props = {
   genres: string[];
+  decades: string[];
   query: string;
   sortKey: SavedSortKey;
   direction: SavedSortDirection;
   isSortPinned: boolean;
   onRemoveGenre: (genre: string) => void;
+  onRemoveDecade: (id: string) => void;
   onClearQuery: () => void;
   onReset: () => void;
 };
@@ -20,16 +23,23 @@ type Props = {
  */
 export function SavedActiveFilters({
   genres,
+  decades,
   query,
   sortKey,
   direction,
   isSortPinned,
   onRemoveGenre,
+  onRemoveDecade,
   onClearQuery,
   onReset,
 }: Props) {
   const trimmedQuery = query.trim();
-  if (genres.length === 0 && !trimmedQuery && !isSortPinned) {
+  if (
+    genres.length === 0 &&
+    decades.length === 0 &&
+    !trimmedQuery &&
+    !isSortPinned
+  ) {
     return null;
   }
 
@@ -44,6 +54,17 @@ export function SavedActiveFilters({
             onClick={() => onRemoveGenre(genre)}
           >
             {genre}
+            <span aria-hidden="true">✕</span>
+          </button>
+        ))}
+        {decades.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className="saved-active-chip"
+            onClick={() => onRemoveDecade(id)}
+          >
+            {decadeById(id)?.label ?? id}
             <span aria-hidden="true">✕</span>
           </button>
         ))}

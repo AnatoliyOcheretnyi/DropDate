@@ -80,6 +80,7 @@ export function AkinatorScreen() {
         <GameStage roundKey={guess.tmdbId} className="akinator-round">
           <AkinatorGuessCard
             guess={guess}
+            disabled={session.loading}
             outcome={session.outcome}
             onCorrect={() => session.finish(true)}
             onWrong={() => session.finish(false)}
@@ -94,13 +95,15 @@ export function AkinatorScreen() {
         <section className="akinator-intro">
           <p className="eyebrow">Ти переміг</p>
           <h1>Цей фільм мене перехитрив.</h1>
-          <p>Спробуємо інший?</p>
+          <p>Можна виправити попередню відповідь або задумати інший фільм.</p>
           <button type="button" onClick={session.start}>
             Нова гра
           </button>
         </section>
       ) : null}
 
+      {session.canUndo ? <button type="button" className="games-back" disabled={session.loading} onClick={session.undo}>← Повернутися та виправити відповідь</button> : null}
+      {session.loading && session.current ? <p role="status">Шукаю наступне питання…</p> : null}
       {session.error ? <p className="games-error">{session.error}</p> : null}
     </GameShell>
   );

@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Suggestion } from "../../../shared/lib/release";
 import type { ListType } from "../../../shared/types/releases";
@@ -16,11 +23,13 @@ import { HomeCalendar } from "../components/HomeCalendar";
 import { NewReleases } from "../components/NewReleases";
 import { UpcomingRail } from "../components/UpcomingRail";
 import { TopTen } from "../components/TopTen";
+import { PersonalCollection } from "../components/PersonalCollection";
 import { TasteChips } from "../components/TasteChips";
 import { Reveal } from "../../../shared/ui/Reveal";
 import { DailyPickCard, DailyPickEmpty } from "../components/DailyPickCard";
 import { useDailyPick } from "../hooks/useDailyPick";
 import { TasteOnboarding } from "../components/TasteOnboarding";
+import { TonightPicker } from "../components/TonightPicker";
 import { ContinueWatching } from "../components/ContinueWatching";
 import { useToasts } from "../../../shared/hooks/useToasts";
 import { ToastStack } from "../../../shared/ui/ToastStack";
@@ -91,19 +100,36 @@ function HomeScreenContent({ sections }: Props) {
         status: "released",
       });
     },
-    [setSuggestionLists]
+    [setSuggestionLists],
   );
   const {
     itemsWithReasons: recommendationsWithReasons,
     isLoading: isRecommendationsLoading,
     isRefreshing: isRecommendationsRefreshing,
     refresh: refreshRecommendations,
+    sendFeedback,
+    novelty,
+    setNovelty,
+    exclude,
+    exhausted,
+    restart,
+    error: recommendationsError,
   } = useRecommendations();
-  const { pick: dailyPick, state: dailyPickState, isLoading: isDailyPickLoading, isUpdating: isUpdatingDailyPick, reveal: revealDailyPick, setAction: setDailyPickAction } = useDailyPick();
+  const {
+    pick: dailyPick,
+    state: dailyPickState,
+    isEmpty: isDailyPickEmpty,
+    isUnavailable: isDailyPickUnavailable,
+    retry: retryDailyPick,
+    isRetrying: isRetryingDailyPick,
+    isUpdating: isUpdatingDailyPick,
+    reveal: revealDailyPick,
+    setAction: setDailyPickAction,
+  } = useDailyPick();
   const { suggestions, isFetching: isFetchingSuggestions } = useSuggestions(
     title,
     selectedSuggestion,
-    handleClearSelection
+    handleClearSelection,
   );
 
   const homeSectionsQuery = useHomeSections(sections);
@@ -121,7 +147,7 @@ function HomeScreenContent({ sections }: Props) {
       setIsSearchOpen(false);
       router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
-    [router]
+    [router],
   );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -140,7 +166,7 @@ function HomeScreenContent({ sections }: Props) {
     (suggestion: Suggestion) => {
       router.push(`/title/${suggestion.mediaType}/${suggestion.id}`);
     },
-    [router]
+    [router],
   );
 
   const shouldShowTrending = !selectedSuggestion;
@@ -167,7 +193,7 @@ function HomeScreenContent({ sections }: Props) {
         ...sectionState.popularSeries,
         ...sectionState.topRated,
       ]),
-    [sectionState]
+    [sectionState],
   );
   const spotlight = heroItems[0] ?? null;
 
@@ -201,109 +227,140 @@ function HomeScreenContent({ sections }: Props) {
           isSuggestionSaved,
         }}
       >
-      <TasteOnboarding emphasis="overlay" />
-      <HomeHero
-        spotlight={spotlight}
-        getListTypes={getListTypes}
-        onChangeLists={handleChangeLists}
-      />
-      <ContinueWatching />
-
-      {isSignedIn && !dailyPick && !isDailyPickLoading ? (
-        <Reveal>
-          <DailyPickEmpty />
-        </Reveal>
-      ) : null}
-
-      {dailyPick ? (
-        <Reveal>
-          <DailyPickCard
-            pick={dailyPick}
-            saved={getListTypes({ id: dailyPick.tmdbId, mediaType: dailyPick.mediaType, title: dailyPick.title, year: dailyPick.year, posterUrl: dailyPick.posterUrl }).includes("watchlist")}
-            action={dailyPickState?.action ?? "none"}
-            revealed={dailyPickState?.revealed === true}
-            busy={isUpdatingDailyPick}
-            onReveal={() => {
-              void revealDailyPick().then((result) => {
-                if (!result.ok) {
-                  pushToast(result.message, "warning");
-                }
-              });
-            }}
-            onSelect={handleGallerySelect}
-            onToggleSave={(suggestion) => {
-              const current = getListTypes(suggestion);
-              if (!current.includes("watchlist")) {
-                handleChangeLists(suggestion, [...current, "watchlist"]);
-              }
-              void setDailyPickAction("saved").then((result) => {
-                if (!result.ok) {
-                  pushToast(result.message, "warning");
-                }
-              });
-            }}
-            onDislike={() => {
-              void setDailyPickAction("disliked").then((result) => {
-                if (!result.ok) {
-                  pushToast(result.message, "warning");
-                }
-              });
-            }}
-          />
-        </Reveal>
-      ) : null}
-
-      <Reveal>
-        <DiscoverySection
-          recommendations={recommendationsWithReasons}
-          isLoading={isRecommendationsLoading}
-          onRefresh={refreshRecommendations}
-          isRefreshing={isRecommendationsRefreshing}
-          fallbackItems={sectionState.popularMovies}
-          onSelect={handleGallerySelect}
-        />
-      </Reveal>
-
-      <Reveal>
-        <HomeCalendar isSignedIn={isSignedIn} />
-      </Reveal>
-
-      <Reveal>
-        <UpcomingRail
-          items={sectionState.upcoming}
-          isLoading={isTrendingRefreshing}
+        <TasteOnboarding emphasis="overlay" />
+        <HomeHero
+          spotlight={spotlight}
           getListTypes={getListTypes}
           onChangeLists={handleChangeLists}
-          onSelect={handleGallerySelect}
         />
-      </Reveal>
-
-      {shouldShowTrending ? (
         <Reveal>
-          <NewReleases
-            movies={sectionState.popularMovies}
-            series={sectionState.popularSeries}
+          <TopTen
+            items={sectionState.popularMovies}
+            onSelect={handleGallerySelect}
+          />
+        </Reveal>
+        <TonightPicker />
+        <ContinueWatching />
+        <PersonalCollection kind="released" saved={saved} getListTypes={getListTypes} onChangeLists={handleChangeLists} onSelect={handleGallerySelect} />
+
+        {isSignedIn && isDailyPickEmpty ? (
+          <Reveal>
+            <DailyPickEmpty />
+          </Reveal>
+        ) : null}
+
+        {isDailyPickUnavailable ? (
+          <p className="home-collection__status" role="status">
+            Фільм дня поки недоступний. Твої вподобання збережені.
+            {" "}<button className="home-collection__retry" type="button" disabled={isRetryingDailyPick} onClick={() => void retryDailyPick()}>
+              {isRetryingDailyPick ? "Шукаємо…" : "Спробувати ще раз"}
+            </button>
+          </p>
+        ) : null}
+
+        {dailyPick ? (
+          <Reveal>
+            <DailyPickCard
+              pick={dailyPick}
+              saved={getListTypes({
+                id: dailyPick.tmdbId,
+                mediaType: dailyPick.mediaType,
+                title: dailyPick.title,
+                year: dailyPick.year,
+                posterUrl: dailyPick.posterUrl,
+              }).includes("watchlist")}
+              action={dailyPickState?.action ?? "none"}
+              revealed={dailyPickState?.revealed === true}
+              busy={isUpdatingDailyPick}
+              onReveal={() => {
+                void revealDailyPick().then((result) => {
+                  if (!result.ok) {
+                    pushToast(result.message, "warning");
+                  }
+                });
+              }}
+              onSelect={handleGallerySelect}
+              onToggleSave={(suggestion) => {
+                const current = getListTypes(suggestion);
+                if (!current.includes("watchlist")) {
+                  handleChangeLists(suggestion, [...current, "watchlist"]);
+                }
+                void setDailyPickAction("saved").then((result) => {
+                  if (!result.ok) {
+                    pushToast(result.message, "warning");
+                  }
+                });
+              }}
+              onDislike={() => {
+                void setDailyPickAction("disliked").then((result) => {
+                  if (!result.ok) {
+                    pushToast(result.message, "warning");
+                  }
+                });
+              }}
+            />
+          </Reveal>
+        ) : null}
+
+        <Reveal>
+          <DiscoverySection
+            recommendations={recommendationsWithReasons}
+            novelty={novelty}
+            onNovelty={setNovelty}
+            onFeedback={sendFeedback}
+            onExclude={exclude}
+            exhausted={exhausted}
+            onRestart={restart}
+            error={recommendationsError}
+            isLoading={isRecommendationsLoading}
+            onRefresh={refreshRecommendations}
+            isRefreshing={isRecommendationsRefreshing}
+            fallbackItems={sectionState.popularMovies}
+            onSelect={handleGallerySelect}
+          />
+        </Reveal>
+
+        <PersonalCollection kind="gems" saved={saved} getListTypes={getListTypes} onChangeLists={handleChangeLists} onSelect={handleGallerySelect} />
+        <PersonalCollection kind="country" saved={saved} getListTypes={getListTypes} onChangeLists={handleChangeLists} onSelect={handleGallerySelect} />
+        <PersonalCollection kind="people" saved={saved} getListTypes={getListTypes} onChangeLists={handleChangeLists} onSelect={handleGallerySelect} />
+
+        <Reveal>
+          <HomeCalendar isSignedIn={isSignedIn} />
+        </Reveal>
+
+        <Reveal>
+          <UpcomingRail
+            items={sectionState.upcoming}
             isLoading={isTrendingRefreshing}
             getListTypes={getListTypes}
             onChangeLists={handleChangeLists}
             onSelect={handleGallerySelect}
           />
         </Reveal>
-      ) : null}
 
-      <Reveal>
-        <TopTen items={sectionState.popularMovies} onSelect={handleGallerySelect} />
-      </Reveal>
+        {shouldShowTrending ? (
+          <Reveal>
+            <NewReleases
+              movies={sectionState.popularMovies}
+              series={sectionState.popularSeries}
+              isLoading={isTrendingRefreshing}
+              getListTypes={getListTypes}
+              onChangeLists={handleChangeLists}
+              onSelect={handleGallerySelect}
+            />
+          </Reveal>
+        ) : null}
 
-      <Reveal>
-        <TasteChips
-          onSelect={handleGallerySelect}
-          getListTypes={getListTypes}
-          onChangeLists={handleChangeLists}
-        />
-      </Reveal>
 
-      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+        <Reveal>
+          <TasteChips
+            onSelect={handleGallerySelect}
+            getListTypes={getListTypes}
+            onChangeLists={handleChangeLists}
+          />
+        </Reveal>
+
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </AppPageShell>
     </main>
   );

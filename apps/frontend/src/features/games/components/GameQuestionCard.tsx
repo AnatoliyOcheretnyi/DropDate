@@ -1,4 +1,5 @@
 "use client";
+import { MovieInfoButton } from "../../../shared/ui/MovieInfoButton";
 
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import type { GameMode, GameTitleCard } from "../api/games";
@@ -54,6 +55,7 @@ export function GameQuestionCard({
 }: Props) {
   return (
     <div className={`game-card game-card--${state}`}>
+      {isRevealed ? <MovieInfoButton tmdbId={card.tmdbId} mediaType={card.mediaType} title={card.title} onActivate={onDetails} /> : null}
       <button
         type="button"
         className="game-card__pick"

@@ -299,6 +299,9 @@ function SavedScreenContent() {
                     selectedGenres={filters.genres}
                     onToggleGenre={filters.toggleGenre}
                     onResetGenres={filters.resetFilters}
+                    decadeFacets={filters.decadeFacets}
+                    selectedDecades={filters.decades}
+                    onToggleDecade={filters.toggleDecade}
                     query={filters.query}
                     onQueryChange={filters.setQuery}
                     sortKey={filters.sortKey}
@@ -311,17 +314,20 @@ function SavedScreenContent() {
                     totalCount={filters.tabItems.length}
                     isFiltered={
                       filters.genres.length > 0 ||
+                      filters.decades.length > 0 ||
                       filters.query.trim().length > 0
                     }
                   />
 
                   <SavedActiveFilters
                     genres={filters.genres}
+                    decades={filters.decades}
                     query={filters.query}
                     sortKey={filters.sortKey}
                     direction={filters.direction}
                     isSortPinned={filters.isSortPinned}
                     onRemoveGenre={filters.toggleGenre}
+                    onRemoveDecade={filters.toggleDecade}
                     onClearQuery={() => filters.setQuery("")}
                     onReset={filters.resetFilters}
                   />
