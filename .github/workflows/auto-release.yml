@@ -140,6 +140,7 @@ jobs:
       # role bypasses apply to their user/app actor, so use a token owned by a
       # maintainer (or release bot) that is present in the ruleset bypass list.
       - name: Require release push credential
+        if: (needs.plan.outputs.front_bump != '' && needs.plan.outputs.front_bump != 'current') || (needs.plan.outputs.backend_bump != '' && needs.plan.outputs.backend_bump != 'current') || (needs.plan.outputs.mobile_bump != '' && needs.plan.outputs.mobile_bump != 'current')
         shell: bash
         env:
           RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
@@ -151,7 +152,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PUSH_TOKEN }}
+          token: ${{ ((needs.plan.outputs.front_bump != '' && needs.plan.outputs.front_bump != 'current') || (needs.plan.outputs.backend_bump != '' && needs.plan.outputs.backend_bump != 'current') || (needs.plan.outputs.mobile_bump != '' && needs.plan.outputs.mobile_bump != 'current')) && secrets.RELEASE_PUSH_TOKEN || github.token }}
       - name: Sync release commit base
         shell: bash
         run: |
@@ -200,11 +201,30 @@ jobs:
             echo "Current-version release: no VERSION commit required."
           fi
       - name: Create and push verified tags
+        env:
+          FRONTEND_VERSION: ${{ steps.versions.outputs.frontend }}
+          BACKEND_VERSION: ${{ steps.versions.outputs.backend }}
+          MOBILE_VERSION: ${{ steps.versions.outputs.mobile }}
         run: |
-          [ -z "${{ steps.versions.outputs.frontend }}" ] || git tag "frontend/v${{ steps.versions.outputs.frontend }}"
-          [ -z "${{ steps.versions.outputs.backend }}" ] || git tag "backend/v${{ steps.versions.outputs.backend }}"
-          [ -z "${{ steps.versions.outputs.mobile }}" ] || git tag "mobile/v${{ steps.versions.outputs.mobile }}"
-          git push origin --tags
+          for app in frontend backend mobile; do
+            case "$app" in
+              frontend) version="$FRONTEND_VERSION" ;;
+              backend) version="$BACKEND_VERSION" ;;
+              mobile) version="$MOBILE_VERSION" ;;
+            esac
+            [ -n "$version" ] || continue
+            tag="$app/v$version"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              # A current-version retry can publish notes for a tag already
+              # pushed by a maintainer, without requiring the push credential.
+              git merge-base --is-ancestor "$tag" HEAD
+              test "$(git show "$tag:apps/$app/VERSION" | tr -d '[:space:]')" = "$version"
+              echo "Using existing verified tag $tag"
+            else
+              git tag "$tag"
+              git push origin "refs/tags/$tag"
+            fi
+          done
       - name: Publish GitHub releases
         env:
           GH_TOKEN: ${{ github.token }}
