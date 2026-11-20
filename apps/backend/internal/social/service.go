@@ -168,6 +168,7 @@ type Activity struct {
 	ActorID   string    `json:"actorId"`
 	ActorName string    `json:"actorName"`
 	Title     string    `json:"title"`
+	PosterURL string    `json:"posterUrl"`
 	MediaType string    `json:"mediaType"`
 	TMDBID    int       `json:"tmdbId"`
 	Rating    *int      `json:"rating,omitempty"`
@@ -178,7 +179,29 @@ func (s *Service) Activity(ctx context.Context, userID string, limit int) ([]Act
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-	rows, err := s.db.QueryContext(ctx, `with friend_ids as (select case when requester_id=$1 then addressee_id else requester_id end id from friendships where status='accepted' and (requester_id=$1 or addressee_id=$1)), events as (select case when st.user_rating is not null then 'rating' else 'save' end type,st.user_id actor_id,st.title,st.tmdb_id,st.media_type,st.user_rating rating,st.updated_at created_at from saved_titles st where st.user_id in(select id from friend_ids) union all select 'recommendation',fr.sender_id,fr.title,fr.tmdb_id,fr.media_type,null,fr.created_at from friend_recommendations fr where fr.recipient_id=$1 union all select 'friend_accepted',case when f.requester_id=$1 then f.addressee_id else f.requester_id end,'',0,'social',null,f.responded_at from friendships f where f.status='accepted' and (f.requester_id=$1 or f.addressee_id=$1)) select e.type,e.actor_id,coalesce(u.username,u.email),e.title,e.tmdb_id,e.media_type,e.rating,e.created_at from events e join users u on u.id=e.actor_id order by e.created_at desc limit $2`, userID, limit)
+	rows, err := s.db.QueryContext(ctx, `
+with friend_ids as (
+  select case when requester_id=$1 then addressee_id else requester_id end id
+  from friendships where status='accepted' and (requester_id=$1 or addressee_id=$1)
+), events as (
+  select case when st.user_rating is not null then 'rating' else 'save' end type,
+    st.user_id actor_id, st.title, st.tmdb_id, st.media_type, st.user_rating rating,
+    st.updated_at created_at, coalesce(st.poster_url,'') poster_url
+  from saved_titles st where st.user_id in(select id from friend_ids)
+  union all
+  select 'recommendation', fr.sender_id, fr.title, fr.tmdb_id, fr.media_type,
+    null, fr.created_at, coalesce(fr.poster_url,'')
+  from friend_recommendations fr where fr.recipient_id=$1
+  union all
+  select 'friend_accepted',
+    case when f.requester_id=$1 then f.addressee_id else f.requester_id end,
+    '', 0, 'social', null, f.responded_at, ''
+  from friendships f where f.status='accepted' and (f.requester_id=$1 or f.addressee_id=$1)
+)
+select e.type, e.actor_id, coalesce(u.username,u.email), e.title, e.tmdb_id,
+  e.media_type, e.rating, e.created_at, e.poster_url
+from events e join users u on u.id=e.actor_id
+order by e.created_at desc limit $2`, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +210,7 @@ func (s *Service) Activity(ctx context.Context, userID string, limit int) ([]Act
 	for rows.Next() {
 		var v Activity
 		var rating sql.NullInt32
-		if err := rows.Scan(&v.Type, &v.ActorID, &v.ActorName, &v.Title, &v.TMDBID, &v.MediaType, &rating, &v.CreatedAt); err != nil {
+		if err := rows.Scan(&v.Type, &v.ActorID, &v.ActorName, &v.Title, &v.TMDBID, &v.MediaType, &rating, &v.CreatedAt, &v.PosterURL); err != nil {
 			return nil, err
 		}
 		if rating.Valid {

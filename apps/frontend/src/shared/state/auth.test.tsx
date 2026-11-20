@@ -106,4 +106,26 @@ describe("authenticated discovery requests after session expiry", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+  it("does not restore a signed-out account when a delayed refresh finishes", async () => {
+    const auth = await signIn();
+    let resolveRefresh!: (value: ReturnType<typeof payload>) => void;
+    vi.mocked(webApi.post).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    let refresh!: Promise<void>;
+    act(() => {
+      refresh = auth.current.refresh();
+    });
+    vi.mocked(webApi.post).mockResolvedValueOnce({ status: 204, data: {} });
+    await act(() => auth.current.logout());
+    await act(async () => {
+      resolveRefresh(payload("late-token"));
+      await refresh;
+    });
+    expect(auth.current.user).toBeNull();
+    expect(auth.current.accessToken).toBeNull();
+  });
 });

@@ -303,3 +303,18 @@
   width: 100%;
   justify-content: center;
 }
+
+.person-card { position: relative; }
+.person-card__details { display: flex; flex-direction: column; align-items: center; gap: .35rem; color: inherit; text-decoration: none; }
+.person-card__details::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.person-card__details:focus-visible { outline: none; }
+.person-card__details:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 3px; }
+.person-card .person-unfollow, .person-card .person-card__follow { position: relative; z-index: 1; }
+
+.people-sync { min-height: 28px; margin: 0 0 .65rem; color: var(--text-dim); font-size: .82rem; }
+.people-sync p { margin: 0; line-height: 1.5; }
+.people-sync__loading { display: flex; align-items: center; gap: .5rem; }
+.people-sync__loading::before { content: ""; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: route-state-spin .8s linear infinite; }
+.people-sync__error { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; padding: .85rem 1rem; border: 1px solid rgba(255, 199, 106, .3); border-radius: 1rem; background: rgba(255, 199, 106, .05); color: var(--warning); }
+.people-sync__error button { flex-shrink: 0; min-height: 38px; border: 1px solid var(--border-strong); border-radius: 999px; padding: .45rem .8rem; color: var(--text); background: var(--surface-2); cursor: pointer; }
+.people-sync__error button:disabled { opacity: .6; cursor: default; }

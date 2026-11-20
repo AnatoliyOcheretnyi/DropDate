@@ -16,18 +16,24 @@ export function useFriendSearch() {
   const isEligible = debouncedQuery.length >= MIN_QUERY_LENGTH;
 
   const search = useQuery({
-    queryKey: ["friend-search", debouncedQuery],
+    queryKey: ["friend-search", user?.id, debouncedQuery],
     enabled: isAuthed && isEligible,
-    queryFn: ({ signal }) => searchFriends(accessToken!, debouncedQuery, signal),
+    queryFn: ({ signal }) =>
+      searchFriends(accessToken!, debouncedQuery, signal),
     staleTime: 1000 * 10,
   });
 
   return {
     query,
     setQuery,
-    results: isEligible ? search.data ?? [] : [],
-    isSearching: isEligible && search.isFetching,
-    hasSearched: isEligible && !search.isFetching,
+    results:
+      isEligible && query.trim() === debouncedQuery ? (search.data ?? []) : [],
+    isSearching:
+      query.trim().length >= MIN_QUERY_LENGTH &&
+      (query.trim() !== debouncedQuery || search.isFetching),
+    hasSearched:
+      isEligible && query.trim() === debouncedQuery && search.isSuccess,
+    error: query.trim() === debouncedQuery ? search.error?.message : undefined,
     minQueryLength: MIN_QUERY_LENGTH,
   };
 }

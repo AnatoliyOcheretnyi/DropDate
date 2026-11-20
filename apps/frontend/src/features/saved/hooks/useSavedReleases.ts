@@ -1,15 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReleaseInfo, Suggestion } from "../../../shared/lib/release";
 import { copy } from "../../../shared/lib/strings";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
-import { publishUnlocks } from "../../../shared/lib/achievementBus";
 import { useAuth } from "../../../shared/state/auth";
 import {
   bulkRefreshSaved,
@@ -31,7 +26,7 @@ import {
   type ListType,
   type SavedRelease,
 } from "../../../shared/types/releases";
-import { enqueueSavedWrite } from "../utils/savedWriteQueue";
+import { hasPendingSavedWrites, useSavedWrites } from "../store/savedWrites";
 
 function useSavedSyncEvents() {
   const { clear } = useSavedStoreSnapshot();
@@ -57,12 +52,17 @@ export function useSavedReleases() {
     useSavedStoreSnapshot();
 
   const isAuthed = Boolean(user && accessToken);
+  const pendingWrites = useSavedWrites((state) =>
+    state.writes.some(
+      (entry) => entry.userId === user?.id && entry.status === "pending",
+    ),
+  );
 
   const savedRemoteQuery = useQuery({
     queryKey: webQueryKeys.saved(user?.id ?? "guest"),
     enabled: isAuthed,
     queryFn: async ({ signal }) => {
-      const remote = await fetchSavedRemote(accessToken!, signal);
+      const remote = await fetchSavedRemote(user!.id, signal);
       return remote.map((item) => normalizeSavedRelease(item));
     },
     staleTime: 1000 * 60,
@@ -86,6 +86,7 @@ export function useSavedReleases() {
       setSaved([]);
       return;
     }
+    if (pendingWrites) return;
     const remoteItems = savedRemoteQuery.data;
     if (remoteItems && remoteItems !== lastRemoteRef.current) {
       lastRemoteRef.current = remoteItems;
@@ -95,6 +96,7 @@ export function useSavedReleases() {
     }
   }, [
     isAuthed,
+    pendingWrites,
     savedRemoteQuery.data,
     savedRemoteQuery.dataUpdatedAt,
     setSaved,
@@ -108,109 +110,21 @@ export function useSavedReleases() {
     return index;
   }, [saved]);
 
-  const invalidateSavedSideEffects = useCallback(() => {
-    if (user?.id) {
-      void queryClient.invalidateQueries({
-        queryKey: webQueryKeys.notifications(user.id),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: webQueryKeys.recommendations(user.id),
-      });
-      void queryClient.invalidateQueries({ queryKey: ["home-collection", user.id] });
-      void queryClient.invalidateQueries({ queryKey: ["daily-pick-state", user.id] });
-    }
-  }, [queryClient, user?.id]);
-
-  const reconcileSavedFromServer = useCallback(() => {
-    if (!user?.id) {
-      return;
-    }
-    void queryClient.invalidateQueries({
-      queryKey: webQueryKeys.saved(user.id),
-    });
-  }, [queryClient, user?.id]);
-
-  const writeKey = useCallback(
-    (payload: {
-      tmdbId: number;
-      mediaType: Suggestion["mediaType"];
-      listType: ListType;
-    }) =>
-      `${user?.id ?? "guest"}:${payload.mediaType}:${payload.tmdbId}:${payload.listType}`,
-    [user?.id]
-  );
-
   const addRemoteMutation = useMutation({
-    mutationFn: async (payload: {
-      tmdbId: number;
-      mediaType: Suggestion["mediaType"];
-      title: string;
-      nextRelease: string;
-      status: ReleaseInfo["status"];
-      posterUrl?: string;
-      backdropUrl?: string;
-      listType: ListType;
-    }) => {
-      if (!accessToken) {
-        return;
-      }
-      return enqueueSavedWrite(
-        writeKey(payload),
-        async () => {
-          const unlocked = await createSavedRemote(accessToken, payload);
-          publishUnlocks(unlocked);
-        },
-        reconcileSavedFromServer
-      );
-    },
-    onSettled: () => {
-      invalidateSavedSideEffects();
-    },
+    mutationFn: (payload: Parameters<typeof createSavedRemote>[1]) =>
+      createSavedRemote(user!.id, payload),
   });
 
   const removeRemoteMutation = useMutation({
-    mutationFn: async (payload: {
-      tmdbId: number;
-      mediaType: Suggestion["mediaType"];
-      listType?: ListType;
-    }) => {
-      if (!accessToken) {
-        return;
-      }
-      if (!payload.listType) {
-        await removeSavedRemote(accessToken, payload);
-        reconcileSavedFromServer();
-        return;
-      }
-      return enqueueSavedWrite(
-        writeKey({ ...payload, listType: payload.listType }),
-        () => removeSavedRemote(accessToken, payload),
-        reconcileSavedFromServer
-      );
-    },
-    onSettled: () => {
-      invalidateSavedSideEffects();
-    },
+    mutationFn: (
+      payload: Parameters<typeof removeSavedRemote>[1] & { title: string },
+    ) => removeSavedRemote(user!.id, payload, payload.title),
   });
 
   const statsRemoteMutation = useMutation({
-    mutationFn: async (payload: {
-      tmdbId: number;
-      mediaType: Suggestion["mediaType"];
-      listType: ListType;
-      userRating?: number;
-      watchCount?: number;
-      lastWatchedAt?: string;
-    }) => {
-      if (!accessToken) {
-        return;
-      }
-      return enqueueSavedWrite(
-        writeKey(payload),
-        () => patchSavedStatsRemote(accessToken, payload),
-        reconcileSavedFromServer
-      );
-    },
+    mutationFn: (
+      payload: Parameters<typeof patchSavedStatsRemote>[1] & { title: string },
+    ) => patchSavedStatsRemote(user!.id, payload, payload.title),
   });
 
   const persist = useCallback(
@@ -230,14 +144,14 @@ export function useSavedReleases() {
         return next;
       });
     },
-    [queryClient, updateSaved, user?.id]
+    [queryClient, updateSaved, user?.id],
   );
 
   const addRelease = useCallback(
     (
       release: ReleaseInfo,
       meta?: { tmdbId?: number; mediaType?: Suggestion["mediaType"] },
-      listTypes: ListType[] = ["follow"]
+      listTypes: ListType[] = ["follow"],
     ) => {
       const id = savedIdentifier({
         title: release.title,
@@ -251,10 +165,13 @@ export function useSavedReleases() {
         const existing = prev.find((item) => item.id === id);
         if (existing) {
           const combined = Array.from(
-            new Set([...normalizeListTypes(existing.listTypes), ...nextListTypes])
+            new Set([
+              ...normalizeListTypes(existing.listTypes),
+              ...nextListTypes,
+            ]),
           );
           return prev.map((item) =>
-            item.id === id ? { ...item, ...meta, listTypes: combined } : item
+            item.id === id ? { ...item, ...meta, listTypes: combined } : item,
           );
         }
         return [...prev, { ...release, id, ...meta, listTypes: nextListTypes }];
@@ -275,7 +192,7 @@ export function useSavedReleases() {
         });
       }
     },
-    [addRemoteMutation, isAuthed, persist]
+    [addRemoteMutation, isAuthed, persist],
   );
 
   const removeRelease = useCallback(
@@ -288,6 +205,7 @@ export function useSavedReleases() {
         if (listTypes.length > 0) {
           listTypes.forEach((listType) => {
             removeRemoteMutation.mutate({
+              title: target.title,
               tmdbId: target.tmdbId!,
               mediaType: target.mediaType!,
               listType,
@@ -296,18 +214,19 @@ export function useSavedReleases() {
           return;
         }
         removeRemoteMutation.mutate({
+          title: target.title,
           tmdbId: target.tmdbId,
           mediaType: target.mediaType,
         });
       }
     },
-    [isAuthed, persist, removeRemoteMutation, saved]
+    [isAuthed, persist, removeRemoteMutation, saved],
   );
 
   const isReleaseSaved = useCallback(
     (
       release: ReleaseInfo | null,
-      meta?: { tmdbId?: number; mediaType?: Suggestion["mediaType"] }
+      meta?: { tmdbId?: number; mediaType?: Suggestion["mediaType"] },
     ) => {
       if (!release) {
         return false;
@@ -320,7 +239,7 @@ export function useSavedReleases() {
       });
       return savedById.has(id);
     },
-    [savedById]
+    [savedById],
   );
 
   const isSuggestionSaved = useCallback(
@@ -328,17 +247,17 @@ export function useSavedReleases() {
       const match = savedById.get(getSuggestionId(suggestion));
       return Boolean(match && normalizeListTypes(match.listTypes).length > 0);
     },
-    [savedById]
+    [savedById],
   );
 
   const getListTypes = useCallback(
     (suggestion: Suggestion) => getSavedListTypes(savedById, suggestion),
-    [savedById]
+    [savedById],
   );
 
   const getSavedItem = useCallback(
     (suggestion: Suggestion) => savedById.get(getSuggestionId(suggestion)),
-    [savedById]
+    [savedById],
   );
 
   const updateListStats = useCallback(
@@ -349,7 +268,7 @@ export function useSavedReleases() {
         userRating?: number;
         watchCount?: number;
         lastWatchedAt?: string;
-      }
+      },
     ) => {
       const id = getSuggestionId(suggestion);
       persist((prev) =>
@@ -367,12 +286,13 @@ export function useSavedReleases() {
                     : item.watchCount,
                 lastWatchedAt: stats.lastWatchedAt || item.lastWatchedAt,
               }
-            : item
-        )
+            : item,
+        ),
       );
 
       if (isAuthed && suggestion.id && suggestion.mediaType) {
         statsRemoteMutation.mutate({
+          title: suggestion.title,
           tmdbId: suggestion.id,
           mediaType: suggestion.mediaType,
           listType,
@@ -382,14 +302,14 @@ export function useSavedReleases() {
         });
       }
     },
-    [isAuthed, persist, statsRemoteMutation]
+    [isAuthed, persist, statsRemoteMutation],
   );
 
   const setSuggestionLists = useCallback(
     (
       suggestion: Suggestion,
       listTypes: ListType[],
-      release?: ReleaseInfo | null
+      release?: ReleaseInfo | null,
     ) => {
       const id = getSuggestionId(suggestion);
       const normalized = normalizeListTypes(listTypes);
@@ -403,7 +323,7 @@ export function useSavedReleases() {
         }
         if (current) {
           return prev.map((item) =>
-            item.id === id ? { ...item, listTypes: normalized } : item
+            item.id === id ? { ...item, listTypes: normalized } : item,
           );
         }
         if (!release) {
@@ -459,20 +379,21 @@ export function useSavedReleases() {
 
       toRemove.forEach((listType) => {
         removeRemoteMutation.mutate({
+          title: suggestion.title,
           tmdbId: suggestion.id,
           mediaType: suggestion.mediaType,
           listType,
         });
       });
     },
-    [addRemoteMutation, isAuthed, persist, removeRemoteMutation, saved]
+    [addRemoteMutation, isAuthed, persist, removeRemoteMutation, saved],
   );
 
   const toggleListType = useCallback(
     (
       suggestion: Suggestion,
       listType: ListType,
-      release?: ReleaseInfo | null
+      release?: ReleaseInfo | null,
     ) => {
       const current = getSavedListTypes(savedById, suggestion);
       const next = current.includes(listType)
@@ -480,10 +401,15 @@ export function useSavedReleases() {
         : [...current, listType];
       setSuggestionLists(suggestion, next, release);
     },
-    [savedById, setSuggestionLists]
+    [savedById, setSuggestionLists],
   );
 
   const refreshAll = useCallback(async () => {
+    if (user?.id && hasPendingSavedWrites(user.id)) {
+      throw new Error(
+        "Дочекайся завершення збереження перед оновленням списку.",
+      );
+    }
     setRefreshing(true);
     try {
       // Pull the latest server state first so deletions/edits made elsewhere
@@ -532,11 +458,13 @@ export function useSavedReleases() {
 
       return { results };
     } catch (error) {
-      throw error instanceof Error ? error : new Error(copy.errors.refreshFailed);
+      throw error instanceof Error
+        ? error
+        : new Error(copy.errors.refreshFailed);
     } finally {
       setRefreshing(false);
     }
-  }, [isAuthed, saved, savedRemoteQuery, setRefreshing, setSaved]);
+  }, [isAuthed, saved, savedRemoteQuery, setRefreshing, setSaved, user?.id]);
   return {
     saved,
     savedCount: saved.length,

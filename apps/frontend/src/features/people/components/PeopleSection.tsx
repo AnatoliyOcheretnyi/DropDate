@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useFollowedPeople } from "../hooks/useFollowedPeople";
 import { PersonFollowButton } from "./PersonFollowButton";
@@ -39,7 +40,19 @@ export function PeopleSection({
   readOnly = false,
   ownerLabel,
 }: Props) {
-  const { people: myPeople, removeFollow } = useFollowedPeople();
+  const {
+    people: myPeople,
+    removeFollow,
+    isLoading: ownLoading,
+    isRefreshing,
+    isPaused,
+    error,
+    refresh,
+  } = useFollowedPeople({ autoRecover: peopleProp === undefined });
+  const ownList = peopleProp === undefined;
+  const loading = ownList ? ownLoading : isLoading;
+  const loadError = ownList ? error : undefined;
+  const paused = ownList && isPaused;
   const people = peopleProp ?? myPeople;
   const [role, setRole] = useState<RoleFilter>("all");
   const [query, setQuery] = useState("");
@@ -50,7 +63,7 @@ export function PeopleSection({
       actor: people.filter((person) => person.role === "actor").length,
       director: people.filter((person) => person.role === "director").length,
     }),
-    [people]
+    [people],
   );
 
   const filtered = useMemo(() => {
@@ -98,7 +111,14 @@ export function PeopleSection({
 
         <label className="people-search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+            <circle
+              cx="11"
+              cy="11"
+              r="7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
             <path
               d="m20 20-3.6-3.6"
               fill="none"
@@ -110,20 +130,60 @@ export function PeopleSection({
           <input
             type="search"
             value={query}
-            placeholder={ownerLabel ? `Пошук серед людей ${owner}` : "Пошук серед своїх людей"}
+            placeholder={
+              ownerLabel
+                ? `Пошук серед людей ${owner}`
+                : "Пошук серед своїх людей"
+            }
             aria-label="Пошук серед людей"
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
       </div>
 
-      {isLoading ? (
+      <div className="people-sync" role="status" aria-live="polite">
+        {paused ? (
+          <p>
+            Немає з’єднання. Завантажимо список людей автоматично, коли зв’язок
+            відновиться.
+          </p>
+        ) : loadError ? (
+          <div className="people-sync__error">
+            <p>
+              {loadError}
+              {people.length > 0
+                ? " Показуємо останній завантажений список."
+                : ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? "Повторюємо…" : "Спробувати зараз"}
+            </button>
+          </div>
+        ) : loading || (ownList && isRefreshing) ? (
+          <p className="people-sync__loading">
+            {people.length
+              ? "Оновлюємо список людей…"
+              : "Завантажуємо твоїх людей…"}
+          </p>
+        ) : null}
+      </div>
+
+      {loading && people.length === 0 ? (
         <div className="people-grid">
           {[0, 1, 2, 3, 4, 5].map((key) => (
-            <article key={key} className="person-card person-card--loading" aria-hidden="true" />
+            <article
+              key={key}
+              className="person-card person-card--loading"
+              aria-hidden="true"
+            />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 &&
+        (loadError || paused) ? null : filtered.length === 0 ? (
         <div className="people-empty">
           <span aria-hidden="true">☆</span>
           <h3>{emptyTitle}</h3>
@@ -132,16 +192,31 @@ export function PeopleSection({
       ) : (
         <div className="people-grid">
           {filtered.map((person) => (
-            <article key={`${person.tmdbId}:${person.role}`} className="person-card">
-              <div className="person-card__photo">
-                {person.profileUrl ? (
-                  <CoverImage src={person.profileUrl} alt={person.name} sizes="160px" />
-                ) : (
-                  <span aria-hidden="true">{person.name.slice(0, 1)}</span>
-                )}
-              </div>
-              <strong className="person-card__name">{person.name}</strong>
-              <span className="person-card__role">{ROLE_LABEL[person.role]}</span>
+            <article
+              key={`${person.tmdbId}:${person.role}`}
+              className="person-card"
+            >
+              <Link
+                href={`/person/${person.tmdbId}`}
+                className="person-card__details"
+                aria-label={`Відкрити: ${person.name}`}
+              >
+                <div className="person-card__photo">
+                  {person.profileUrl ? (
+                    <CoverImage
+                      src={person.profileUrl}
+                      alt={person.name}
+                      sizes="160px"
+                    />
+                  ) : (
+                    <span aria-hidden="true">{person.name.slice(0, 1)}</span>
+                  )}
+                </div>
+                <strong className="person-card__name">{person.name}</strong>
+                <span className="person-card__role">
+                  {ROLE_LABEL[person.role]}
+                </span>
+              </Link>
               {readOnly ? (
                 <PersonFollowButton
                   tmdbId={person.tmdbId}

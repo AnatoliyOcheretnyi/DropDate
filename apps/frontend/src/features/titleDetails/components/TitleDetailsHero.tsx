@@ -190,7 +190,7 @@ export function TitleDetailsHero({
                     >
                       <div className="details-director__photo">
                         {person.profileUrl ? (
-                          <CoverImage src={person.profileUrl} alt={person.name} sizes="72px" />
+                          <CoverImage src={person.profileUrl} alt={person.name} sizes="84px" />
                         ) : (
                           <span aria-hidden="true">
                             {person.name.slice(0, 1)}

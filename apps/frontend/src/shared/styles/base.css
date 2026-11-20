@@ -1,5 +1,8 @@
 :root {
   color-scheme: dark;
+  /* Keep typography usable if the generated font classes are unavailable. */
+  --font-body: "Segoe UI", Arial, sans-serif;
+  --font-display: "Segoe UI", Arial, sans-serif;
   --bg: #07111a;
   --bg-elevated: #0d1722;
   --surface-1: rgba(11, 19, 31, 0.78);

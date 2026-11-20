@@ -1,5 +1,4 @@
 "use client";
-import { MovieInfoButton } from "./MovieInfoButton";
 
 import type { Suggestion } from "../lib/release";
 import { copy } from "../lib/strings";
@@ -19,11 +18,15 @@ export function Suggestions({ suggestions, isSaved, onSelect }: Props) {
     <ul className="suggestions">
       {suggestions.map((suggestion) => (
         <li key={`${suggestion.mediaType}-${suggestion.id}`}>
-          <MovieInfoButton tmdbId={suggestion.id} mediaType={suggestion.mediaType} title={suggestion.title} onActivate={() => onSelect(suggestion)} />
           <button type="button" onClick={() => onSelect(suggestion)}>
             <div className="suggestion-poster" aria-hidden>
               {suggestion.posterUrl ? (
-                <CoverImage src={suggestion.posterUrl} alt="" sizes="56px" ariaHidden />
+                <CoverImage
+                  src={suggestion.posterUrl}
+                  alt=""
+                  sizes="56px"
+                  ariaHidden
+                />
               ) : (
                 <div className="suggestion-poster-fallback" />
               )}

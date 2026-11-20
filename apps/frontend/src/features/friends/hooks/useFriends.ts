@@ -26,7 +26,7 @@ export function useFriends() {
 
   const invalidate = useCallback(
     () => queryClient.invalidateQueries({ queryKey }),
-    [queryClient, queryKey]
+    [queryClient, queryKey],
   );
 
   const sendRequest = useMutation({
@@ -35,13 +35,19 @@ export function useFriends() {
   });
 
   const respond = useMutation({
-    mutationFn: ({ friendshipId, accept }: { friendshipId: string; accept: boolean }) =>
-      respondFriendRequest(accessToken!, friendshipId, accept),
+    mutationFn: ({
+      friendshipId,
+      accept,
+    }: {
+      friendshipId: string;
+      accept: boolean;
+    }) => respondFriendRequest(accessToken!, friendshipId, accept),
     onSuccess: invalidate,
   });
 
   const remove = useMutation({
-    mutationFn: (friendshipId: string) => removeFriendship(accessToken!, friendshipId),
+    mutationFn: (friendshipId: string) =>
+      removeFriendship(accessToken!, friendshipId),
     onSuccess: invalidate,
   });
 
@@ -50,6 +56,11 @@ export function useFriends() {
     incoming: query.data?.incoming ?? [],
     outgoing: query.data?.outgoing ?? [],
     isLoading: query.isLoading,
+    isRefreshing: query.isFetching,
+    error: query.error?.message,
+    refresh: query.refetch,
+    isResponding: respond.isPending,
+    isRemoving: remove.isPending,
     sendRequest: sendRequest.mutateAsync,
     isSending: sendRequest.isPending,
     respond: respond.mutateAsync,

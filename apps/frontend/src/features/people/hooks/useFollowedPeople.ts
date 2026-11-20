@@ -10,7 +10,12 @@ import {
   useFollowedPeopleStore,
   type FollowedPerson,
 } from "../store/followedPeopleStore";
-import { deleteFollow, fetchFollows, upsertFollow } from "../api/followsApi";
+import {
+  canRetryFollows,
+  deleteFollow,
+  fetchFollows,
+  upsertFollow,
+} from "../api/followsApi";
 
 export type FollowTarget = {
   tmdbId: number;
@@ -22,8 +27,10 @@ export type FollowTarget = {
 
 const followKey = (tmdbId: number, role: PersonRole) => `${tmdbId}:${role}`;
 
-export function useFollowedPeople() {
-  const { user, accessToken } = useAuth();
+export function useFollowedPeople({
+  autoRecover = false,
+}: { autoRecover?: boolean } = {}) {
+  const { user, accessToken, isLoading: authLoading } = useAuth();
   const isAuthed = Boolean(user && accessToken);
 
   const {
@@ -45,7 +52,7 @@ export function useFollowedPeople() {
       removeByRole: state.removeByRole,
       toggle: state.toggle,
       remove: state.remove,
-    }))
+    })),
   );
 
   useEffect(() => {
@@ -58,8 +65,19 @@ export function useFollowedPeople() {
   const followsQuery = useQuery({
     queryKey: webQueryKeys.personFollows(user?.id ?? "guest"),
     enabled: isAuthed,
-    queryFn: async ({ signal }) => fetchFollows(accessToken!, signal),
+    queryFn: async ({ signal }) => fetchFollows(user!.id, signal),
     staleTime: 1000 * 60,
+    retry: (failureCount, error) => failureCount < 2 && canRetryFollows(error),
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: "always",
+    // Recover from a cold backend without requiring a tab switch or reload.
+    refetchInterval: (query) =>
+      autoRecover &&
+      query.state.status === "error" &&
+      canRetryFollows(query.state.error)
+        ? 15_000
+        : false,
   });
 
   useEffect(() => {
@@ -88,13 +106,13 @@ export function useFollowedPeople() {
 
   const isFollowing = useCallback(
     (tmdbId: number) => people.some((person) => person.tmdbId === tmdbId),
-    [people]
+    [people],
   );
 
   const getFollow = useCallback(
     (tmdbId: number, role: PersonRole) =>
       followByKey.get(followKey(tmdbId, role)),
-    [followByKey]
+    [followByKey],
   );
 
   // Liking is a toggle: turning it off removes the follow (and its
@@ -122,7 +140,7 @@ export function useFollowedPeople() {
         });
       }
     },
-    [accessToken, getFollow, isAuthed, removeByRole, upsert]
+    [accessToken, getFollow, isAuthed, removeByRole, upsert],
   );
 
   // Backend-aware removal for list views (Saved / Profile).
@@ -133,7 +151,7 @@ export function useFollowedPeople() {
         void deleteFollow(accessToken, tmdbId, role);
       }
     },
-    [accessToken, isAuthed, removeByRole]
+    [accessToken, isAuthed, removeByRole],
   );
 
   // Subscribing implies a like; unsubscribing keeps the like in place.
@@ -154,12 +172,17 @@ export function useFollowedPeople() {
         });
       }
     },
-    [accessToken, getFollow, isAuthed, upsert]
+    [accessToken, getFollow, isAuthed, upsert],
   );
 
   return {
     people,
     isReady,
+    isLoading: authLoading || !isReady || (isAuthed && followsQuery.isPending),
+    isRefreshing: isAuthed && followsQuery.isFetching,
+    isPaused: isAuthed && followsQuery.isPaused,
+    error: isAuthed ? followsQuery.error?.message : undefined,
+    refresh: followsQuery.refetch,
     isFollowing,
     getFollow,
     toggleLike,

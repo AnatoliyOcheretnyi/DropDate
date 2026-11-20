@@ -92,6 +92,7 @@ const toAuthResult = (payload: AuthPayload | null): AuthResult | null => {
 };
 
 let refreshInFlight: Promise<void> | null = null;
+let sessionGeneration = 0;
 
 const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
@@ -131,6 +132,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     set({ isLoading: false });
   },
   login: async (email: string, password: string) => {
+    sessionGeneration += 1;
     const response = await webApi.post<AuthPayload>(
       "/api/auth/login",
       { email, password },
@@ -156,6 +158,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     set({ user: result.user, accessToken: result.accessToken });
   },
   register: async (email: string, password: string) => {
+    sessionGeneration += 1;
     const response = await webApi.post<AuthPayload>(
       "/api/auth/register",
       { email, password },
@@ -195,6 +198,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     return { status: "ok" as const };
   },
   logout: async () => {
+    sessionGeneration += 1;
     try {
       await webApi.post(
         "/api/auth/logout",
@@ -215,6 +219,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     // Multiple requests can discover expiry together. Rotate the refresh
     // cookie once so parallel requests cannot invalidate each other's session.
     if (refreshInFlight) return refreshInFlight;
+    const generation = sessionGeneration;
     refreshInFlight = (async () => {
       if (get().isVerifyRoute) {
         return;
@@ -234,6 +239,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
         throw new AuthTransientError("refresh failed");
       }
 
+      if (generation !== sessionGeneration) return;
       if (response.status === 401 || response.status === 403) {
         set({ user: null, accessToken: null });
         return;
@@ -285,8 +291,20 @@ const useAuthStore = create<AuthStore>((set, get) => ({
 }));
 
 /** Fetch an app API with the current session, refreshing once after expiry. */
-export async function fetchWithAuth(url: string, init: RequestInit = {}) {
+export async function fetchWithAuth(
+  url: string,
+  init: RequestInit = {},
+  expectedUserId?: string,
+) {
+  init.signal?.throwIfAborted();
   const initial = useAuthStore.getState();
+  if (expectedUserId && initial.user?.id !== expectedUserId) {
+    throw new AuthError(
+      "Увійди в той самий акаунт, щоб зберегти зміни.",
+      undefined,
+      401,
+    );
+  }
   const send = (token: string | null) => {
     const headers = new Headers(init.headers);
     if (token) headers.set("authorization", `Bearer ${token}`);

@@ -24,9 +24,13 @@ export function FriendRequestRow({
 
   return (
     <div className="friend-request-row">
-      <FriendAvatar label={label} size="sm" />
+      <FriendAvatar label={label} size="md" />
       <div className="friend-request-row__meta">
-        <strong>@{friendship.user.username || "без юзернейму"}</strong>
+        <strong>
+          {friendship.user.username
+            ? `@${friendship.user.username}`
+            : friendship.user.email}
+        </strong>
         <span>{friendship.user.email}</span>
       </div>
       {direction === "incoming" ? (
@@ -37,7 +41,7 @@ export function FriendRequestRow({
             disabled={isBusy}
             onClick={() => onAccept?.(friendship.id)}
           >
-            Прийняти
+            {isBusy ? "Зачекай…" : "Прийняти"}
           </button>
           <button
             type="button"

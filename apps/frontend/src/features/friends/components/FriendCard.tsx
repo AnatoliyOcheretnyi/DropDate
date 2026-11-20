@@ -1,108 +1,144 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useState } from "react";
 import { CoverImage } from "../../../shared/ui/CoverImage";
 import { FriendAvatar, friendHue } from "./FriendAvatar";
 import type { Friendship } from "../../../shared/types/friends";
 
 type Props = {
   friendship: Friendship;
-  onRemove: (friendshipId: string) => void;
+  onRemove: (friendshipId: string) => Promise<unknown>;
 };
-
-const POSTER_SLOTS = 4;
-
-const formatSince = (value?: string) => {
-  if (!value) {
-    return "";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-  return new Intl.DateTimeFormat("uk-UA", { month: "short", year: "numeric" }).format(parsed);
-};
-
 export function FriendCard({ friendship, onRemove }: Props) {
-  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
-  const label = friendship.user.username || friendship.user.email;
-  const hue = useMemo(() => friendHue(label), [label]);
-  const since = formatSince(friendship.respondedAt);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const label = friendship.user.username
+    ? `@${friendship.user.username}`
+    : friendship.user.email;
   const posters = friendship.recentPosters ?? [];
-  const mutual = friendship.mutualTitles ?? 0;
-
-  // A stray click shouldn't unfriend: first click arms the button, and it
-  // disarms itself if the second click doesn't come quickly.
-  useEffect(() => {
-    if (!confirming) {
-      return;
+  const since = friendship.respondedAt
+    ? new Date(friendship.respondedAt)
+    : null;
+  const remove = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await onRemove(friendship.id);
+    } catch {
+      setError("Не вдалося прибрати друга. Спробуй ще раз.");
+      setBusy(false);
     }
-    const timer = setTimeout(() => setConfirming(false), 2600);
-    return () => clearTimeout(timer);
-  }, [confirming]);
-
+  };
   return (
-    <div className="friend-card">
-      <button
-        type="button"
+    <article className="friend-card">
+      <Link
+        href={`/friends/${friendship.user.id}`}
         className="friend-card__link"
-        onClick={() => router.push(`/friends/${friendship.user.id}`)}
+        aria-label={`Відкрити профіль ${label}`}
       >
         <div className="friend-card__posters">
-          {Array.from({ length: POSTER_SLOTS }).map((_, index) => {
-            const poster = posters[index];
-            return poster ? (
-              <div key={index} className="friend-card__poster">
-                <CoverImage src={poster} alt="" sizes="160px" ariaHidden />
+          {[0, 1, 2, 3].map((index) =>
+            posters[index] ? (
+              <div className="friend-card__poster" key={index}>
+                <CoverImage
+                  src={posters[index]}
+                  alt=""
+                  sizes="(max-width: 600px) 25vw, 100px"
+                  ariaHidden
+                />
               </div>
             ) : (
               <span
                 key={index}
                 className="friend-card__poster friend-card__poster--empty"
-                style={{ filter: `hue-rotate(${hue}deg)` }}
-                aria-hidden="true"
+                style={{ filter: `hue-rotate(${friendHue(label)}deg)` }}
               />
-            );
-          })}
+            ),
+          )}
           <div className="friend-card__posters-fade" aria-hidden="true" />
-        </div>
-
-        <div className="friend-card__body">
-          <FriendAvatar label={label} size="lg" />
-          <div className="friend-card__id">
-            <strong>@{friendship.user.username || "без юзернейму"}</strong>
-            <span className="friend-card__email">{friendship.user.email}</span>
-          </div>
-          <div className="friend-card__meta">
-            <span>
-              <b>{friendship.savedTitles ?? 0}</b> тайтлів
+          {(friendship.mutualTitles ?? 0) > 0 && (
+            <span className="friend-card__connection">
+              <span aria-hidden="true">✦</span> Є спільне кіно
             </span>
-            {mutual > 0 ? (
-              <span className="friend-card__mutual">
-                <b>{mutual}</b> спільних
-              </span>
-            ) : null}
-            {since ? <span>з {since}</span> : null}
-          </div>
-          <span className="friend-card__open">Профіль →</span>
+          )}
         </div>
-      </button>
-      <button
-        type="button"
-        className={`friend-card__remove${confirming ? " is-confirming" : ""}`}
-        onClick={() => {
-          if (confirming) {
-            onRemove(friendship.id);
-            return;
-          }
-          setConfirming(true);
-        }}
-        aria-label={confirming ? "Підтвердити видалення з друзів" : "Прибрати з друзів"}
-      >
-        {confirming ? "Точно?" : "✕"}
-      </button>
-    </div>
+        <div className="friend-card__body">
+          <FriendAvatar
+            label={friendship.user.username || friendship.user.email}
+            size="lg"
+          />
+          <div className="friend-card__id">
+            <strong>{label}</strong>
+            <span className="friend-card__email">
+              {friendship.user.username
+                ? friendship.user.email
+                : "Твій друг у DropDate"}
+            </span>
+          </div>
+          <div className="friend-card__numbers">
+            <div>
+              <strong>{friendship.savedTitles ?? 0}</strong>
+              <span>у списку</span>
+            </div>
+            <div>
+              <strong>{friendship.mutualTitles ?? 0}</strong>
+              <span>спільних тайтлів</span>
+            </div>
+          </div>
+          <span className="friend-card__open">
+            Зазирнути у список <span aria-hidden="true">↗</span>
+          </span>
+        </div>
+      </Link>
+      <div className="friend-card__footer">
+        {confirming ? (
+          <div className="friend-card__confirm">
+            <p>Прибрати {label} з друзів?</p>
+            <div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setConfirming(false);
+                  setError("");
+                }}
+              >
+                Залишити
+              </button>
+              <button
+                type="button"
+                className="friend-card__danger"
+                disabled={busy}
+                onClick={() => void remove()}
+              >
+                {busy ? "Прибираємо…" : "Так, прибрати"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <span>
+              {since && !Number.isNaN(since.getTime())
+                ? `Разом із ${new Intl.DateTimeFormat("uk-UA", { month: "short", year: "numeric" }).format(since)}`
+                : "У твоєму кіноколі"}
+            </span>
+            <button
+              type="button"
+              aria-label={`Прибрати ${label} з друзів`}
+              onClick={() => setConfirming(true)}
+            >
+              Прибрати
+            </button>
+          </>
+        )}
+        {error && (
+          <p className="friend-card__error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }
