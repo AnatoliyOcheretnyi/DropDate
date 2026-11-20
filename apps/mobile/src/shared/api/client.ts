@@ -53,6 +53,7 @@ export async function apiRequest<T>(
     signal,
     ...requestInit
   } = options;
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();

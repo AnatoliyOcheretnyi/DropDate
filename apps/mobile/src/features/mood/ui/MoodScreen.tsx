@@ -2,7 +2,7 @@ import { Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../../shared/ui/FeatureScreen";
 import { ScreenState } from "../../../shared/ui/ScreenState";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
@@ -10,6 +10,7 @@ import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
 import { useMoodSession } from "../hooks/useMoodSession";
 
 export function MoodScreen() {
+  const s = useFeatureStyles();
   const session = useMoodSession();
   const router = useRouter();
   if (session.status === "loading")

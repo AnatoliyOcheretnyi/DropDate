@@ -64,3 +64,6 @@ export const useTasteStore = create<State>((set) => ({
       return next;
     }),
 }));
+
+export const clearTasteSession = () =>
+  useTasteStore.setState({ genres: [...genres], countries: [...countries] });

@@ -27,7 +27,9 @@ export function useDetailsScreen() {
   const { addRelease, isSuggestionSaved } = useSaved();
 
   const isValidRequest =
-    Boolean(id) && (mediaType === "movie" || mediaType === "tv");
+    Number.isInteger(Number(id)) &&
+    Number(id) > 0 &&
+    (mediaType === "movie" || mediaType === "tv");
 
   const detailsQuery = useQuery<DetailsPayload>({
     queryKey: queryKeys.details(mediaType ?? "", Number(id)),
@@ -73,6 +75,7 @@ export function useDetailsScreen() {
     isLoading,
     error,
     handleAdd,
+    refetch: detailsQuery.refetch,
     isSuggestionSaved,
   };
 }

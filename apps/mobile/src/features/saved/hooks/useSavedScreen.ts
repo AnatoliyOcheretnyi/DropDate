@@ -1,9 +1,14 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { ListType } from "../../../shared/types/lists";
 import { copy } from "../../../shared/strings";
+import { DECADES, matchesDecades, yearOfDate } from "../../../shared/decades";
 import type { SavedItem } from "../store/savedStore";
 import { useSaved } from "./useSaved";
+
+/** "all" is the deduplicated union of every list, not a list of its own. */
+export type SavedTab = ListType | "all";
+export type SavedSort = "default" | "rating" | "alpha" | "release";
 
 type Section = {
   id: string;
@@ -13,13 +18,103 @@ type Section = {
 
 export function useSavedScreen() {
   const { saved, removeRelease } = useSaved();
-  const [activeList, setActiveList] = useState<ListType>("follow");
-  const [sort, setSort] = useState<"default" | "rating" | "alpha" | "release">(
-    "default",
+  const [activeList, setActiveList] = useState<SavedTab>("follow");
+  const [sort, setSort] = useState<SavedSort>("default");
+  const [query, setQuery] = useState("");
+  const [genres, setGenres] = useState<string[]>([]);
+  const [decades, setDecades] = useState<string[]>([]);
+
+  const tabItems = useMemo(
+    () =>
+      activeList === "all"
+        ? saved
+        : saved.filter((item) => item.listTypes?.includes(activeList)),
+    [activeList, saved],
   );
 
+  const counts = useMemo(() => {
+    const map = saved.reduce<Record<string, number>>((acc, item) => {
+      (item.listTypes ?? []).forEach((list) => {
+        acc[list] = (acc[list] ?? 0) + 1;
+      });
+      return acc;
+    }, {});
+    return { ...map, all: saved.length } as Record<SavedTab, number>;
+  }, [saved]);
+
+  /** Facet counts are scoped to the open list, so a chip never promises rows
+   *  that the current list cannot show. */
+  const genreFacets = useMemo(() => {
+    const map = new Map<string, number>();
+    tabItems.forEach((item) => {
+      (item.genres ?? []).forEach((genre) => {
+        const key = genre.trim();
+        if (key) map.set(key, (map.get(key) ?? 0) + 1);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([genre, count]) => ({ genre, count }))
+      .sort(
+        (a, b) => b.count - a.count || a.genre.localeCompare(b.genre, "uk"),
+      );
+  }, [tabItems]);
+
+  const decadeFacets = useMemo(() => {
+    const map = new Map<string, number>();
+    tabItems.forEach((item) => {
+      const year = yearOfDate(item.nextRelease);
+      if (year === undefined) return;
+      const decade = DECADES.find(
+        (entry) =>
+          year >= entry.from && (entry.to === undefined || year <= entry.to),
+      );
+      if (decade) map.set(decade.id, (map.get(decade.id) ?? 0) + 1);
+    });
+    return DECADES.filter((decade) => map.has(decade.id)).map((decade) => ({
+      decade,
+      count: map.get(decade.id) ?? 0,
+    }));
+  }, [tabItems]);
+
+  const toggleGenre = useCallback((genre: string) => {
+    setGenres((prev) =>
+      prev.includes(genre)
+        ? prev.filter((entry) => entry !== genre)
+        : [...prev, genre],
+    );
+  }, []);
+
+  const toggleDecade = useCallback((id: string) => {
+    setDecades((prev) =>
+      prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id],
+    );
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setGenres([]);
+    setDecades([]);
+    setQuery("");
+  }, []);
+
+  const changeList = useCallback((next: SavedTab) => {
+    setActiveList(next);
+    // Facets are list-scoped, so carrying a chip across lists would leave a
+    // filter switched on that no longer matches anything.
+    setGenres([]);
+    setDecades([]);
+  }, []);
+
   const listItems = useMemo(() => {
-    const items = saved.filter((item) => item.listTypes?.includes(activeList));
+    const needle = query.trim().toLowerCase();
+    const items = tabItems.filter((item) => {
+      if (genres.length > 0) {
+        const own = item.genres ?? [];
+        if (!genres.some((genre) => own.includes(genre))) return false;
+      }
+      if (!matchesDecades(yearOfDate(item.nextRelease), decades)) return false;
+      if (needle && !item.title.toLowerCase().includes(needle)) return false;
+      return true;
+    });
     if (sort === "default") return items;
     return [...items].sort((a, b) =>
       sort === "alpha"
@@ -29,7 +124,7 @@ export function useSavedScreen() {
           : new Date(a.nextRelease || 0).getTime() -
             new Date(b.nextRelease || 0).getTime(),
     );
-  }, [activeList, saved, sort]);
+  }, [decades, genres, query, sort, tabItems]);
 
   const sections = useMemo<Section[]>(() => {
     const now = new Date();
@@ -80,7 +175,7 @@ export function useSavedScreen() {
       (item) => item.mediaType === "tv",
     ).length;
 
-    if (activeList === "follow") {
+    if (activeList === "all" || activeList === "follow") {
       const now = new Date();
       const endWeek = new Date();
       endWeek.setDate(endWeek.getDate() + 7);
@@ -188,11 +283,26 @@ export function useSavedScreen() {
     };
   }, [activeList, listItems]);
 
+  const isFiltered =
+    genres.length > 0 || decades.length > 0 || query.trim().length > 0;
+
   return {
     activeList,
-    setActiveList,
+    setActiveList: changeList,
+    counts,
     sort,
     setSort,
+    query,
+    setQuery,
+    genres,
+    genreFacets,
+    toggleGenre,
+    decades,
+    decadeFacets,
+    toggleDecade,
+    resetFilters,
+    isFiltered,
+    tabItems,
     listItems,
     sections,
     stats,

@@ -1,6 +1,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useContext,
   useMemo,
   useRef,
@@ -10,8 +11,8 @@ import {
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
-  FadeInDown,
-  FadeOutDown,
+  FadeIn,
+  FadeOut,
   ReduceMotion,
 } from "react-native-reanimated";
 
@@ -39,6 +40,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
   const dismiss = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
@@ -59,10 +67,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast ? (
         <Animated.View
           key={toast.id}
-          entering={FadeInDown.springify()
-            .damping(18)
-            .reduceMotion(ReduceMotion.System)}
-          exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)}
+          entering={FadeIn.duration(180).reduceMotion(ReduceMotion.System)}
+          exiting={FadeOut.duration(140).reduceMotion(ReduceMotion.System)}
           style={[styles.wrap, { bottom: insets.bottom + TAB_BAR_CLEARANCE }]}
           pointerEvents="box-none"
         >

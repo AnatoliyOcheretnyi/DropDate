@@ -1,12 +1,12 @@
-import { useEffect, useMemo } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Keyboard, Platform, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
   ReduceMotion,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
@@ -30,13 +30,34 @@ export function FloatingTabBar({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  if (
+    keyboardVisible &&
+    descriptors[state.routes[state.index].key].options.tabBarHideOnKeyboard
+  )
+    return null;
+
   const navigateTo = (
     routeKey: string,
     routeName: string,
     focused: boolean,
     params?: object,
   ) => {
-    void Haptics.selectionAsync();
+    void Haptics.selectionAsync().catch(() => undefined);
     const event = navigation.emit({
       type: "tabPress",
       target: routeKey,
@@ -106,20 +127,18 @@ function TabItem({
   const progress = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withSpring(focused ? 1 : 0, {
-      damping: 20,
-      stiffness: 260,
-      mass: 0.55,
+    progress.value = withTiming(focused ? 1 : 0, {
+      duration: 180,
       reduceMotion: ReduceMotion.System,
     });
   }, [focused, progress]);
 
   const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -2 * progress.value }],
+    transform: [{ translateY: 0 }],
   }));
   const pillStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
-    transform: [{ scale: 0.7 + 0.3 * progress.value }],
+    transform: [{ scale: 1 }],
   }));
   const labelStyle = useAnimatedStyle(() => ({
     opacity: 0.55 + 0.45 * progress.value,
@@ -183,10 +202,10 @@ const makeStyles = (colors: Palette) =>
       backgroundColor:
         Platform.OS === "android"
           ? colors.isDark
-            ? "rgba(20,24,38,0.98)"
+            ? colors.card
             : "rgba(255,255,255,0.98)"
           : colors.isDark
-            ? "rgba(16,20,32,0.6)"
+            ? "rgba(25,30,27,0.9)"
             : "rgba(255,255,255,0.72)",
       shadowColor: colors.isDark ? "#000000" : colors.shadow,
       shadowOffset: { width: 0, height: 8 },
@@ -197,7 +216,7 @@ const makeStyles = (colors: Palette) =>
     barTint: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.isDark
-        ? "rgba(10,12,24,0.22)"
+        ? "rgba(16,20,18,0.16)"
         : "rgba(255,255,255,0.16)",
     },
     slot: {

@@ -5,12 +5,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../../shared/ui/FeatureScreen";
 import { ScreenState } from "../../../shared/ui/ScreenState";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
 import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
-import { colors } from "../../../shared/theme/colors";
+import { useTheme } from "../../../shared/theme/ThemeProvider";
 import { queryKeys } from "../../../shared/api/queryKeys";
 import { useAuthStore } from "../../auth/store/authStore";
 import {
@@ -22,6 +22,8 @@ import {
 } from "../api/people";
 import type { PersonRole } from "../../../shared/types/release";
 export function PersonScreen() {
+  const s = useFeatureStyles();
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const personId = Number(id);
   const router = useRouter();

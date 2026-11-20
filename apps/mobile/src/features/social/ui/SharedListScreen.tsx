@@ -1,3 +1,5 @@
+import { getSiteURL } from "../../../shared/utils/config";
+import { useToast } from "../../../shared/ui/Toast";
 import { useMemo } from "react";
 import { Image, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -8,7 +10,11 @@ import { ScreenState } from "../../../shared/ui/ScreenState";
 import { useTheme } from "../../../shared/theme/ThemeProvider";
 import type { Palette } from "../../../shared/theme/palette";
 import { queryKeys } from "../../../shared/api/queryKeys";
-import { getPublicSharedList, getSharedListItems } from "../api/social";
+import {
+  getPublicSharedList,
+  getSharedListItems,
+  getSharedLists,
+} from "../api/social";
 
 export default function SharedListScreen({
   publicMode = false,
@@ -24,6 +30,19 @@ export default function SharedListScreen({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
+  const { showToast } = useToast();
+  const lists = useQuery({
+    queryKey: queryKeys.sharedLists,
+    queryFn: ({ signal }) => getSharedLists(signal),
+    enabled: !publicMode,
+    staleTime: 30_000,
+  });
+  const list = lists.data?.find((item) => item.ID === key);
+  const shareToken = publicMode
+    ? params.token
+    : list?.Visibility === "public"
+      ? list.ShareToken
+      : undefined;
   const query = useQuery({
     queryKey: publicMode
       ? queryKeys.publicList(key ?? "")
@@ -41,7 +60,7 @@ export default function SharedListScreen({
     },
   });
   const items = query.data?.items ?? [];
-  const name = query.data?.name ?? params.name;
+  const name = query.data?.name ?? list?.Name ?? params.name;
   return (
     <FeatureScreen
       title={name || "Спільний список"}
@@ -51,13 +70,13 @@ export default function SharedListScreen({
           : "Усі учасники можуть додавати тайтли з екрана деталей."
       }
     >
-      {!publicMode && key ? (
+      {shareToken ? (
         <MotionPressable
           style={styles.share}
           onPress={() =>
             void Share.share({
-              message: `DropDate · ${name || "Спільний список"}`,
-            })
+              message: `DropDate · ${name || "Спільний список"}\n${getSiteURL()}/shared/${encodeURIComponent(shareToken)}`,
+            }).catch(() => showToast("Не вдалося поділитися списком"))
           }
         >
           <Text style={styles.shareText}>Поділитися списком</Text>
@@ -66,7 +85,11 @@ export default function SharedListScreen({
       {query.isLoading ? (
         <ScreenState loading title="Завантажуємо добірку" />
       ) : query.error ? (
-        <ScreenState title="Список недоступний" message={query.error.message} />
+        <ScreenState
+          title="Список недоступний"
+          message={query.error.message}
+          onRetry={() => void query.refetch()}
+        />
       ) : items.length ? (
         <View style={styles.grid}>
           {items.map((item) => (

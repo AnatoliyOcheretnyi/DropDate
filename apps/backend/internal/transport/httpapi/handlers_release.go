@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 )
@@ -238,55 +239,23 @@ func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	upcomingMovies, upcomingSeries, err := s.releases.HomeUpcoming(r.Context(), limit)
-	if err != nil {
-		s.logger.Printf("home upcoming feed failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch upcoming feed")
-		return
+	if limit > 40 {
+		limit = 40
 	}
 
-	popularMovies, err := s.releases.Popular(r.Context(), "movie", limit)
-	if err != nil {
-		s.logger.Printf("home popular movies failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch popular movies")
+	// Keep a slow upstream section inside the request budget without holding
+	// the other sections behind it or discarding their successful results.
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	payload, failures := loadHomeFeed(ctx, s.releases, limit)
+	for section, err := range failures {
+		s.logger.Printf("home %s failed: %v", section, err)
+	}
+	if len(failures) == 5 && !payload.hasItems() {
+		writeError(w, http.StatusServiceUnavailable, "home catalogue temporarily unavailable")
 		return
 	}
-
-	popularSeries, err := s.releases.Popular(r.Context(), "tv", limit)
-	if err != nil {
-		s.logger.Printf("home popular series failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch popular series")
-		return
-	}
-
-	topRatedMovies, err := s.releases.TopRated(r.Context(), "movie", limit)
-	if err != nil {
-		s.logger.Printf("home top-rated movies failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch top-rated movies")
-		return
-	}
-
-	topRatedSeries, err := s.releases.TopRated(r.Context(), "tv", limit)
-	if err != nil {
-		s.logger.Printf("home top-rated series failed: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch top-rated series")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"upcoming": map[string]any{
-			"movies": upcomingMovies,
-			"series": upcomingSeries,
-		},
-		"popular": map[string]any{
-			"movies": popularMovies,
-			"series": popularSeries,
-		},
-		"topRated": map[string]any{
-			"movies": topRatedMovies,
-			"series": topRatedSeries,
-		},
-	})
+	writeJSON(w, http.StatusOK, payload)
 }
 
 func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {

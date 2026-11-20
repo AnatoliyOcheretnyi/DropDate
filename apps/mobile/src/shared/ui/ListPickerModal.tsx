@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { useTheme } from "../theme/ThemeProvider";
 import type { Palette } from "../theme/palette";
@@ -10,7 +17,7 @@ type Props = {
   visible: boolean;
   value: ListType[];
   onClose: () => void;
-  onApply: (value: ListType[]) => void;
+  onApply: (value: ListType[]) => void | boolean | Promise<void | boolean>;
 };
 
 const LIST_OPTIONS: ListType[] = [
@@ -24,6 +31,8 @@ const LIST_OPTIONS: ListType[] = [
 export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
   const [selected, setSelected] = useState<ListType[]>(value);
 
   useEffect(() => {
@@ -42,12 +51,20 @@ export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
     [selected],
   );
 
-  const toggle = (key: ListType) => {
+  const toggle = async (key: ListType) => {
+    if (locked.current) return;
+    locked.current = true;
+    setBusy(true);
     const next = selected.includes(key)
       ? selected.filter((item) => item !== key)
       : [...selected, key];
-    setSelected(next);
-    onApply(next);
+    try {
+      const result = await onApply(next);
+      if (result !== false) setSelected(next);
+    } finally {
+      locked.current = false;
+      setBusy(false);
+    }
   };
 
   return (
@@ -63,12 +80,22 @@ export function ListPickerModal({ visible, value, onClose, onApply }: Props) {
           onPress={(event) => event.stopPropagation()}
         >
           <Text style={styles.title}>{copy.actions.addToList}</Text>
+          {busy ? (
+            <ActivityIndicator
+              accessibilityLabel="Зберігаємо зміни"
+              color={colors.accent}
+            />
+          ) : null}
           <View style={styles.list}>
             {items.map((item) => (
               <Pressable
                 key={item.key}
                 style={styles.row}
-                onPress={() => toggle(item.key)}
+                disabled={busy}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: item.checked, disabled: busy }}
+                accessibilityLabel={item.label}
+                onPress={() => void toggle(item.key).catch(() => undefined)}
               >
                 <View
                   style={[
@@ -110,7 +137,7 @@ const makeStyles = (colors: Palette) =>
       width: "100%",
       maxWidth: 360,
       borderRadius: 20,
-      backgroundColor: colors.isDark ? "rgba(16,20,32,0.98)" : "#ffffff",
+      backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
       padding: 18,
@@ -125,6 +152,7 @@ const makeStyles = (colors: Palette) =>
       gap: 12,
     },
     row: {
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
@@ -157,6 +185,8 @@ const makeStyles = (colors: Palette) =>
       gap: 12,
     },
     actionPrimary: {
+      minHeight: 46,
+      justifyContent: "center",
       flex: 1,
       borderRadius: 999,
       backgroundColor: colors.accent,

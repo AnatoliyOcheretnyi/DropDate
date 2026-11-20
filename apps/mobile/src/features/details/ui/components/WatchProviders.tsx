@@ -1,3 +1,5 @@
+import { useWatchPreferences } from "../../../../shared/utils/watchPreferences";
+import { useToast } from "../../../../shared/ui/Toast";
 import { useMemo, useState } from "react";
 import { Linking, Modal, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
@@ -26,7 +28,13 @@ export function WatchProviders({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [country, setCountry] = useState("UA");
+  const {
+    region: country,
+    setRegion: setCountry,
+    ids,
+    toggleProvider,
+  } = useWatchPreferences();
+  const { showToast } = useToast();
   const [picker, setPicker] = useState(false);
   const value = providers?.[country];
   const rows: [string, WatchProvider[] | undefined][] = [
@@ -62,7 +70,10 @@ export function WatchProviders({
                     style={styles.provider}
                     accessibilityLabel={item.name}
                     onPress={() =>
-                      value?.link && void Linking.openURL(value.link)
+                      value?.link &&
+                      void Linking.openURL(value.link).catch(() =>
+                        showToast("Не вдалося відкрити сервіс"),
+                      )
                     }
                   >
                     {item.logoUrl ? (
@@ -87,6 +98,33 @@ export function WatchProviders({
           Для цього регіону поки немає даних. Спробуй іншу країну.
         </Text>
       )}
+      <View style={styles.providers}>
+        {[
+          ...new Map(
+            rows.flatMap(([, items]) => items ?? []).map((p) => [p.id, p]),
+          ).values(),
+        ].map((provider) => (
+          <MotionPressable
+            key={provider.id}
+            accessibilityState={{ selected: ids.includes(provider.id) }}
+            style={[
+              styles.country,
+              ids.includes(provider.id) && styles.choiceActive,
+            ]}
+            onPress={() => toggleProvider(provider.id)}
+          >
+            <Text style={styles.countryText}>
+              {ids.includes(provider.id) ? "✓ " : "+ "}
+              {provider.name}
+            </Text>
+          </MotionPressable>
+        ))}
+      </View>
+      {hasItems ? (
+        <Text style={styles.credit}>
+          Познач свої сервіси для фільтрації добірок у кінопаспорті.
+        </Text>
+      ) : null}
       <Text style={styles.credit}>
         Дані JustWatch через TMDB можуть змінюватися.
       </Text>

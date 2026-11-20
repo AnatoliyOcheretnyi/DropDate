@@ -1,11 +1,12 @@
-import { useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 
 import type { Suggestion } from "../../../../shared/types/release";
 import { PosterCard } from "../../../../shared/ui/PosterCard";
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 import { copy } from "../../../../shared/strings";
 
 type Props = {
@@ -13,6 +14,8 @@ type Props = {
 };
 
 export function DetailsRecommendations({ items }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
 
   const handlePress = useCallback(
@@ -44,19 +47,20 @@ export function DetailsRecommendations({ items }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  section: {
-    marginTop: 20,
-    paddingHorizontal: 20,
-    gap: 10,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  row: {
-    gap: 12,
-    paddingRight: 12,
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    section: {
+      marginTop: 20,
+      paddingHorizontal: 20,
+      gap: 10,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+    },
+    row: {
+      gap: 12,
+      paddingRight: 12,
+    },
+  });

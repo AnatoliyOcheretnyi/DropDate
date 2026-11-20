@@ -44,9 +44,17 @@ const shouldPersist = (key: readonly unknown[]) =>
  */
 export function hydrateQueryCache(client: QueryClient) {
   const snapshot = storageGetJSON<PersistedEntry[]>(STORAGE_KEY);
-  if (!snapshot) return;
+  if (!Array.isArray(snapshot)) return;
   const now = Date.now();
   for (const entry of snapshot) {
+    if (
+      !entry ||
+      !Array.isArray(entry.key) ||
+      !shouldPersist(entry.key) ||
+      !entry.state ||
+      !Number.isFinite(entry.state.dataUpdatedAt)
+    )
+      continue;
     if (now - entry.state.dataUpdatedAt > MAX_AGE) continue;
     client.setQueryData(entry.key, entry.state.data, {
       updatedAt: entry.state.dataUpdatedAt,

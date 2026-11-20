@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 import { copy } from "../../../../shared/strings";
 
 type Props = {
@@ -9,6 +11,8 @@ type Props = {
 };
 
 export function WelcomeActionPanel({ onSignIn, onContinueAsGuest }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.actionPanel}>
       <Text style={styles.panelTitle}>{copy.auth.signIn}</Text>
@@ -25,50 +29,51 @@ export function WelcomeActionPanel({ onSignIn, onContinueAsGuest }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  actionPanel: {
-    width: "100%",
-    padding: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    gap: 10,
-  },
-  panelTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  panelLead: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  actions: {
-    gap: 10,
-  },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  primaryText: {
-    color: "#04140f",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  secondary: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  secondaryText: {
-    color: colors.text,
-    fontWeight: "600",
-    fontSize: 15,
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    actionPanel: {
+      width: "100%",
+      padding: 20,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      gap: 10,
+    },
+    panelTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+    },
+    panelLead: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    actions: {
+      gap: 10,
+    },
+    primary: {
+      backgroundColor: colors.accent,
+      borderRadius: 999,
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    primaryText: {
+      color: "#04140f",
+      fontWeight: "700",
+      fontSize: 16,
+    },
+    secondary: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    secondaryText: {
+      color: colors.text,
+      fontWeight: "600",
+      fontSize: 15,
+    },
+  });

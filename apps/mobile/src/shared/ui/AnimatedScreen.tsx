@@ -2,8 +2,7 @@ import { useRef, type ReactNode } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   FadeIn,
-  FadeInDown,
-  LinearTransition,
+  FadeOut,
   ReduceMotion,
 } from "react-native-reanimated";
 
@@ -14,28 +13,20 @@ import Animated, {
  */
 const INTRO_WINDOW_MS = 1200;
 
-export function AnimatedScreenContent({
-  children,
-  /**
-   * The whole-screen layout spring looks great on static screens but janks on
-   * lists whose height changes as the user acts (e.g. marking a notification
-   * read removes the "read all" button). Such screens pass `false`.
-   */
-  animateLayout = true,
-}: {
-  children: ReactNode;
-  animateLayout?: boolean;
-}) {
+/**
+ * A screen fades in once, and then holds still.
+ *
+ * There used to be a whole-screen layout spring here. It looked fine on a
+ * static page and awful everywhere else: any content change — picking a game
+ * mode, revealing an answer, a stat loading in — resprung the entire screen,
+ * so the app appeared to bounce on every tap. Layout animation belongs on the
+ * one row that actually moved, never on the screen that contains it.
+ */
+export function AnimatedScreenContent({ children }: { children: ReactNode }) {
   return (
     <Animated.View
-      entering={FadeIn.duration(260).reduceMotion(ReduceMotion.System)}
-      layout={
-        animateLayout
-          ? LinearTransition.springify()
-              .damping(20)
-              .reduceMotion(ReduceMotion.System)
-          : undefined
-      }
+      entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)}
+      exiting={FadeOut.duration(140).reduceMotion(ReduceMotion.System)}
       style={styles.fill}
     >
       {children}
@@ -65,10 +56,8 @@ export function AnimatedSection({
     <Animated.View
       entering={
         isIntro
-          ? FadeInDown.delay(Math.min(index, 6) * 55)
-              .duration(360)
-              .springify()
-              .damping(18)
+          ? FadeIn.delay(Math.min(index, 6) * 55)
+              .duration(240)
               .reduceMotion(ReduceMotion.System)
           : undefined
       }

@@ -1,10 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 
+import { useToast } from "../../../shared/ui/Toast";
 import { useAuth } from "../../auth/store/authStore";
 
 export function useProfileScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { user, isGuest, logout, resetGuest } = useAuth();
 
   const initials = useMemo(() => {
@@ -21,9 +23,13 @@ export function useProfileScreen() {
   }, [resetGuest, router]);
 
   const handleSignOut = useCallback(async () => {
-    await logout();
-    router.replace("/welcome");
-  }, [logout, router]);
+    try {
+      await logout();
+      router.replace("/welcome");
+    } catch {
+      showToast("Не вдалося очистити сесію. Спробуй ще раз.");
+    }
+  }, [logout, router, showToast]);
 
   return {
     user,

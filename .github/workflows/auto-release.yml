@@ -55,6 +55,7 @@ jobs:
           cache-dependency-path: |
             yarn.lock
             apps/frontend/yarn.lock
+            apps/mobile/yarn.lock
       - name: Set up Go
         if: needs.plan.outputs.backend_bump != ''
         uses: actions/setup-go@v5
@@ -83,9 +84,13 @@ jobs:
       - name: Backend race detector
         if: needs.plan.outputs.backend_bump != ''
         run: yarn nx run backend:race --skipNxCache
+      - name: Install mobile dependencies
+        if: needs.plan.outputs.mobile_bump != ''
+        working-directory: apps/mobile
+        run: yarn install --frozen-lockfile
       - name: Check mobile
         if: needs.plan.outputs.mobile_bump != ''
-        run: yarn nx run-many -t lint,typecheck -p mobile --nxBail --skipNxCache
+        run: yarn nx run-many -t lint,typecheck,test,bundle -p mobile --nxBail --skipNxCache
 
   deploy:
     needs: [plan, checks]

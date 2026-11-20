@@ -3,12 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Text } from "react-native";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../../shared/ui/FeatureScreen";
 import { ScreenState } from "../../../shared/ui/ScreenState";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
 import { getSimilar } from "../api/recommendations";
 export default function SimilarScreen() {
+  const s = useFeatureStyles();
   const p = useLocalSearchParams<{
     tmdbId: string;
     mediaType: "movie" | "tv";

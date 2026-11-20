@@ -60,7 +60,11 @@ export function HomeSection({
             accessibilityLabel={`Показати всі: ${title}`}
           >
             <Text style={styles.seeAllText}>Усі</Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.accent} />
+            <Ionicons
+              name="chevron-forward"
+              size={15}
+              color={colors.textMuted}
+            />
           </MotionPressable>
         ) : null}
       </View>
@@ -103,9 +107,11 @@ const makeStyles = (colors: Palette) =>
     },
     kicker: {
       textTransform: "uppercase",
-      letterSpacing: 2,
-      color: colors.accent,
-      fontSize: 11.5,
+      letterSpacing: 1.6,
+      // Section labels are wayfinding, not actions: the accent is reserved for
+      // things you can press.
+      color: colors.eyebrow,
+      fontSize: 10.5,
       fontWeight: "800",
     },
     title: {
@@ -123,9 +129,9 @@ const makeStyles = (colors: Palette) =>
       justifyContent: "flex-end",
     },
     seeAllText: {
-      color: colors.accent,
-      fontSize: 14,
-      fontWeight: "800",
+      color: colors.textMuted,
+      fontSize: 13.5,
+      fontWeight: "700",
     },
     reason: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   });

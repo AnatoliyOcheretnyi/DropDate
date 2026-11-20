@@ -354,7 +354,15 @@ func (s *Server) requireUserID(r *http.Request) (string, error) {
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 		return "", auth.ErrInvalidToken
 	}
-	return s.auth.ParseAccessToken(strings.TrimSpace(parts[1]))
+	userID, err := s.auth.ParseAccessToken(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return "", err
+	}
+	// A signed JWT must stop authorizing requests after account deletion.
+	if _, err := s.auth.GetByID(r.Context(), userID); err != nil {
+		return "", err
+	}
+	return userID, nil
 }
 
 func mapSavedItem(item saved.Title) savedItem {

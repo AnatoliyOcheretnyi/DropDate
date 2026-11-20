@@ -20,6 +20,9 @@ echo "Installing mobile dependencies..."
 cd "$MOBILE_DIR"
 yarn install --frozen-lockfile
 
+# Apply app config/plugins even when generated native folders already exist.
+npx expo prebuild --platform "$PLATFORM" --no-install
+
 if [ "$PLATFORM" = "ios" ]; then
   if ! command -v pod >/dev/null 2>&1; then
     echo "CocoaPods is required for an iOS native build."
@@ -33,6 +36,28 @@ if [ "$PLATFORM" = "ios" ]; then
 fi
 
 cd "$MOBILE_DIR"
+
+# With a phone plugged in and no target given, `expo run:ios` builds for the
+# device, and a device build needs a signing team — so the command stops on an
+# interactive "Development team for signing the app" prompt. Default to a
+# simulator instead, which needs no signing at all. Pass a target explicitly
+# (`yarn mobile:ios -d "Anatolii's iPhone"`) to build for hardware.
+if [ "$PLATFORM" = "ios" ] && [ "$#" -eq 0 ]; then
+  SIMULATOR_ID="$(xcrun simctl list devices available --json | node -e '
+    let raw = "";
+    process.stdin.on("data", (d) => (raw += d)).on("end", () => {
+      const all = Object.values(JSON.parse(raw).devices).flat();
+      const phones = all.filter((d) => d.name.startsWith("iPhone"));
+      // A simulator that is already open beats booting another one.
+      const pick = phones.find((d) => d.state === "Booted") ?? phones.pop();
+      if (pick) process.stdout.write(pick.udid);
+    });
+  ')"
+  if [ -n "$SIMULATOR_ID" ]; then
+    echo "Targeting iOS simulator $SIMULATOR_ID (pass -d to build for a device)."
+    set -- -d "$SIMULATOR_ID"
+  fi
+fi
 
 # We want one command that builds the native app AND leaves an active Metro
 # server in this terminal. Metro must run in the *foreground* — backgrounding

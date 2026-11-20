@@ -1,102 +1,104 @@
-import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-
 import { useTheme } from "../../../../shared/theme/ThemeProvider";
-import type { Palette } from "../../../../shared/theme/palette";
 import { MotionPressable } from "../../../../shared/ui/MotionPressable";
-
-type Action = {
+const actions: {
   route: Href;
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  gradient: readonly [string, string];
-};
-
-const ACTIONS: Action[] = [
+  detail: string;
+}[] = [
   {
     route: "/mood",
-    icon: "sparkles",
-    title: "Настрій",
-    gradient: ["#7c5cff", "#4a2fd6"],
+    icon: "sparkles-outline",
+    title: "За настроєм",
+    detail: "Кіно саме на цей вечір",
+  },
+  {
+    route: "/world",
+    icon: "earth-outline",
+    title: "Кіно без кордонів",
+    detail: "Подорожуй історіями",
   },
   {
     route: "/match",
-    icon: "options",
+    icon: "options-outline",
     title: "Кінометч",
-    gradient: ["#ff7eb3", "#e2557f"],
-  },
-  {
-    route: "/games",
-    icon: "game-controller",
-    title: "Кіногра",
-    gradient: ["#54ffb6", "#1fb98b"],
+    detail: "Знайди своє попадання",
   },
   {
     route: "/bridge",
-    icon: "earth",
+    icon: "git-compare-outline",
     title: "Кіноміст",
-    gradient: ["#ffd76a", "#e9a13b"],
+    detail: "Між улюбленими фільмами",
+  },
+  {
+    route: "/calendar",
+    icon: "calendar-outline",
+    title: "Скоро на екранах",
+    detail: "Усі очікувані прем’єри",
+  },
+  {
+    route: "/browse",
+    icon: "grid-outline",
+    title: "Увесь каталог",
+    detail: "Від класики до відкриттів",
   },
 ];
-
 export function HomeQuickActions() {
-  const router = useRouter();
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-
+  const router = useRouter();
   return (
-    <View style={styles.grid}>
-      {ACTIONS.map((action) => (
-        <MotionPressable
-          key={action.title}
-          style={styles.cell}
-          onPress={() => router.push(action.route)}
-          accessibilityLabel={action.title}
-        >
-          <LinearGradient
-            colors={action.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.iconWrap}
+    <View style={s.section}>
+      <Text style={[s.eyebrow, { color: colors.textMuted }]}>
+        ЯКИМ БУДЕ ТВІЙ ВЕЧІР?
+      </Text>
+      <View style={s.grid}>
+        {actions.map((a) => (
+          <MotionPressable
+            key={a.title}
+            onPress={() => router.push(a.route)}
+            style={[
+              s.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
-            <Ionicons name={action.icon} size={22} color="#04140f" />
-          </LinearGradient>
-          <Text style={styles.label}>{action.title}</Text>
-        </MotionPressable>
-      ))}
+            <View style={s.top}>
+              <Ionicons name={a.icon} size={24} color={colors.accent} />
+              <Ionicons
+                name="arrow-forward"
+                size={16}
+                color={colors.textMuted}
+              />
+            </View>
+            <Text style={[s.title, { color: colors.text }]}>{a.title}</Text>
+            <Text style={[s.detail, { color: colors.textMuted }]}>
+              {a.detail}
+            </Text>
+          </MotionPressable>
+        ))}
+      </View>
     </View>
   );
 }
-
-const makeStyles = (colors: Palette) =>
-  StyleSheet.create({
-    grid: {
-      flexDirection: "row",
-      gap: 10,
-    },
-    cell: {
-      flex: 1,
-      alignItems: "center",
-      gap: 8,
-      paddingVertical: 14,
-      borderRadius: 20,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    iconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    label: {
-      color: colors.text,
-      fontSize: 12.5,
-      fontWeight: "700",
-    },
-  });
+const s = StyleSheet.create({
+  section: { gap: 16 },
+  eyebrow: { fontSize: 10, fontWeight: "700", letterSpacing: 2 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  card: {
+    flexBasis: "45%",
+    flexGrow: 1,
+    padding: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
+    gap: 6,
+  },
+  top: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  title: { fontSize: 15, fontWeight: "700", letterSpacing: -0.3 },
+  detail: { fontSize: 12, lineHeight: 18 },
+});

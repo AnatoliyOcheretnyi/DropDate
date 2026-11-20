@@ -1,9 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { useMemo } from "react";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 import { copy } from "../../../../shared/strings";
-import type { ListType } from "../../../../shared/types/lists";
+import { MotionPressable } from "../../../../shared/ui/MotionPressable";
+import type { SavedTab } from "../../hooks/useSavedScreen";
 
 type Stat = {
   value: string | number;
@@ -12,188 +15,287 @@ type Stat = {
 };
 
 type Props = {
-  activeList: ListType;
-  onChangeList: (list: ListType) => void;
-  stats: {
-    left: Stat;
-    middle: Stat;
-    right: Stat;
-  };
-  sort: "default" | "rating" | "alpha" | "release";
-  onChangeSort: (value: "default" | "rating" | "alpha" | "release") => void;
+  activeList: SavedTab;
+  onChangeList: (list: SavedTab) => void;
+  counts: Record<SavedTab, number>;
+  stats: { left: Stat; middle: Stat; right: Stat };
+  query: string;
+  onChangeQuery: (value: string) => void;
+  /** Chips and sorting live in the sheet; the header only opens it. */
+  onOpenFilters: () => void;
+  activeFilterCount: number;
+  sortLabel: string;
 };
+
+const LISTS: { key: SavedTab; label: string }[] = [
+  { key: "all", label: "Усі" },
+  { key: "follow", label: "Стежу" },
+  { key: "watchlist", label: "Хочу" },
+  { key: "favorite", label: "Улюблене" },
+  { key: "liked", label: "Сподобалось" },
+  { key: "watched", label: "Переглянуто" },
+  { key: "disliked", label: "Не зайшло" },
+];
 
 export function SavedHeader({
   activeList,
   onChangeList,
+  counts,
   stats,
-  sort,
-  onChangeSort,
+  query,
+  onChangeQuery,
+  onOpenFilters,
+  activeFilterCount,
+  sortLabel,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
-    <View style={styles.headerWrap}>
+    <View style={styles.wrap}>
       <Text style={styles.header}>{copy.header.savedList}</Text>
-      <View style={styles.rowWrap}>
-        <FlashList
-          horizontal
-          data={
-            [
-              "follow",
-              "watchlist",
-              "favorite",
-              "liked",
-              "watched",
-              "disliked",
-            ] as ListType[]
-          }
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => {
-            const isActive = item === activeList;
-            return (
-              <Pressable
-                style={[styles.tab, isActive ? styles.tabActive : null]}
-                onPress={() => onChangeList(item)}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    isActive ? styles.tabTextActive : null,
-                  ]}
-                >
-                  {copy.lists[item]}
-                </Text>
-              </Pressable>
-            );
-          }}
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator={false}
-          removeClippedSubviews={false}
-          contentContainerStyle={styles.tabs}
-          ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-        />
-      </View>
-      <View style={styles.sortRow}>
-        {(["default", "rating", "alpha", "release"] as const).map((value) => (
-          <Pressable
-            key={value}
-            style={[styles.sortChip, sort === value && styles.sortActive]}
-            onPress={() => onChangeSort(value)}
-          >
-            <Text style={styles.sortText}>
-              {value === "default"
-                ? "За списком"
-                : value === "rating"
-                  ? "Оцінка"
-                  : value === "alpha"
-                    ? "А–Я"
-                    : "Дата"}
-            </Text>
-          </Pressable>
+
+      <View style={styles.stats}>
+        {[stats.left, stats.middle, stats.right].map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
         ))}
       </View>
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, styles.statLeft]}>
-          <Text style={styles.statValue}>{stats.left.value}</Text>
-          <Text style={styles.statLabel}>{stats.left.label}</Text>
-        </View>
-        <View
-          style={[
-            styles.statCard,
-            styles.statMiddle,
-            stats.middle.tone === "warm" ? styles.statWarm : null,
-          ]}
+
+      <Row styles={styles}>
+        {LISTS.map((item) => (
+          <Chip
+            key={item.key}
+            label={item.label}
+            count={counts[item.key] ?? 0}
+            active={activeList === item.key}
+            styles={styles}
+            onPress={() => onChangeList(item.key)}
+          />
+        ))}
+      </Row>
+
+      <View style={styles.search}>
+        <Ionicons name="search" size={17} color={colors.textMuted} />
+        <TextInput
+          style={styles.input}
+          value={query}
+          onChangeText={onChangeQuery}
+          placeholder="Пошук у списку"
+          placeholderTextColor={colors.textMuted}
+          returnKeyType="search"
+        />
+        {query.length > 0 ? (
+          <MotionPressable
+            style={styles.clear}
+            onPress={() => onChangeQuery("")}
+            accessibilityLabel="Очистити пошук"
+          >
+            <Ionicons name="close-circle" size={17} color={colors.textMuted} />
+          </MotionPressable>
+        ) : null}
+      </View>
+
+      <View style={styles.actions}>
+        <MotionPressable
+          style={[styles.filters, activeFilterCount > 0 && styles.filtersOn]}
+          onPress={onOpenFilters}
+          accessibilityLabel="Відкрити фільтри"
         >
-          <Text style={styles.statValue}>{stats.middle.value}</Text>
-          <Text style={styles.statLabel}>{stats.middle.label}</Text>
-        </View>
-        <View style={[styles.statCard, styles.statRight]}>
-          <Text style={styles.statValue}>{stats.right.value}</Text>
-          <Text style={styles.statLabel}>{stats.right.label}</Text>
-        </View>
+          <Ionicons
+            name="options"
+            size={16}
+            color={activeFilterCount > 0 ? colors.accent : colors.textMuted}
+          />
+          <Text
+            style={[
+              styles.filtersText,
+              activeFilterCount > 0 && styles.filtersTextOn,
+            ]}
+          >
+            Фільтри
+          </Text>
+          {activeFilterCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
+        </MotionPressable>
+
+        <MotionPressable
+          style={styles.sortButton}
+          onPress={onOpenFilters}
+          accessibilityLabel={`Сортування: ${sortLabel}`}
+        >
+          <Ionicons name="swap-vertical" size={15} color={colors.textMuted} />
+          <Text style={styles.sortText}>{sortLabel}</Text>
+        </MotionPressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  headerWrap: {
-    gap: 18,
-  },
-  header: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  rowWrap: {
-    marginHorizontal: -20,
-  },
-  tabs: {
-    paddingBottom: 4,
-    paddingHorizontal: 20,
-  },
-  tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tabActive: {
-    borderColor: colors.accent,
-  },
-  tabText: {
-    color: colors.textMuted,
-    fontSize: 12,
-    letterSpacing: 1,
-  },
-  tabTextActive: {
-    color: colors.text,
-  },
-  rowSeparator: {
-    width: 8,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  sortRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
-  sortChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-  },
-  sortActive: { borderWidth: 1, borderColor: colors.accent },
-  sortText: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
-  statCard: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    gap: 4,
-  },
-  statLeft: {
-    flex: 1.1,
-  },
-  statMiddle: {
-    flex: 1,
-  },
-  statRight: {
-    flex: 0.9,
-  },
-  statWarm: {
-    borderColor: "rgba(255,200,120,0.55)",
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-});
+function Row({
+  children,
+  styles,
+}: {
+  children: React.ReactNode;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+function Chip({
+  label,
+  count,
+  active,
+  styles,
+  onPress,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  styles: ReturnType<typeof makeStyles>;
+  onPress: () => void;
+}) {
+  return (
+    <MotionPressable
+      style={[styles.chip, active && styles.chipActive]}
+      onPress={onPress}
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={
+        count === undefined ? label : `${label}, ${count} тайтлів`
+      }
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+        {label}
+      </Text>
+      {count === undefined ? null : (
+        <Text style={[styles.chipCount, active && styles.chipTextActive]}>
+          {count}
+        </Text>
+      )}
+    </MotionPressable>
+  );
+}
+
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    wrap: { gap: 14 },
+    header: {
+      color: colors.text,
+      fontSize: 30,
+      fontWeight: "900",
+      letterSpacing: -0.6,
+    },
+    stats: { flexDirection: "row", gap: 10 },
+    stat: {
+      flex: 1,
+      gap: 2,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    statValue: { color: colors.text, fontSize: 20, fontWeight: "800" },
+    statLabel: {
+      color: colors.eyebrow,
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+    },
+    row: { gap: 8, paddingRight: 20 },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 13,
+      paddingVertical: 9,
+      borderRadius: 999,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chipActive: {
+      backgroundColor: colors.accentSoft,
+      borderColor: colors.accent,
+    },
+    chipText: { color: colors.textMuted, fontSize: 12.5, fontWeight: "700" },
+    chipTextActive: { color: colors.accent },
+    chipCount: { color: colors.eyebrow, fontSize: 11, fontWeight: "700" },
+    search: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      height: 48,
+      paddingHorizontal: 15,
+      borderRadius: 15,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    input: { flex: 1, color: colors.text, fontSize: 14.5 },
+    clear: {
+      width: 26,
+      height: 26,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actions: { flexDirection: "row", gap: 10 },
+    filters: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      paddingHorizontal: 15,
+      paddingVertical: 11,
+      borderRadius: 999,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    filtersOn: {
+      backgroundColor: colors.accentSoft,
+      borderColor: colors.accent,
+    },
+    filtersText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+    filtersTextOn: { color: colors.accent },
+    badge: {
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 5,
+      borderRadius: 9,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.accent,
+    },
+    badgeText: {
+      color: colors.isDark ? "#05231a" : "#ffffff",
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    sortButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 15,
+      paddingVertical: 11,
+      borderRadius: 999,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sortText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  });

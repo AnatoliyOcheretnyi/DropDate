@@ -11,7 +11,7 @@ import Animated, {
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -44,16 +44,23 @@ export function MotionPressable({
     transform: [{ scale: scale.value }],
   }));
   const press = () => {
-    if (haptic === "selection") void Haptics.selectionAsync();
+    if (haptic === "selection")
+      void Haptics.selectionAsync().catch(() => undefined);
     if (haptic === "success")
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      ).catch(() => undefined);
     if (haptic === "error")
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Error,
+      ).catch(() => undefined);
     onPress?.();
   };
   const longPress = onLongPress
     ? () => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(
+          () => undefined,
+        );
         onLongPress();
       }
     : undefined;
@@ -61,19 +68,20 @@ export function MotionPressable({
     <AnimatedPressable
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={accessibilityState}
+      accessibilityState={{
+        ...accessibilityState,
+        disabled: Boolean(disabled),
+      }}
       disabled={disabled}
       onPressIn={() => {
-        scale.value = withSpring(0.97, {
-          damping: 18,
-          stiffness: 260,
+        scale.value = withTiming(0.985, {
+          duration: 110,
           reduceMotion: ReduceMotion.System,
         });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, {
-          damping: 16,
-          stiffness: 220,
+        scale.value = withTiming(1, {
+          duration: 170,
           reduceMotion: ReduceMotion.System,
         });
       }}

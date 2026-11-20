@@ -8,6 +8,8 @@ export default function TabsLayout() {
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        animation: "fade",
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
@@ -29,20 +31,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="discover"
-        options={{
-          title: "Відкрити",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="saved"
         options={{
           title: "Мій список",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bookmark" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="games"
+        options={{
+          title: "Ігри",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="game-controller" color={color} size={size} />
           ),
         }}
       />

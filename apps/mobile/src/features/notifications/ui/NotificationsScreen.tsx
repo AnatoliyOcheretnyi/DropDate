@@ -117,7 +117,6 @@ export function NotificationsScreen() {
     <FeatureScreen
       title="Сповіщення"
       subtitle={newCount ? `${newCount} нових` : "Усі прочитані"}
-      animateLayout={false}
     >
       {query.data?.items.length ? (
         query.data.items.map((item) => (

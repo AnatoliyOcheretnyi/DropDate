@@ -16,6 +16,8 @@ export type Palette = {
   shadow: string;
   // Accent
   accent: string;
+  /** Ratings, countdowns and release dates — never actions. */
+  gold: string;
   accentDark: string;
   accentSoft: string;
   accentGradient: readonly [string, string];
@@ -23,43 +25,50 @@ export type Palette = {
   error: string;
 };
 
+// "Опівнічна": a neutral near-black instead of the old blue-violet #0a0c18,
+// which tinted every poster, plus a real third surface level so a card on a
+// card is distinguishable.
 export const darkPalette: Palette = {
   isDark: true,
-  background: "#0a0c18",
-  surface: "rgba(255, 255, 255, 0.05)",
-  elevated: "rgba(255, 255, 255, 0.08)",
-  overlay: "rgba(6, 8, 16, 0.86)",
-  text: "#f5f5f5",
-  textMuted: "rgba(245, 245, 245, 0.7)",
-  eyebrow: "rgba(245, 245, 245, 0.6)",
-  lead: "rgba(245, 245, 245, 0.8)",
-  card: "rgba(255, 255, 255, 0.05)",
-  border: "rgba(255, 255, 255, 0.12)",
+  background: "#101412",
+  surface: "#191e1b",
+  elevated: "#252c27",
+  overlay: "rgba(6, 9, 13, 0.88)",
+  text: "#f2f6f8",
+  textMuted: "rgba(242, 246, 248, 0.68)",
+  eyebrow: "rgba(242, 246, 248, 0.5)",
+  lead: "rgba(242, 246, 248, 0.8)",
+  card: "#191e1b",
+  border: "rgba(255, 255, 255, 0.1)",
   shadow: "#000000",
-  accent: "#54ffb6",
-  accentDark: "#29c986",
-  accentSoft: "rgba(84, 255, 182, 0.14)",
-  accentGradient: ["#54ffb6", "#22b98a"],
+  accent: "#a4ebc1",
+  gold: "#ffc46b",
+  accentDark: "#25c48c",
+  accentSoft: "rgba(90, 240, 180, 0.14)",
+  accentGradient: ["#a4ebc1", "#22b98a"],
   error: "#ff7a85",
 };
 
+// "Денна": the same structure with an opaque card level, and an accent dark
+// enough to carry white button text.
 export const lightPalette: Palette = {
   isDark: false,
-  background: "#f4f6fb",
+  background: "#f6f5f0",
   surface: "#ffffff",
-  elevated: "#ffffff",
-  overlay: "rgba(255, 255, 255, 0.86)",
-  text: "#0d1220",
-  textMuted: "rgba(13, 18, 32, 0.62)",
-  eyebrow: "rgba(13, 18, 32, 0.55)",
-  lead: "rgba(13, 18, 32, 0.78)",
-  card: "rgba(13, 18, 32, 0.045)",
-  border: "rgba(13, 18, 32, 0.1)",
-  shadow: "rgba(13, 18, 32, 0.18)",
-  accent: "#00b673",
-  accentDark: "#009c62",
-  accentSoft: "rgba(0, 182, 115, 0.12)",
-  accentGradient: ["#00d488", "#00996a"],
+  elevated: "#eeeee7",
+  overlay: "rgba(255, 255, 255, 0.88)",
+  text: "#101412",
+  textMuted: "rgba(11, 15, 20, 0.64)",
+  eyebrow: "rgba(11, 15, 20, 0.5)",
+  lead: "rgba(11, 15, 20, 0.78)",
+  card: "#ffffff",
+  border: "rgba(11, 15, 20, 0.1)",
+  shadow: "rgba(11, 15, 20, 0.16)",
+  accent: "#087b58",
+  gold: "#b27a16",
+  accentDark: "#00875a",
+  accentSoft: "rgba(0, 160, 107, 0.12)",
+  accentGradient: ["#00c07f", "#00875a"],
   error: "#e5484d",
 };
 

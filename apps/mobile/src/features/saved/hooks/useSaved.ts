@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Details,
@@ -10,6 +10,7 @@ import { queryKeys } from "../../../shared/api/queryKeys";
 import { storageGetJSON, storageSetJSON } from "../../../shared/utils/storage";
 import { useAuthStore } from "../../auth/store/authStore";
 import { publishAchievementUnlocks } from "../../achievements/model/unlockBus";
+import { recordStreakActivity } from "../../streak/model/streakStore";
 import {
   deleteSaved,
   fetchSaved,
@@ -28,11 +29,9 @@ export function useSaved() {
   const guestSaved = useSavedStore((s) => s.saved);
   const guestIsLoading = useSavedStore((s) => s.isLoading);
   const client = useQueryClient();
-  useEffect(() => {
-    if (!authed) void useSavedStore.getState().refreshFromAuth();
-  }, [authed]);
+  const accountKey = [...queryKeys.saved, user?.id ?? "guest"];
   const query = useQuery({
-    queryKey: queryKeys.saved,
+    queryKey: accountKey,
     queryFn: ({ signal }) => fetchSaved(signal),
     enabled: authed,
     staleTime: 30_000,
@@ -59,12 +58,16 @@ export function useSaved() {
     return map;
   }, [saved]);
 
-  // Mutations need the freshest list without re-creating their identity.
-  const savedRef = useRef(saved);
-  savedRef.current = saved;
-
-  const setServer = (next: SavedItem[]) =>
-    client.setQueryData(queryKeys.saved, next);
+  // Read the cache at mutation time, including writes from other consumers.
+  const readSaved = () =>
+    authed
+      ? (client.getQueryData<SavedItem[]>(accountKey) ?? saved)
+      : useSavedStore.getState().saved;
+  const setServer = (next: SavedItem[]) => {
+    // A request completing after logout must not recreate the old account cache.
+    if (useAuthStore.getState().user?.id === user?.id && user)
+      client.setQueryData(accountKey, next);
+  };
   const addRelease = async (
     release: ReleaseInfo,
     meta: {
@@ -74,11 +77,15 @@ export function useSaved() {
     },
     types: ListType[] = ["follow"],
   ) => {
+    // Saving something is the day's activity, whether or not it reaches the
+    // server — the streak lives on the device and must not depend on the
+    // request succeeding or on being signed in.
+    recordStreakActivity();
     if (!authed)
       return useSavedStore.getState().addRelease(release, meta, types);
-    const before = savedRef.current;
+    const before = readSaved();
     const id = idOf(meta.tmdbId, meta.mediaType);
-    const current = savedRef.current.find((x) => x.id === id);
+    const current = readSaved().find((x) => x.id === id);
     const nextTypes = Array.from(
       new Set([...(current?.listTypes ?? []), ...listsOf(types)]),
     );
@@ -95,8 +102,8 @@ export function useSaved() {
         };
     setServer(
       current
-        ? savedRef.current.map((x) => (x.id === id ? optimistic : x))
-        : [...savedRef.current, optimistic],
+        ? readSaved().map((x) => (x.id === id ? optimistic : x))
+        : [...readSaved(), optimistic],
     );
     try {
       for (const type of types) {
@@ -120,20 +127,20 @@ export function useSaved() {
     }
   };
   const removeRelease = async (id: string, type?: ListType) => {
-    const existing = savedRef.current.find((x) => x.id === id);
+    const existing = readSaved().find((x) => x.id === id);
     if (!existing) return;
     if (!authed) return useSavedStore.getState().removeRelease(id, type);
-    const before = savedRef.current;
+    const before = readSaved();
     setServer(
       type
-        ? savedRef.current
+        ? readSaved()
             .map((x) =>
               x.id === id
                 ? { ...x, listTypes: x.listTypes.filter((t) => t !== type) }
                 : x,
             )
             .filter((x) => x.listTypes.length)
-        : savedRef.current.filter((x) => x.id !== id),
+        : readSaved().filter((x) => x.id !== id),
     );
     try {
       await deleteSaved(existing.tmdbId, existing.mediaType, type);
@@ -148,10 +155,11 @@ export function useSaved() {
     type: ListType,
     stats: { userRating?: number; watchCount?: number; lastWatchedAt?: string },
   ) => {
+    recordStreakActivity();
     if (!authed) return useSavedStore.getState().updateStats(item, type, stats);
-    const before = savedRef.current;
+    const before = readSaved();
     setServer(
-      savedRef.current.map((x) =>
+      readSaved().map((x) =>
         x.id === idOf(item.id, item.mediaType) ? { ...x, ...stats } : x,
       ),
     );
@@ -168,7 +176,7 @@ export function useSaved() {
     types: ListType[],
     meta?: { release?: ReleaseInfo; details?: Details },
   ) => {
-    const existing = savedRef.current.find(
+    const existing = readSaved().find(
       (x) => x.id === idOf(item.id, item.mediaType),
     );
     const current = existing?.listTypes ?? [];

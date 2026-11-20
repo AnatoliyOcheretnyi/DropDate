@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../../shared/ui/FeatureScreen";
 import { ScreenState } from "../../../shared/ui/ScreenState";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
@@ -35,6 +35,7 @@ const initial: Snap = {
 const key = (x: MatchPick) => `${x.mediaType}:${x.tmdbId}`;
 
 export function MatchScreen() {
+  const s = useFeatureStyles();
   const router = useRouter();
   const [state, setState] = useState<Snap>(
     () => storageGetJSON<Snap>(storageKeys.matchSession) ?? initial,

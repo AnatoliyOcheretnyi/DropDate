@@ -12,6 +12,7 @@ import { getRecommendations } from "../../recommendations/api/recommendations";
 import type { CollectionId } from "../../collection/api/collection";
 
 type HomePayload = {
+  unavailableSections?: string[];
   upcoming: {
     movies: Suggestion[];
     series: Suggestion[];
@@ -101,10 +102,13 @@ export function useHomeScreen() {
               kicker: "На основі улюблених і переглянутих",
               items: personalized,
               collectionId: "personalized" as const,
+              // One line, not two: the backend's reasons are templated from
+              // the same phrase, so a second one repeated the first almost
+              // word for word under the heading.
               reasons: (recommendationsQuery.data?.items ?? [])
                 .map((item) => item.reason.text)
                 .filter((x): x is string => Boolean(x))
-                .slice(0, 2),
+                .slice(0, 1),
             },
           ]
         : []),
@@ -188,6 +192,7 @@ export function useHomeScreen() {
     // Only a hard failure with nothing cached is worth blocking the screen —
     // a stale catalogue from MMKV still beats an error page.
     isError: homeQuery.isError && !homeQuery.data,
+    isPartial: Boolean(homeQuery.data?.unavailableSections?.length),
     error: homeQuery.error,
     isRefreshing,
     refetch,

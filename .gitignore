@@ -21,6 +21,7 @@ apps/mobile/.expo-shared/
 .env
 .env.*
 !apps/backend/.env.example
+!apps/mobile/.env.example
 apps/frontend/.env.local
 apps/backend/.env
 apps/backend/.env.local

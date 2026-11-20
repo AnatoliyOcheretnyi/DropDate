@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../../shared/ui/FeatureScreen";
 import { ScreenState } from "../../../shared/ui/ScreenState";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
 import { queryKeys } from "../../../shared/api/queryKeys";
 import { getFollows } from "../api/people";
 export function FollowedPeopleScreen() {
+  const s = useFeatureStyles();
   const router = useRouter();
   const query = useQuery({
     queryKey: queryKeys.followedPeople,

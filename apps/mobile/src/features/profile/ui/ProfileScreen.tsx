@@ -1,7 +1,8 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { MotionPressable } from "../../../shared/ui/MotionPressable";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "../../../shared/theme/ThemeProvider";
 import type { Palette } from "../../../shared/theme/palette";
@@ -9,20 +10,19 @@ import { copy } from "../../../shared/strings";
 import { ProfileCard } from "./components/ProfileCard";
 import { ProfileActions } from "./components/ProfileActions";
 import { useProfileScreen } from "../hooks/useProfileScreen";
-import { MotionPressable } from "../../../shared/ui/MotionPressable";
 import { ThemeToggle } from "../../../shared/ui/ThemeToggle";
 import { NotificationBell } from "../../../shared/ui/NotificationBell";
 import { useSaved } from "../../saved/hooks/useSaved";
-import { useTasteStore } from "../store/tasteStore";
-import { TasteRanker } from "./components/TasteRanker";
+import { ProfileMenu } from "./components/ProfileMenu";
+import { ProfileTaste } from "./components/ProfileTaste";
 import { UsernameEditor } from "./components/UsernameEditor";
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { saved } = useSaved();
-  const taste = useTasteStore();
   const {
     user,
     isGuest,
@@ -32,10 +32,26 @@ export default function ProfileScreen() {
     handleSignOut,
   } = useProfileScreen();
 
+  // One pass instead of two filters re-run on every render of the screen.
+  const stats = useMemo(() => {
+    let watched = 0;
+    let series = 0;
+    for (const item of saved) {
+      if (item.listTypes.includes("watched")) watched += 1;
+      if (item.mediaType === "tv") series += 1;
+    }
+    return { total: saved.length, watched, series };
+  }, [saved]);
+
   return (
     <View style={styles.wrapper}>
       <NotificationBell />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100 },
+        ]}
+      >
         <Text style={styles.header}>{copy.auth.profile}</Text>
         <ProfileCard
           initials={initials}
@@ -44,162 +60,27 @@ export default function ProfileScreen() {
         />
         {user ? <UsernameEditor /> : null}
         <View style={styles.stats}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{saved.length}</Text>
-            <Text style={styles.statLabel}>У списках</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {saved.filter((x) => x.listTypes.includes("watched")).length}
-            </Text>
-            <Text style={styles.statLabel}>Переглянуто</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {saved.filter((x) => x.mediaType === "tv").length}
-            </Text>
-            <Text style={styles.statLabel}>Серіали</Text>
-          </View>
+          {[
+            { value: stats.total, label: "У списках" },
+            { value: stats.watched, label: "Переглянуто" },
+            { value: stats.series, label: "Серіали" },
+          ].map((stat) => (
+            <View key={stat.label} style={styles.stat}>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>
+          ))}
         </View>
         <ThemeToggle />
-        {user ? (
-          <View style={styles.menu}>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/notifications" as Href)}
-            >
-              <Ionicons
-                name="notifications-outline"
-                color={colors.accent}
-                size={23}
-              />
-              <Text style={styles.menuText}>Сповіщення</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/friends" as Href)}
-            >
-              <Ionicons
-                name="people-circle-outline"
-                color={colors.accent}
-                size={23}
-              />
-              <Text style={styles.menuText}>Друзі</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/achievements" as Href)}
-            >
-              <Ionicons name="trophy-outline" color={colors.accent} size={23} />
-              <Text style={styles.menuText}>Досягнення</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/people" as Href)}
-            >
-              <Ionicons name="people-outline" color={colors.accent} size={23} />
-              <Text style={styles.menuText}>Улюблені люди</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/calendar" as Href)}
-            >
-              <Ionicons
-                name="calendar-outline"
-                color={colors.accent}
-                size={23}
-              />
-              <Text style={styles.menuText}>Календар релізів</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/taste" as Href)}
-            >
-              <Ionicons
-                name="color-palette-outline"
-                color={colors.accent}
-                size={23}
-              />
-              <Text style={styles.menuText}>Налаштувати смаки</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/shared-lists" as Href)}
-            >
-              <Ionicons name="albums-outline" color={colors.accent} size={23} />
-              <Text style={styles.menuText}>Спільні списки</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            <MotionPressable
-              style={styles.menuItem}
-              onPress={() => router.push("/changelog" as Href)}
-            >
-              <Ionicons
-                name="sparkles-outline"
-                color={colors.accent}
-                size={23}
-              />
-              <Text style={styles.menuText}>Що нового</Text>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.textMuted}
-                size={20}
-              />
-            </MotionPressable>
-            {user.isSuperuser ? (
-              <MotionPressable
-                style={styles.menuItem}
-                onPress={() => router.push("/profile-dev" as Href)}
-              >
-                <Ionicons
-                  name="construct-outline"
-                  color={colors.accent}
-                  size={23}
-                />
-                <Text style={styles.menuText}>Dev Zone</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  color={colors.textMuted}
-                  size={20}
-                />
-              </MotionPressable>
-            ) : null}
-          </View>
-        ) : null}
+        <MotionPressable
+          style={[styles.stat, { flex: undefined }]}
+          onPress={() => router.push("/settings")}
+        >
+          <Text style={{ color: colors.text, fontSize: 16, fontWeight: "600" }}>
+            Налаштування та підтримка →
+          </Text>
+        </MotionPressable>
+        {user ? <ProfileMenu isSuperuser={Boolean(user.isSuperuser)} /> : null}
         <ProfileActions
           isGuest={isGuest}
           hasUser={Boolean(user)}
@@ -207,24 +88,7 @@ export default function ProfileScreen() {
           onResetGuest={handleResetGuest}
           onSignOut={handleSignOut}
         />
-        {user ? (
-          <>
-            <TasteRanker
-              title="Жанри"
-              kind="genre"
-              items={taste.genres}
-              onMove={taste.move}
-              onReset={taste.reset}
-            />
-            <TasteRanker
-              title="Країни"
-              kind="country"
-              items={taste.countries}
-              onMove={taste.move}
-              onReset={taste.reset}
-            />
-          </>
-        ) : null}
+        {user ? <ProfileTaste /> : null}
       </ScrollView>
     </View>
   );
@@ -247,19 +111,6 @@ const makeStyles = (colors: Palette) =>
       fontWeight: "700",
       color: colors.text,
     },
-    menu: { gap: 10 },
-    menuItem: {
-      minHeight: 58,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      paddingHorizontal: 16,
-      borderRadius: 18,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    menuText: { flex: 1, color: colors.text, fontWeight: "700", fontSize: 16 },
     stats: { flexDirection: "row", gap: 10 },
     stat: {
       flex: 1,

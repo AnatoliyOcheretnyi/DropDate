@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { FeatureScreen } from "../../../shared/ui/FeatureScreen";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
 import { ScreenState } from "../../../shared/ui/ScreenState";
@@ -20,7 +21,12 @@ import {
 } from "../api/games";
 import { GameDashboard } from "./GameDashboard";
 import { ChallengeInbox } from "./ChallengeInbox";
+import { DailyBanner } from "./components/DailyBanner";
+import { GameHubCard } from "./components/GameHubCard";
+import { GameAction, GameFeedback, GameShell } from "./components/GameShell";
+import { GameResult } from "./components/GameResult";
 import { useAuthStore } from "../../auth/store/authStore";
+import { useSaved } from "../../saved/hooks/useSaved";
 
 type Format = "rounds" | "survival";
 type GameConfig = {
@@ -29,6 +35,21 @@ type GameConfig = {
   title: string;
   description: string;
 };
+const TINTS: Record<string, string> = {
+  release_date: "rgba(84,255,182,0.42)",
+  rating: "rgba(115,170,240,0.42)",
+  poster: "rgba(240,115,162,0.42)",
+  timeline: "rgba(195,240,115,0.42)",
+  year: "rgba(255,212,121,0.42)",
+  movie_actor: "rgba(204,154,255,0.42)",
+  actor_movie: "rgba(204,154,255,0.42)",
+  movie_director: "rgba(160,115,240,0.42)",
+  director_movie: "rgba(160,115,240,0.42)",
+  wheel: "rgba(160,115,240,0.42)",
+  friend_taste: "rgba(115,240,231,0.42)",
+  akinator: "rgba(255,190,92,0.42)",
+};
+
 const games: GameConfig[] = [
   {
     mode: "release_date",
@@ -86,6 +107,57 @@ const games: GameConfig[] = [
   },
 ];
 const fixedModes = new Set<GameMode>(["timeline", "year"]);
+
+type HubItem = {
+  key: string;
+  emoji: string;
+  title: string;
+  description: string;
+  tint: string;
+  onPress: () => void;
+};
+
+/**
+ * Grouped by what the game asks of the player rather than by when it was
+ * built, so the hall has an order you can learn instead of twelve equal rows.
+ */
+const HUB_GROUPS: {
+  id: string;
+  title: string;
+  hint: string;
+  keys: string[];
+}[] = [
+  {
+    id: "duels",
+    title: "Дуелі",
+    hint: "Два тайтли — обери правильний",
+    keys: ["release_date", "rating"],
+  },
+  {
+    id: "recognition",
+    title: "Впізнавання",
+    hint: "Постери, актори, режисери",
+    keys: [
+      "poster",
+      "movie_actor",
+      "actor_movie",
+      "movie_director",
+      "director_movie",
+    ],
+  },
+  {
+    id: "precision",
+    title: "Точність",
+    hint: "Роки й хронологія",
+    keys: ["year", "timeline"],
+  },
+  {
+    id: "extras",
+    title: "Розваги",
+    hint: "Без рахунку — просто на вечір",
+    keys: ["wheel", "friend_taste", "akinator"],
+  },
+];
 export function GamesScreen() {
   const params = useLocalSearchParams<{
     challengeId?: string;
@@ -101,130 +173,160 @@ export function GamesScreen() {
     params.challengeId ? "rounds" : null,
   );
   const [daily, setDaily] = useState(false);
+  // Posters come from the player's own library, so the hub shows the pool the
+  // games actually draw on. Empty library just leaves the tint.
+  const { saved } = useSaved();
+  const posters = useMemo(
+    () =>
+      saved
+        .map((item) => item.posterUrl)
+        .filter((url): url is string => Boolean(url)),
+    [saved],
+  );
+
+  const dailyRotation: GameMode[] = ["release_date", "poster", "rating"];
+  const dailyMode =
+    dailyRotation[Math.floor(Date.now() / 86400000) % dailyRotation.length];
+  const dailyLabel =
+    games.find((game) => game.mode === dailyMode)?.title ?? "Кіногра";
+  const dailyDate = new Intl.DateTimeFormat("uk-UA", {
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
+
+  const extras = [
+    {
+      key: "wheel",
+      href: "/games/wheel",
+      emoji: "🎡",
+      title: "Колесо вечора",
+      description: "Обери випадковий тайтл",
+    },
+    {
+      key: "friend_taste",
+      href: "/games/friend-taste",
+      emoji: "👥",
+      title: "Смак друга",
+      description: "Вгадай оцінки друга",
+    },
+    {
+      key: "akinator",
+      href: "/games/akinator",
+      emoji: "🔮",
+      title: "Кіноакінатор",
+      description: "Задумай фільм — ми вгадаємо",
+    },
+  ];
+  const hubItems: HubItem[] = [
+    ...games.map((game) => ({
+      key: game.mode as string,
+      emoji: game.emoji,
+      title: game.title,
+      description: game.description,
+      tint: TINTS[game.mode] ?? "rgba(84,255,182,0.42)",
+      onPress: () => {
+        setDaily(false);
+        setMode(game.mode);
+        if (fixedModes.has(game.mode)) setFormat("rounds");
+      },
+    })),
+    ...extras.map((item) => ({
+      key: item.key,
+      emoji: item.emoji,
+      title: item.title,
+      description: item.description,
+      tint: TINTS[item.key] ?? "rgba(84,255,182,0.42)",
+      onPress: () => router.push(item.href as Href),
+    })),
+  ];
+  const byKey = new Map(hubItems.map((item) => [item.key, item]));
+
   if (!mode)
     return (
       <FeatureScreen
+        asTab
         title="Ігрова зала"
-        subtitle="Тренуй кіноінтуїцію короткими сесіями — без окремої дубльованої endless-гри."
+        subtitle="Короткі сесії на кіноінтуїцію."
       >
         <GameDashboard />
         <ChallengeInbox />
-        <MotionPressable
-          style={styles.daily}
+        <DailyBanner
+          label={dailyLabel}
+          dateLabel={dailyDate}
+          image={posters[0]}
           onPress={() => {
-            const rotation: GameMode[] = ["release_date", "poster", "rating"];
-            const day = Math.floor(Date.now() / 86400000);
             setDaily(true);
-            setMode(rotation[day % rotation.length]);
+            setMode(dailyMode);
             setFormat("rounds");
           }}
-        >
-          <Text style={styles.emoji}>🔥</Text>
-          <View style={styles.grow}>
-            <Text style={styles.hubTitle}>Щоденний виклик</Text>
-            <Text style={styles.muted}>
-              Однакове завдання для всіх · нове щодня
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" color={colors.accent} size={21} />
-        </MotionPressable>
-        <View style={styles.hub}>
-          {games.map((game, index) => (
-            <MotionPressable
-              key={game.mode}
-              style={[
-                styles.hubCard,
-                { transform: [{ rotate: index % 2 ? ".5deg" : "-.5deg" }] },
-              ]}
-              onPress={() => {
-                setDaily(false);
-                setMode(game.mode);
-                if (fixedModes.has(game.mode)) setFormat("rounds");
-              }}
-            >
-              <Text style={styles.emoji}>{game.emoji}</Text>
-              <View style={styles.grow}>
-                <Text style={styles.hubTitle}>{game.title}</Text>
-                <Text style={styles.muted}>{game.description}</Text>
+        />
+        {/* Twelve identical rows read as a list of files. Grouped by what the
+            game actually asks of you, the hall reads as a hall. */}
+        {HUB_GROUPS.map((group) => {
+          const items = group.keys
+            .map((key) => byKey.get(key))
+            .filter((item): item is HubItem => Boolean(item));
+          if (!items.length) return null;
+          return (
+            <View key={group.id} style={styles.group}>
+              <View style={styles.groupHead}>
+                <Text style={styles.groupTitle}>{group.title}</Text>
+                <Text style={styles.groupHint}>{group.hint}</Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.accent}
-                size={21}
-              />
-            </MotionPressable>
-          ))}
-          {[
-            {
-              href: "/games/wheel",
-              emoji: "🎡",
-              title: "Колесо вечора",
-              text: "Обери випадковий тайтл",
-            },
-            {
-              href: "/games/friend-taste",
-              emoji: "👥",
-              title: "Смак друга",
-              text: "Вгадай оцінки друга",
-            },
-            {
-              href: "/games/akinator",
-              emoji: "🔮",
-              title: "Кіноакінатор",
-              text: "Задумай фільм — ми вгадаємо",
-            },
-          ].map((item) => (
-            <MotionPressable
-              key={item.href}
-              style={styles.hubCard}
-              onPress={() => router.push(item.href as Href)}
-            >
-              <Text style={styles.emoji}>{item.emoji}</Text>
-              <View style={styles.grow}>
-                <Text style={styles.hubTitle}>{item.title}</Text>
-                <Text style={styles.muted}>{item.text}</Text>
+              <View style={styles.hub}>
+                {items.map((item, index) => (
+                  <GameHubCard
+                    key={item.key}
+                    emoji={item.emoji}
+                    title={item.title}
+                    description={item.description}
+                    tint={item.tint}
+                    posters={posters.slice(index * 2, index * 2 + 2)}
+                    onPress={item.onPress}
+                  />
+                ))}
               </View>
-              <Ionicons
-                name="chevron-forward"
-                color={colors.accent}
-                size={21}
-              />
-            </MotionPressable>
-          ))}
-        </View>
+            </View>
+          );
+        })}
       </FeatureScreen>
     );
   if (!format)
     return (
       <FeatureScreen
         title={games.find((x) => x.mode === mode)?.title ?? "Кіногра"}
-        subtitle="Обери темп сесії. У survival є три життя."
+        subtitle="Обери темп сесії."
+        // A step inside the games tab, not a route: the arrow goes back to the
+        // hall rather than popping the player out of the tab entirely.
+        onBack={() => setMode(null)}
       >
         <MotionPressable
           style={styles.formatCard}
           onPress={() => setFormat("rounds")}
         >
-          <Text style={styles.emoji}>🔟</Text>
+          <View style={styles.formatIcon}>
+            <Ionicons name="timer-outline" size={24} color={colors.accent} />
+          </View>
           <View style={styles.grow}>
             <Text style={styles.hubTitle}>10 раундів</Text>
-            <Text style={styles.muted}>Фіксована швидка сесія без життів</Text>
+            <Text style={styles.muted}>Швидка сесія без життів</Text>
+            <Text style={styles.formatMeta}>≈ 2 хвилини</Text>
           </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
         </MotionPressable>
         <MotionPressable
           style={styles.formatCard}
           onPress={() => setFormat("survival")}
         >
-          <Text style={styles.emoji}>❤️</Text>
+          <View style={styles.formatIcon}>
+            <Ionicons name="heart-outline" size={24} color={colors.error} />
+          </View>
           <View style={styles.grow}>
             <Text style={styles.hubTitle}>До поразки</Text>
             <Text style={styles.muted}>Три життя, грай якомога довше</Text>
+            <Text style={styles.formatMeta}>Поки не скінчаться серця</Text>
           </View>
-        </MotionPressable>
-        <MotionPressable
-          style={styles.backChoice}
-          onPress={() => setMode(null)}
-        >
-          <Text style={styles.muted}>← Інша гра</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
         </MotionPressable>
       </FeatureScreen>
     );
@@ -299,6 +401,12 @@ function Session({
   const choose = (id: string) => {
     if (selected || !q) return;
     setSelected(id);
+    // The answer lands in the hand before it lands on screen.
+    void Haptics.notificationAsync(
+      id === correctId
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Error,
+    );
     if (id === correctId) {
       setScore((v) => v + 1);
       setStreak((v) => {
@@ -352,31 +460,59 @@ function Session({
     );
   if (finished)
     return (
-      <FeatureScreen
-        title="Сесію завершено"
-        subtitle={`Результат ${score} · найкраща серія ${best}`}
-      >
-        <View style={styles.summary}>
-          <Text style={styles.summaryScore}>{score}</Text>
-          <Text style={styles.muted}>
-            {format === "survival"
-              ? "правильних до поразки"
-              : `з ${query.data?.length ?? 10} правильних`}
-          </Text>
-        </View>
-        <MotionPressable style={styles.primary} onPress={restart}>
-          <Text style={styles.primaryText}>Зіграти ще</Text>
-        </MotionPressable>
-        <MotionPressable style={styles.backChoice} onPress={onExit}>
-          <Text style={styles.muted}>До ігрової зали</Text>
-        </MotionPressable>
-      </FeatureScreen>
+      <GameResult
+        eyebrow={daily ? "Щоденний виклик" : (gameTitle(mode) ?? "Кіногра")}
+        score={score}
+        caption={
+          format === "survival"
+            ? "правильних до поразки"
+            : `з ${query.data?.length ?? 10} правильних`
+        }
+        stats={[
+          { label: "найкраща серія", value: String(best) },
+          {
+            label: format === "survival" ? "формат" : "раундів",
+            value:
+              format === "survival"
+                ? "до поразки"
+                : String(query.data?.length ?? 10),
+          },
+        ]}
+        onRestart={restart}
+        onExit={onExit}
+      />
     );
   if (!q) return null;
+  const total = format === "rounds" ? query.data?.length : undefined;
   return (
-    <FeatureScreen
-      title={q.prompt}
-      subtitle={`${daily ? "Щоденний виклик · " : ""}Раунд ${index + 1}${format === "rounds" ? `/${query.data?.length}` : ""} · ${score} очок · серія ${streak}${format === "survival" ? ` · ${"♥".repeat(Math.max(lives, 0))}` : ""}`}
+    <GameShell
+      eyebrow={daily ? "Щоденний виклик" : (gameTitle(mode) ?? "Кіногра")}
+      question={q.prompt}
+      round={{ index, total }}
+      score={score}
+      streak={streak}
+      lives={format === "survival" ? Math.max(lives, 0) : null}
+      onExit={onExit}
+      footer={
+        selected ? (
+          <>
+            <GameFeedback
+              correct={selected === correctId}
+              text={selected === correctId ? "Правильно!" : "Не цього разу"}
+            />
+            <GameAction
+              label={
+                index + 1 >= (query.data?.length ?? 0)
+                  ? "Результат"
+                  : "Наступний раунд"
+              }
+              onPress={next}
+            />
+          </>
+        ) : (
+          <Text style={styles.hint}>Обери відповідь</Text>
+        )
+      }
     >
       <Question
         question={q}
@@ -384,38 +520,24 @@ function Session({
         correctId={correctId}
         onChoose={choose}
       />
-      {selected ? (
-        <>
-          <Text
-            style={[
-              styles.feedback,
-              { color: selected === correctId ? colors.accent : colors.error },
-            ]}
-          >
-            {selected === correctId ? "Правильно!" : "Не цього разу"}
+      {selected && q.card ? (
+        <MotionPressable
+          style={styles.details}
+          onPress={() =>
+            router.push(`/title/${q.card!.mediaType}/${q.card!.tmdbId}` as Href)
+          }
+        >
+          <Ionicons
+            name="information-circle-outline"
+            size={17}
+            color={colors.text}
+          />
+          <Text style={styles.detailsText} numberOfLines={1}>
+            Відкрити {q.card.title}
           </Text>
-          {q.card ? (
-            <MotionPressable
-              style={styles.details}
-              onPress={() =>
-                router.push(
-                  `/title/${q.card!.mediaType}/${q.card!.tmdbId}` as Href,
-                )
-              }
-            >
-              <Text style={styles.detailsText}>Відкрити {q.card.title}</Text>
-            </MotionPressable>
-          ) : null}
-          <MotionPressable style={styles.primary} onPress={next}>
-            <Text style={styles.primaryText}>
-              {index + 1 >= (query.data?.length ?? 0)
-                ? "Результат"
-                : "Наступний раунд"}
-            </Text>
-          </MotionPressable>
-        </>
+        </MotionPressable>
       ) : null}
-    </FeatureScreen>
+    </GameShell>
   );
 }
 function YearSession({ onExit }: { onExit: () => void }) {
@@ -430,44 +552,74 @@ function YearSession({ onExit }: { onExit: () => void }) {
     queryFn: ({ signal }) => getGameQuestions("year", 8, signal),
   });
   const q = query.data?.[index];
+  const restart = () => {
+    setIndex(0);
+    setPoints(0);
+    setGuess(2000);
+    setRevealed(false);
+    void query.refetch();
+  };
   if (query.isLoading)
     return <ScreenState loading title="Перемотуємо плівку" />;
   if (!q?.card)
     return (
-      <FeatureScreen title="Гру завершено" subtitle={`${points} очок`}>
-        <MotionPressable
-          style={styles.primary}
-          onPress={() => {
-            setIndex(0);
-            setPoints(0);
-            setGuess(2000);
-            setRevealed(false);
-            void query.refetch();
-          }}
-        >
-          <Text style={styles.primaryText}>Ще раз</Text>
-        </MotionPressable>
-        <MotionPressable style={styles.backChoice} onPress={onExit}>
-          <Text style={styles.muted}>До ігор</Text>
-        </MotionPressable>
-      </FeatureScreen>
+      <GameResult
+        eyebrow="Вгадай рік"
+        score={points}
+        caption="очок за точність"
+        onRestart={restart}
+        onExit={onExit}
+      />
     );
   const actual = Number((q.card.releaseDate ?? q.card.year ?? "").slice(0, 4));
   const diff = Math.abs(guess - actual);
   const earned = diff === 0 ? 50 : Math.max(0, 30 - diff * 3);
   return (
-    <FeatureScreen
-      title="Вгадай рік"
-      subtitle={`Раунд ${index + 1}/${query.data?.length} · ${points} очок`}
+    <GameShell
+      eyebrow="Вгадай рік"
+      question="У якому році це вийшло?"
+      round={{ index, total: query.data?.length }}
+      score={points}
+      onExit={onExit}
+      footer={
+        revealed ? (
+          <>
+            <GameFeedback
+              correct={diff <= 2}
+              text={`Правильно: ${actual} · +${earned}`}
+            />
+            <GameAction
+              label="Далі"
+              onPress={() => {
+                setIndex((v) => v + 1);
+                setGuess(2000);
+                setRevealed(false);
+              }}
+            />
+          </>
+        ) : (
+          <GameAction
+            label="Відповісти"
+            onPress={() => {
+              void Haptics.selectionAsync();
+              setRevealed(true);
+              setPoints((v) => v + earned);
+            }}
+          />
+        )
+      }
     >
       <View style={styles.yearCard}>
-        <Poster item={q.card} />
+        <View style={styles.yearPoster}>
+          <Poster item={q.card} />
+        </View>
         <Text style={styles.subjectTitle}>{q.card.title}</Text>
         <View style={styles.yearValue}>
           <MotionPressable
             disabled={revealed}
             style={styles.yearStep}
             onPress={() => setGuess((v) => Math.max(1950, v - 1))}
+            accessibilityLabel="Рік менше"
           >
             <Ionicons name="remove" size={24} color={colors.text} />
           </MotionPressable>
@@ -478,44 +630,13 @@ function YearSession({ onExit }: { onExit: () => void }) {
             onPress={() =>
               setGuess((v) => Math.min(new Date().getFullYear(), v + 1))
             }
+            accessibilityLabel="Рік більше"
           >
             <Ionicons name="add" size={24} color={colors.text} />
           </MotionPressable>
         </View>
-        {revealed ? (
-          <>
-            <Text
-              style={[
-                styles.feedback,
-                { color: diff <= 2 ? colors.accent : colors.error },
-              ]}
-            >
-              Правильно: {actual} · +{earned}
-            </Text>
-            <MotionPressable
-              style={styles.primary}
-              onPress={() => {
-                setIndex((v) => v + 1);
-                setGuess(2000);
-                setRevealed(false);
-              }}
-            >
-              <Text style={styles.primaryText}>Далі</Text>
-            </MotionPressable>
-          </>
-        ) : (
-          <MotionPressable
-            style={styles.primary}
-            onPress={() => {
-              setRevealed(true);
-              setPoints((v) => v + earned);
-            }}
-          >
-            <Text style={styles.primaryText}>Відповісти</Text>
-          </MotionPressable>
-        )}
       </View>
-    </FeatureScreen>
+    </GameShell>
   );
 }
 function TimelineSession({ onExit }: { onExit: () => void }) {
@@ -530,29 +651,23 @@ function TimelineSession({ onExit }: { onExit: () => void }) {
     queryFn: ({ signal }) => getGameQuestions("timeline", 5, signal),
   });
   const q = query.data?.[index];
+  const restart = () => {
+    setIndex(0);
+    setPlaced([]);
+    setScore(0);
+    setRevealed(false);
+    void query.refetch();
+  };
   if (query.isLoading) return <ScreenState loading title="Гортаємо архів" />;
   if (!q)
     return (
-      <FeatureScreen
-        title="Хронологію завершено"
-        subtitle={`${score}/${query.data?.length ?? 0} правильних`}
-      >
-        <MotionPressable
-          style={styles.primary}
-          onPress={() => {
-            setIndex(0);
-            setPlaced([]);
-            setScore(0);
-            setRevealed(false);
-            void query.refetch();
-          }}
-        >
-          <Text style={styles.primaryText}>Ще раз</Text>
-        </MotionPressable>
-        <MotionPressable style={styles.backChoice} onPress={onExit}>
-          <Text style={styles.muted}>До ігор</Text>
-        </MotionPressable>
-      </FeatureScreen>
+      <GameResult
+        eyebrow="Хронологія"
+        score={score}
+        caption={`з ${query.data?.length ?? 0} рядів зібрано без помилок`}
+        onRestart={restart}
+        onExit={onExit}
+      />
     );
   const items = q.items ?? [];
   const pool = items.filter(
@@ -567,22 +682,61 @@ function TimelineSession({ onExit }: { onExit: () => void }) {
     placed.length === expected.length &&
     placed.every((x, i) => x.tmdbId === expected[i]?.tmdbId);
   return (
-    <FeatureScreen
-      title="Хронологія"
-      subtitle={`Раунд ${index + 1}/${query.data?.length} · від старого до нового`}
+    <GameShell
+      eyebrow="Хронологія"
+      question="Розстав від найстарішого до найновішого"
+      round={{ index, total: query.data?.length }}
+      score={score}
+      onExit={onExit}
+      footer={
+        revealed ? (
+          <>
+            <GameFeedback
+              correct={perfect}
+              text={perfect ? "Ідеально!" : "Порядок не той"}
+            />
+            <GameAction
+              label="Далі"
+              onPress={() => {
+                setIndex((v) => v + 1);
+                setPlaced([]);
+                setRevealed(false);
+              }}
+            />
+          </>
+        ) : (
+          <GameAction
+            label={
+              placed.length === items.length
+                ? "Перевірити"
+                : `Обрано ${placed.length} з ${items.length}`
+            }
+            disabled={placed.length !== items.length}
+            onPress={() => {
+              setRevealed(true);
+              if (perfect) setScore((v) => v + 1);
+              void Haptics.notificationAsync(
+                perfect
+                  ? Haptics.NotificationFeedbackType.Success
+                  : Haptics.NotificationFeedbackType.Error,
+              );
+            }}
+          />
+        )
+      }
     >
       <View style={styles.timelineSlots}>
         {items.map((_, i) => {
           const item = placed[i];
+          const right = revealed && item?.tmdbId === expected[i]?.tmdbId;
           return (
             <MotionPressable
               disabled={revealed || !item}
               key={i}
               style={[
                 styles.timelineSlot,
-                revealed &&
-                  item?.tmdbId === expected[i]?.tmdbId &&
-                  styles.correct,
+                right && styles.correct,
+                revealed && item && !right && styles.wrong,
               ]}
               onPress={() =>
                 item &&
@@ -591,7 +745,7 @@ function TimelineSession({ onExit }: { onExit: () => void }) {
             >
               <Text style={styles.slotIndex}>{i + 1}</Text>
               <Text numberOfLines={2} style={styles.slotText}>
-                {item?.title ?? "?"}
+                {item?.title ?? "Порожньо"}
               </Text>
               {revealed && item ? (
                 <Text style={styles.muted}>
@@ -602,7 +756,16 @@ function TimelineSession({ onExit }: { onExit: () => void }) {
           );
         })}
       </View>
-      {!revealed ? (
+      {revealed ? (
+        <Text style={styles.muted}>
+          Правильний порядок:{" "}
+          {expected
+            .map(
+              (x) => `${x.title} (${(x.releaseDate ?? x.year)?.slice(0, 4)})`,
+            )
+            .join(" → ")}
+        </Text>
+      ) : (
         <View style={styles.timelinePool}>
           {pool.map((item) => (
             <MotionPressable
@@ -620,39 +783,12 @@ function TimelineSession({ onExit }: { onExit: () => void }) {
             </MotionPressable>
           ))}
         </View>
-      ) : (
-        <Text
-          style={[
-            styles.feedback,
-            { color: perfect ? colors.accent : colors.error },
-          ]}
-        >
-          {perfect
-            ? "Ідеально!"
-            : `Правильно: ${expected.map((x) => `${x.title} (${(x.releaseDate ?? x.year)?.slice(0, 4)})`).join(" → ")}`}
-        </Text>
       )}
-      <MotionPressable
-        disabled={!revealed && placed.length !== items.length}
-        style={styles.primary}
-        onPress={() => {
-          if (!revealed) {
-            setRevealed(true);
-            if (perfect) setScore((v) => v + 1);
-          } else {
-            setIndex((v) => v + 1);
-            setPlaced([]);
-            setRevealed(false);
-          }
-        }}
-      >
-        <Text style={styles.primaryText}>
-          {revealed ? "Далі" : "Перевірити"}
-        </Text>
-      </MotionPressable>
-    </FeatureScreen>
+    </GameShell>
   );
 }
+const gameTitle = (mode: GameMode) => games.find((x) => x.mode === mode)?.title;
+
 function answerId(q?: GameQuestion) {
   if (!q) return "";
   if (q.answer) return q.answer;
@@ -817,29 +953,10 @@ const base = StyleSheet.create({
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     hub: { gap: 11 },
-    daily: {
-      minHeight: 82,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      padding: 15,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: c.accent,
-      backgroundColor: c.accentSoft,
-    },
-    hubCard: {
-      minHeight: 86,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      padding: 16,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: c.card,
-    },
-    emoji: { fontSize: 31 },
+    group: { gap: 11 },
+    groupHead: { gap: 2 },
+    groupTitle: { color: c.text, fontSize: 19, fontWeight: "900" },
+    groupHint: { color: c.textMuted, fontSize: 12.5 },
     grow: { flex: 1 },
     hubTitle: { color: c.text, fontSize: 17, fontWeight: "900" },
     muted: { color: c.textMuted, lineHeight: 19, marginTop: 3 },
@@ -853,11 +970,6 @@ const makeStyles = (c: Palette) =>
       borderWidth: 1,
       borderColor: c.border,
       backgroundColor: c.card,
-    },
-    backChoice: {
-      minHeight: 48,
-      alignItems: "center",
-      justifyContent: "center",
     },
     pair: { flexDirection: "row", gap: 10 },
     titleOption: {
@@ -904,30 +1016,35 @@ const makeStyles = (c: Palette) =>
       borderRadius: 18,
       backgroundColor: c.elevated,
     },
-    feedback: { fontSize: 21, fontWeight: "900", textAlign: "center" },
-    primary: {
-      minHeight: 52,
+    hint: { color: c.textMuted, fontSize: 13, textAlign: "center" },
+    formatIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 17,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 17,
-      backgroundColor: c.accent,
+      backgroundColor: c.elevated,
     },
-    primaryText: { color: c.background, fontWeight: "900" },
+    formatMeta: {
+      color: c.eyebrow,
+      fontSize: 11.5,
+      fontWeight: "700",
+      marginTop: 5,
+    },
+    yearPoster: { width: 148, alignSelf: "center" },
     details: {
       minHeight: 46,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 7,
+      paddingHorizontal: 14,
       borderRadius: 15,
+      borderWidth: 1,
+      borderColor: c.border,
       backgroundColor: c.card,
     },
     detailsText: { color: c.text, fontWeight: "800" },
-    summary: {
-      alignItems: "center",
-      padding: 30,
-      borderRadius: 24,
-      backgroundColor: c.card,
-    },
-    summaryScore: { color: c.accent, fontSize: 58, fontWeight: "900" },
     yearCard: {
       gap: 15,
       padding: 16,

@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import {
   RefreshControl,
   StyleSheet,
+  Text,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -18,13 +19,13 @@ import { ScreenState } from "../../../shared/ui/ScreenState";
 import type { Suggestion } from "../../../shared/types/release";
 import { useAuthStore } from "../../auth/store/authStore";
 import { HomeSpotlight } from "./components/HomeSpotlight";
-import { HomeGreeting } from "./components/HomeGreeting";
 import { HomeQuickActions } from "./components/HomeQuickActions";
 import { HomeTasteTeaser } from "./components/HomeTasteTeaser";
 import { HomeMoodTeaser } from "./components/HomeMoodTeaser";
 import { HomeSection } from "./components/HomeSection";
 import { HomePersonalFeed } from "./components/HomePersonalFeed";
-import { HomeTopBar, HOME_TOP_BAR_HEIGHT } from "./components/HomeTopBar";
+import { HomeTopBar } from "./components/HomeTopBar";
+import { StreakCard } from "../../streak/ui/StreakCard";
 import {
   useHomeScreen,
   type HomeSection as Section,
@@ -45,6 +46,7 @@ export default function HomeScreen() {
     supporting,
     isLoading,
     isError,
+    isPartial,
     isRefreshing,
     refetch,
     onAdd,
@@ -62,10 +64,6 @@ export default function HomeScreen() {
     },
     [router],
   );
-
-  const handleSearch = useCallback(() => {
-    router.push("/search");
-  }, [router]);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -102,9 +100,13 @@ export default function HomeScreen() {
   const renderHeader = useCallback(
     () => (
       <View style={styles.header}>
-        <HomeGreeting name={username} onSearch={handleSearch} />
-        {/* Returning users come back to continue something — keep it first. */}
-        <HomePersonalFeed />
+        {isPartial ? (
+          <Text style={{ color: colors.textMuted, lineHeight: 20 }}>
+            Частина добірок тимчасово недоступна. Потягни вниз, щоб оновити.
+          </Text>
+        ) : null}
+        {/* Art first: the strongest thing on the screen used to sit below a
+            greeting, a heading and a search field. */}
         <HomeSpotlight
           spotlight={spotlight}
           supporting={supporting}
@@ -113,19 +115,24 @@ export default function HomeScreen() {
           isSaved={isSaved}
           isLoading={isLoading}
         />
+        {/* Returning users come back to continue something. */}
+        <HomePersonalFeed />
+        {/* The habit loop sits above the shortcuts: it is the one thing on the
+            feed that changes because of what you did yesterday. */}
+        <StreakCard />
         <HomeQuickActions />
         <HomeTasteTeaser />
       </View>
     ),
     [
+      colors.textMuted,
       handlePress,
-      handleSearch,
       isLoading,
+      isPartial,
       isSaved,
       onAdd,
       spotlight,
       supporting,
-      username,
     ],
   );
 
@@ -152,17 +159,20 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
-      <HomeTopBar scrollY={scrollY} />
+      <HomeTopBar scrollY={scrollY} name={username} />
       <FlashList
         data={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
+        ListHeaderComponent={renderHeader()}
+        ListFooterComponent={renderFooter()}
         ItemSeparatorComponent={Separator}
         contentContainerStyle={{
           ...styles.container,
-          paddingTop: insets.top + HOME_TOP_BAR_HEIGHT + 8,
+          // The hero runs under the top bar, which is transparent until the
+          // feed scrolls.
+          paddingTop: 4,
+          paddingBottom: Math.max(insets.bottom, 12) + 96,
         }}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
@@ -173,7 +183,7 @@ export default function HomeScreen() {
             onRefresh={refetch}
             tintColor={colors.accent}
             colors={[colors.accent]}
-            progressViewOffset={insets.top + HOME_TOP_BAR_HEIGHT}
+            progressViewOffset={0}
           />
         }
       />

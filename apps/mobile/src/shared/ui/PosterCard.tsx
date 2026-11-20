@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "../theme/ThemeProvider";
 import type { Palette } from "../theme/palette";
 import { copy } from "../strings";
 import type { Suggestion } from "../types/release";
+import { CountdownPill } from "./CountdownPill";
 import { MotionPressable } from "./MotionPressable";
 
 /** Neutral dark placeholder so posters fade in instead of popping in. */
@@ -20,6 +22,8 @@ type Props = {
   onLongPress?: (item: Suggestion) => void;
   isSaved?: boolean;
   size?: { width: number; height: number };
+  /** ISO date of the next release; renders a countdown over the artwork. */
+  releaseDate?: string;
 };
 
 function PosterCardComponent({
@@ -29,6 +33,7 @@ function PosterCardComponent({
   onLongPress,
   isSaved = false,
   size,
+  releaseDate,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -72,9 +77,21 @@ function PosterCardComponent({
       />
       {isSaved ? (
         <View style={styles.savedBadge}>
+          <Ionicons name="checkmark" size={12} color={colors.text} />
           <Text style={styles.savedText}>{copy.actions.added}</Text>
         </View>
-      ) : onAdd ? (
+      ) : releaseDate ? (
+        // The countdown takes the badge's corner rather than crowding it:
+        // only one of "saved" and "lands in 3 days" fits, and on a card that
+        // carries a date the date is the more useful half.
+        <CountdownPill
+          date={releaseDate}
+          size="sm"
+          hidePast
+          style={styles.countdown}
+        />
+      ) : null}
+      {!isSaved && onAdd ? (
         <Pressable
           style={styles.addButton}
           onPress={handleAdd}
@@ -143,18 +160,32 @@ const makeStyles = (colors: Palette) =>
       fontWeight: "700",
       lineHeight: 22,
     },
+    countdown: {
+      position: "absolute",
+      left: 8,
+      bottom: 8,
+      maxWidth: "88%",
+    },
     savedBadge: {
       position: "absolute",
       left: 10,
       bottom: 10,
-      paddingHorizontal: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      paddingHorizontal: 9,
       paddingVertical: 4,
       borderRadius: 999,
-      backgroundColor: colors.accent,
+      // A state, not a button — the accent stays with things you can press.
+      backgroundColor: colors.isDark
+        ? "rgba(11,15,20,0.72)"
+        : "rgba(255,255,255,0.92)",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
     },
     savedText: {
-      color: colors.isDark ? "#04140f" : "#ffffff",
-      fontSize: 12,
+      color: colors.text,
+      fontSize: 11.5,
       fontWeight: "700",
     },
   });

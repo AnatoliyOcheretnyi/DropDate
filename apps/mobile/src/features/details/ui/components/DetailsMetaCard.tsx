@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { Details } from "../../../../shared/types/release";
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 import { copy } from "../../../../shared/strings";
 import { formatFullDate } from "../../../../shared/utils/date";
 
@@ -10,6 +12,8 @@ type Props = {
 };
 
 export function DetailsMetaCard({ details }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const formatDate = (value?: string) =>
     formatFullDate(value) ?? copy.misc.dash;
 
@@ -55,32 +59,33 @@ export function DetailsMetaCard({ details }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  metaCard: {
-    marginTop: 24,
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    gap: 10,
-  },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  metaLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
-  metaValue: {
-    color: colors.text,
-    fontSize: 13,
-    flex: 1,
-    textAlign: "right",
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    metaCard: {
+      marginTop: 24,
+      marginHorizontal: 20,
+      padding: 16,
+      borderRadius: 16,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 10,
+    },
+    metaRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    metaLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: 2,
+    },
+    metaValue: {
+      color: colors.text,
+      fontSize: 13,
+      flex: 1,
+      textAlign: "right",
+    },
+  });

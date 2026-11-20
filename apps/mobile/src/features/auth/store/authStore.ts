@@ -1,4 +1,9 @@
+import {
+  readRefreshToken,
+  writeRefreshToken,
+} from "../../../shared/utils/secureSession";
 import { create } from "zustand";
+import { clearTasteSession } from "../../profile/store/tasteStore";
 
 import { apiRequest, configureApiAuth } from "../../../shared/api/client";
 import { ApiError } from "../../../shared/api/errors";
@@ -46,12 +51,14 @@ type AuthState = {
   continueAsGuest: () => void;
   resetGuest: () => void;
   logout: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   refresh: () => Promise<boolean>;
   resendVerification: (email: string) => Promise<AuthResult>;
   setUserVerified: (value: boolean) => void;
 };
 
-const STORAGE_KEY = storageKeys.refreshToken;
+let sessionGeneration = 0;
+let refreshPromise: Promise<boolean> | null = null;
 const GUEST_KEY = storageKeys.guestMode;
 
 const authError = (error: unknown): AuthResult => ({
@@ -60,10 +67,29 @@ const authError = (error: unknown): AuthResult => ({
   code: error instanceof ApiError ? error.code : undefined,
 });
 
-const clearLocalSession = () => {
-  storageDelete(STORAGE_KEY);
+const clearLocalSession = async () => {
+  sessionGeneration += 1;
+  const previousUser = useAuthStore.getState().user;
+  useAuthStore.setState({
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isGuest: false,
+  });
+  if (previousUser) storageDelete("dropdate_saved_cache_" + previousUser.id);
+  for (const key of [
+    storageKeys.moodSession,
+    storageKeys.matchSession,
+    storageKeys.tasteProfile,
+  ])
+    storageDelete(key);
+  clearTasteSession();
   storageDelete(GUEST_KEY);
-  void clearUserSessionCache();
+  try {
+    await writeRefreshToken(null);
+  } finally {
+    await clearUserSessionCache();
+  }
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -78,7 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     set({ initialized: true, isLoading: true });
-    const token = storageGetString(STORAGE_KEY);
+    const token = await readRefreshToken().catch(() => null);
     const guestFlag = storageGetString(GUEST_KEY);
     if (guestFlag === "1") {
       set({ isGuest: true });
@@ -88,7 +114,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     set({ refreshToken: token });
-    await get().refresh();
+    await get()
+      .refresh()
+      .catch(() => false);
     set({ isLoading: false });
   },
   login: async (email: string, password: string) => {
@@ -97,8 +125,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         method: "POST",
         body: { email, password, returnRefresh: true, client: "mobile" },
       });
-      await clearUserSessionCache();
       const refreshToken = payload.refreshToken ?? null;
+      await clearUserSessionCache();
+      sessionGeneration += 1;
+      await writeRefreshToken(refreshToken);
       set({
         user: {
           id: payload.user.id,
@@ -112,9 +142,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isGuest: false,
       });
       storageDelete(GUEST_KEY);
-      if (refreshToken) {
-        storageSetString(STORAGE_KEY, refreshToken);
-      }
       return { status: "ok" };
     } catch (error) {
       if (error instanceof ApiError && error.status === 403)
@@ -134,6 +161,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { status: "verification_required" };
       }
       const refreshToken = payload.refreshToken ?? null;
+      await clearUserSessionCache();
+      sessionGeneration += 1;
+      await writeRefreshToken(refreshToken);
       set({
         user: {
           id: payload.user.id,
@@ -147,9 +177,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isGuest: false,
       });
       storageDelete(GUEST_KEY);
-      if (refreshToken) {
-        storageSetString(STORAGE_KEY, refreshToken);
-      }
       return { status: "ok" };
     } catch (error) {
       return authError(error);
@@ -164,54 +191,75 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isGuest: false });
   },
   logout: async () => {
-    const { refreshToken } = get();
-    const token = refreshToken || storageGetString(STORAGE_KEY);
-    if (token) {
-      await apiRequest("/auth/logout", {
-        method: "POST",
-        body: { refreshToken: token },
-      }).catch(() => undefined);
-    }
-    clearLocalSession();
-    set({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isGuest: false,
-    });
-  },
-  refresh: async () => {
-    const { refreshToken } = get();
-    const token = refreshToken || storageGetString(STORAGE_KEY);
-    if (!token) {
-      return false;
-    }
-    try {
-      const payload = await apiRequest<AuthResponse>("/auth/refresh", {
+    const token =
+      get().refreshToken || (await readRefreshToken().catch(() => null));
+    await clearLocalSession();
+    // Local sign-out must not wait for an unreachable server.
+    if (token)
+      void apiRequest("/auth/logout", {
         method: "POST",
         body: { refreshToken: token },
         retryAuth: false,
-      });
-      const nextRefresh = payload.refreshToken ?? token;
-      set({
-        user: {
-          id: payload.user.id,
-          email: payload.user.email,
-          verified: payload.user.verified,
-          username: payload.user.username,
-          isSuperuser: payload.user.isSuperuser,
-        },
-        accessToken: payload.accessToken,
-        refreshToken: nextRefresh,
-        isGuest: false,
-      });
-      storageSetString(STORAGE_KEY, nextRefresh);
-      return true;
-    } catch {
-      storageDelete(STORAGE_KEY);
-      set({ refreshToken: null, accessToken: null, user: null });
-      return false;
-    }
+      }).catch(() => undefined);
+  },
+  deleteAccount: async (password) => {
+    await apiRequest("/me", {
+      method: "DELETE",
+      auth: true,
+      body: { password, confirmation: "DELETE" },
+    });
+    await clearLocalSession();
+    set({ user: null, accessToken: null, refreshToken: null, isGuest: false });
+  },
+  refresh: () => {
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      const generation = sessionGeneration;
+      const { refreshToken } = get();
+      const token = refreshToken || (await readRefreshToken());
+      if (!token) {
+        return false;
+      }
+      try {
+        const payload = await apiRequest<AuthResponse>("/auth/refresh", {
+          method: "POST",
+          body: { refreshToken: token },
+          retryAuth: false,
+        });
+        if (generation !== sessionGeneration) return false;
+        const nextRefresh = payload.refreshToken ?? token;
+        await writeRefreshToken(nextRefresh);
+        if (generation !== sessionGeneration) return false;
+        set({
+          user: {
+            id: payload.user.id,
+            email: payload.user.email,
+            verified: payload.user.verified,
+            username: payload.user.username,
+            isSuperuser: payload.user.isSuperuser,
+          },
+          accessToken: payload.accessToken,
+          refreshToken: nextRefresh,
+          isGuest: false,
+        });
+        return true;
+      } catch (error) {
+        if (generation !== sessionGeneration) return false;
+        if (
+          error instanceof ApiError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          await clearLocalSession();
+          set({ refreshToken: null, accessToken: null, user: null });
+          return false;
+        }
+        // Offline and server failures are recoverable; retain the session.
+        throw error;
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+    return refreshPromise;
   },
   resendVerification: async (email: string) => {
     try {
@@ -237,7 +285,7 @@ configureApiAuth({
   getAccessToken: () => useAuthStore.getState().accessToken,
   refresh: () => useAuthStore.getState().refresh(),
   onUnauthorized: () => {
-    clearLocalSession();
+    void clearLocalSession().catch(() => undefined);
     useAuthStore.setState({
       user: null,
       accessToken: null,

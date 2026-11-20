@@ -1,3 +1,5 @@
+import { getSiteURL } from "../../../shared/utils/config";
+import { useToast } from "../../../shared/ui/Toast";
 import { useMemo, useState } from "react";
 import {
   Alert,
@@ -31,6 +33,7 @@ export function SocialHubScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
+  const { showToast } = useToast();
   const client = useQueryClient();
   const [tab, setTab] = useState<"activity" | "lists">("activity");
   const [creating, setCreating] = useState(false);
@@ -186,8 +189,10 @@ export function SocialHubScreen() {
                         style={styles.iconButton}
                         onPress={() =>
                           void Share.share({
-                            message: `DropDate · ${list.Name}\ndropdate.app/shared/${list.ShareToken}`,
-                          })
+                            message: `DropDate · ${list.Name}\n${getSiteURL()}/shared/${encodeURIComponent(list.ShareToken)}`,
+                          }).catch(() =>
+                            showToast("Не вдалося поділитися списком"),
+                          )
                         }
                       >
                         <Ionicons

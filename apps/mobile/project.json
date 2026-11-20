@@ -33,7 +33,7 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "yarn typecheck",
+        "command": "node scripts/generate-routes.cjs && yarn typecheck",
         "cwd": "apps/mobile"
       }
     },
@@ -41,6 +41,40 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "yarn format:check:mobile"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "npx expo export --platform all --max-workers 2",
+        "cwd": "apps/mobile"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tests/*.test.cjs",
+        "cwd": "apps/mobile"
+      }
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx expo start --web --port 8082 --clear",
+        "cwd": "apps/mobile"
+      }
+    },
+    "android-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npx expo prebuild --platform android --no-install",
+          "cd android && ./gradlew app:assembleDebug"
+        ],
+        "parallel": false,
+        "cwd": "apps/mobile",
+        "env": { "NODE_ENV": "development" }
       }
     }
   },

@@ -14,7 +14,7 @@ export default function DevScreen() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const router = useRouter();
-  if (!user?.isSuperuser)
+  if (!__DEV__ || !user?.isSuperuser)
     return (
       <FeatureScreen
         title="Немає доступу"

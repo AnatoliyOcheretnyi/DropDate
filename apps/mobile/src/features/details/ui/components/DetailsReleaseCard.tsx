@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { ReleaseInfo } from "../../../../shared/types/release";
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 import { copy } from "../../../../shared/strings";
 import { getReleaseStatusLabel } from "../../../../shared/types/release";
 import { formatFullDate } from "../../../../shared/utils/date";
@@ -11,6 +13,8 @@ type Props = {
 };
 
 export function DetailsReleaseCard({ release }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const formatted = formatFullDate(release.nextRelease) ?? copy.misc.dash;
 
   return (
@@ -24,28 +28,29 @@ export function DetailsReleaseCard({ release }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  releaseCard: {
-    marginTop: 20,
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  releaseLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
-  releaseDate: {
-    color: colors.text,
-    fontSize: 16,
-    marginTop: 4,
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    releaseCard: {
+      marginTop: 20,
+      marginHorizontal: 20,
+      padding: 16,
+      borderRadius: 16,
+      backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+    },
+    releaseLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: 2,
+    },
+    releaseDate: {
+      color: colors.text,
+      fontSize: 16,
+      marginTop: 4,
+    },
+  });

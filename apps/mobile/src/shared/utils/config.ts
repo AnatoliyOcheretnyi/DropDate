@@ -4,3 +4,10 @@ export function getBackendURL(): string {
   const base = process.env.EXPO_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL;
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
+
+export function getSiteURL(): string {
+  return (process.env.EXPO_PUBLIC_SITE_URL || "https://drop-date.com").replace(
+    /\/+$/,
+    "",
+  );
+}

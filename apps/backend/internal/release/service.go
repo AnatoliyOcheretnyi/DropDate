@@ -687,21 +687,38 @@ func isFutureTitle(details Details, mediaType string, startToday time.Time) bool
 }
 
 func (s *Service) fetchUpcomingBuckets(ctx context.Context, params []DiscoverParams, limit int) [][]DiscoverItem {
-	buckets := make([][]DiscoverItem, 0, len(params))
+	// Preserve country ordering while limiting concurrent upstream requests.
+	buckets := make([][]DiscoverItem, len(params))
 	perBucket := limit
 	if perBucket < 6 {
 		perBucket = 6
 	}
-	for _, p := range params {
-		items, err := s.discover.Discover(ctx, p)
-		if err != nil {
-			continue
-		}
-		if len(items) > perBucket {
-			items = items[:perBucket]
-		}
-		buckets = append(buckets, items)
+	jobs := make(chan int, len(params))
+	for i := range params {
+		jobs <- i
 	}
+	close(jobs)
+	var wg sync.WaitGroup
+	for worker := 0; worker < min(4, len(params)); worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				items, err := s.discover.Discover(ctx, params[i])
+				if err != nil {
+					continue
+				}
+				if len(items) > perBucket {
+					items = items[:perBucket]
+				}
+				buckets[i] = items
+			}
+		}()
+	}
+	wg.Wait()
 	return buckets
 }
 

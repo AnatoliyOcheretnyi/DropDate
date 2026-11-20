@@ -42,11 +42,15 @@ export function useListPicker() {
     async (item: Suggestion, listTypes: ListType[]) => {
       const existing = findByTmdbId(item.id, item.mediaType);
       if (existing) {
-        await setListTypes(item, listTypes, {
-          release: existing,
-          details: existing.details,
-        });
-        return true;
+        try {
+          await setListTypes(item, listTypes, {
+            release: existing,
+            details: existing.details,
+          });
+          return true;
+        } catch {
+          return false;
+        }
       }
       try {
         const payload = await queryClient.fetchQuery<DetailsPayload>({
@@ -77,20 +81,21 @@ export function useListPicker() {
   const applyListTypes = useCallback(
     async (listTypes: ListType[]) => {
       const item = pickerItem;
-      if (!item) return;
+      if (!item) return false;
       const previous = getListTypes(item);
       const ok = await applyTo(item, listTypes);
       if (!ok) {
         showToast("Не вдалося оновити список");
-        return;
+        return false;
       }
-      if (listTypes.length === previous.length) return;
+      if (listTypes.length === previous.length) return true;
       showToast(
         listTypes.length > previous.length
           ? `«${item.title}» додано`
           : `«${item.title}» прибрано`,
         { label: "Скасувати", onPress: () => void applyTo(item, previous) },
       );
+      return true;
     },
     [applyTo, getListTypes, pickerItem, showToast],
   );

@@ -1,10 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
-
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import type { Details } from "../../../../shared/types/release";
-import { colors } from "../../../../shared/theme/colors";
-import { copy } from "../../../../shared/strings";
-
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import { MotionPressable } from "../../../../shared/ui/MotionPressable";
 type Props = {
   details: Details | null;
   onAdd: () => void;
@@ -14,137 +14,104 @@ type Props = {
     mediaType: Details["mediaType"];
   }) => boolean;
 };
-
 export function DetailsHero({ details, onAdd, isSaved }: Props) {
+  const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  if (!details) return null;
   return (
     <>
-      <View style={styles.banner}>
-        {details?.backdropUrl ? (
+      <View
+        style={{
+          height: Math.min(width * 0.88, 460),
+          backgroundColor: colors.elevated,
+        }}
+      >
+        <Image
+          source={{ uri: details.backdropUrl || details.posterUrl }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={180}
+        />
+        <LinearGradient
+          colors={["#00000050", "transparent", colors.background]}
+          locations={[0, 0.35, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={s.posterWrap}>
           <Image
-            source={{ uri: details.backdropUrl }}
-            style={styles.bannerImage}
+            source={{ uri: details.posterUrl }}
+            style={s.poster}
             contentFit="cover"
-            transition={200}
+            transition={180}
+            cachePolicy="memory-disk"
           />
-        ) : (
-          <View style={styles.bannerFallback} />
-        )}
+        </View>
       </View>
-
-      <View style={styles.hero}>
-        <View style={styles.poster}>
-          {details?.posterUrl ? (
-            <Image
-              source={{ uri: details.posterUrl }}
-              style={styles.posterImage}
-              contentFit="cover"
-              transition={200}
-            />
-          ) : (
-            <View style={styles.posterFallback} />
-          )}
-        </View>
-        <View style={styles.heroInfo}>
-          <Text style={styles.eyebrow}>
-            {details?.mediaType === "movie"
-              ? copy.details.facts.movie
-              : copy.details.facts.series}
+      <View style={s.content}>
+        <Text style={[s.eyebrow, { color: colors.accent }]}>
+          {details.mediaType === "movie" ? "ФІЛЬМ" : "СЕРІАЛ"} /{" "}
+          {(details.releaseDate || details.firstAirDate || "").slice(0, 4) ||
+            "НЕЗАБАРОМ"}
+        </Text>
+        <Text
+          accessibilityRole="header"
+          style={[s.title, { color: colors.text }]}
+        >
+          {details.title}
+        </Text>
+        {details.tagline ? (
+          <Text style={[s.tagline, { color: colors.textMuted }]}>
+            {details.tagline}
           </Text>
-          <Text style={styles.title}>{details?.title}</Text>
-          <Text style={styles.tagline}>{details?.tagline || " "}</Text>
-          <Text style={styles.overview}>
-            {details?.overview || copy.hints.noOverview}
+        ) : null}
+        <MotionPressable
+          accessibilityLabel={`Списки для ${details.title}`}
+          onPress={onAdd}
+          style={[s.action, { backgroundColor: colors.accent }]}
+        >
+          <Ionicons
+            name={isSaved(details) ? "bookmark" : "bookmark-outline"}
+            size={20}
+            color={colors.isDark ? "#10281c" : "#fff"}
+          />
+          <Text
+            style={[
+              s.actionText,
+              { color: colors.isDark ? "#10281c" : "#fff" },
+            ]}
+          >
+            {isSaved(details) ? "У твоїй колекції" : "Додати до колекції"}
           </Text>
-          <View style={styles.actionRow}>
-            <Pressable style={styles.actionButton} onPress={onAdd}>
-              <Text style={styles.actionButtonText}>
-                {details &&
-                isSaved({
-                  id: details.id,
-                  title: details.title,
-                  mediaType: details.mediaType,
-                })
-                  ? copy.actions.inList
-                  : copy.actions.addToList}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+        </MotionPressable>
+        <Text style={[s.overview, { color: colors.lead }]}>
+          {details.overview || "Опис цієї історії ще готується."}
+        </Text>
       </View>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    height: 280,
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  bannerImage: {
-    width: "100%",
-    height: "100%",
-  },
-  bannerFallback: {
-    flex: 1,
-    backgroundColor: "rgba(80,255,190,0.1)",
-  },
-  hero: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    marginTop: -80,
-    gap: 16,
-  },
-  poster: {
-    width: 140,
-    height: 210,
-    borderRadius: 18,
-    overflow: "hidden",
-    backgroundColor: colors.card,
-  },
-  posterImage: {
-    width: "100%",
-    height: "100%",
-  },
-  posterFallback: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  heroInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  eyebrow: {
-    textTransform: "uppercase",
-    letterSpacing: 4,
-    color: colors.textMuted,
-    fontSize: 11,
-  },
+const s = StyleSheet.create({
+  posterWrap: { position: "absolute", bottom: 8, left: 24 },
+  poster: { width: 112, height: 168, borderRadius: 18 },
+  content: { padding: 24, paddingTop: 10, gap: 14 },
+  eyebrow: { fontSize: 10, fontWeight: "700", letterSpacing: 2 },
   title: {
-    fontSize: 24,
+    fontSize: 34,
+    lineHeight: 39,
     fontWeight: "700",
-    color: colors.text,
+    letterSpacing: -1.2,
   },
-  tagline: {
-    color: colors.textMuted,
-    fontSize: 12,
+  tagline: { fontSize: 16, lineHeight: 23, fontStyle: "italic" },
+  overview: { fontSize: 16, lineHeight: 26, marginTop: 8 },
+  action: {
+    minHeight: 54,
+    padding: 16,
+    borderRadius: 17,
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
   },
-  overview: {
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  actionRow: {
-    marginTop: 10,
-  },
-  actionButton: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    alignSelf: "flex-start",
-  },
-  actionButtonText: {
-    color: "#001b12",
-    fontWeight: "700",
-  },
+  actionText: { fontSize: 15, fontWeight: "700" },
 });

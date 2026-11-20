@@ -1,3 +1,12 @@
+import { getSiteURL } from "../../../shared/utils/config";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useListPicker } from "../../saved/hooks/useListPicker";
+import { ListPickerModal } from "../../../shared/ui/ListPickerModal";
+import { useToast } from "../../../shared/ui/Toast";
+import { ScreenState } from "../../../shared/ui/ScreenState";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -7,7 +16,8 @@ import {
   View,
 } from "react-native";
 
-import { colors } from "../../../shared/theme/colors";
+import { useTheme } from "../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../shared/theme/palette";
 import { DetailsHero } from "./components/DetailsHero";
 import { DetailsMetaCard } from "./components/DetailsMetaCard";
 import { DetailsReleaseCard } from "./components/DetailsReleaseCard";
@@ -22,15 +32,43 @@ import { EpisodeTracker } from "./components/EpisodeTracker";
 import { AddToSharedList } from "./components/AddToSharedList";
 
 export default function DetailsScreen() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const picker = useListPicker();
+  const { showToast } = useToast();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const {
     details,
     release,
     recommendations,
     isLoading,
     error,
-    handleAdd,
+    refetch,
     isSuggestionSaved,
   } = useDetailsScreen();
+
+  const backButton = (
+    <MotionPressable
+      accessibilityLabel="Назад"
+      style={{
+        position: "absolute",
+        top: insets.top + 8,
+        left: 20,
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        backgroundColor: colors.overlay,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onPress={() =>
+        router.canGoBack() ? router.back() : router.replace("/(tabs)")
+      }
+    >
+      <Ionicons name="arrow-back" size={23} color={colors.text} />
+    </MotionPressable>
+  );
 
   if (isLoading && !details) {
     return (
@@ -41,20 +79,28 @@ export default function DetailsScreen() {
           <View style={styles.textSkeleton} />
           <ActivityIndicator color={colors.accent} />
         </View>
+        {backButton}
       </View>
     );
   }
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: insets.bottom + 32 },
+        ]}
+      >
         <DetailsHero
           details={details}
-          onAdd={handleAdd}
+          onAdd={() => details && picker.openPicker(details)}
           isSaved={isSuggestionSaved}
         />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ScreenState title={error} onRetry={() => void refetch()} />
+        ) : null}
 
         {details && <DetailsMetaCard details={details} />}
         {details ? <DetailsPersonalControls details={details} /> : null}
@@ -66,8 +112,8 @@ export default function DetailsScreen() {
             style={styles.shareButton}
             onPress={() =>
               void Share.share({
-                message: `${details.title} — подивись у DropDate`,
-              })
+                message: `${details.title} — ${getSiteURL()}/title/${details.mediaType}/${details.id}`,
+              }).catch(() => showToast("Не вдалося поділитися"))
             }
           >
             <Text style={styles.shareText}>Поділитися</Text>
@@ -84,52 +130,60 @@ export default function DetailsScreen() {
 
         <DetailsRecommendations items={recommendations} />
       </ScrollView>
+      {backButton}
+      <ListPickerModal
+        visible={picker.pickerVisible}
+        value={picker.pickerItem ? picker.getListTypes(picker.pickerItem) : []}
+        onClose={picker.closePicker}
+        onApply={picker.applyListTypes}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingBottom: 32,
-  },
-  error: {
-    color: colors.error,
-    marginHorizontal: 20,
-    marginTop: 12,
-  },
-  bannerSkeleton: {
-    height: 280,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  content: {
-    padding: 20,
-    gap: 12,
-  },
-  posterSkeleton: {
-    width: 140,
-    height: 210,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  textSkeleton: {
-    height: 18,
-    borderRadius: 6,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  shareButton: {
-    marginHorizontal: 20,
-    marginTop: 18,
-    minHeight: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  shareText: { color: colors.text, fontWeight: "800", fontSize: 15 },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    wrapper: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      paddingBottom: 32,
+    },
+    error: {
+      color: colors.error,
+      marginHorizontal: 20,
+      marginTop: 12,
+    },
+    bannerSkeleton: {
+      height: 280,
+      backgroundColor: colors.elevated,
+    },
+    content: {
+      padding: 20,
+      gap: 12,
+    },
+    posterSkeleton: {
+      width: 140,
+      height: 210,
+      borderRadius: 18,
+      backgroundColor: colors.elevated,
+    },
+    textSkeleton: {
+      height: 18,
+      borderRadius: 6,
+      backgroundColor: colors.elevated,
+    },
+    shareButton: {
+      marginHorizontal: 20,
+      marginTop: 18,
+      minHeight: 50,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    shareText: { color: colors.text, fontWeight: "800", fontSize: 15 },
+  });

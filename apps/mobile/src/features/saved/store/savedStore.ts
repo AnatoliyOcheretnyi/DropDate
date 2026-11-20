@@ -6,13 +6,11 @@ import type {
   Suggestion,
 } from "../../../shared/types/release";
 import type { ListType } from "../../../shared/types/lists";
-import { getBackendURL } from "../../../shared/utils/config";
 import {
   storageGetString,
   storageSetString,
   storageKeys,
 } from "../../../shared/utils/storage";
-import { useAuthStore } from "../../auth/store/authStore";
 
 export type SavedItem = ReleaseInfo & {
   id: string;
@@ -24,12 +22,13 @@ export type SavedItem = ReleaseInfo & {
   userRating?: number;
   watchCount?: number;
   lastWatchedAt?: string;
+  /** TMDB genres captured server-side; drives the genre chips. */
+  genres?: string[];
 };
 
 type SavedState = {
   saved: SavedItem[];
   isLoading: boolean;
-  refreshFromAuth: () => Promise<void>;
   addRelease: (
     release: ReleaseInfo,
     meta: {
@@ -70,88 +69,32 @@ const normalizeListTypes = (listTypes?: ListType[]) => {
   return unique as ListType[];
 };
 
-export const useSavedStore = create<SavedState>((set, get) => ({
-  saved: [],
-  isLoading: false,
-  refreshFromAuth: async () => {
-    const { user, accessToken } = useAuthStore.getState();
-    if (user && accessToken) {
-      set({ isLoading: true });
-      try {
-        const response = await fetch(`${getBackendURL()}/saved`, {
-          headers: {
-            accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        const payload = await response.json().catch(() => ({}));
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-        const normalized = items.map((item: any) => ({
-          id: buildSavedId(item.tmdbId, item.mediaType),
-          tmdbId: item.tmdbId,
-          mediaType: item.mediaType,
-          title: item.title,
-          nextRelease: item.nextRelease,
-          status: item.status,
-          posterUrl: item.posterUrl,
-          backdropUrl: item.backdropUrl,
-          listTypes: normalizeListTypes(item.listTypes as ListType[]),
-          userRating: item.userRating ?? undefined,
-          watchCount: item.watchCount ?? 0,
-          lastWatchedAt: item.lastWatchedAt ?? undefined,
-          type: item.type,
-          source: item.source,
-          savedAt: Date.now(),
-        })) as SavedItem[];
-        set({ saved: normalized });
-      } catch {
-        // ignore
-      } finally {
-        set({ isLoading: false });
-      }
-      return;
-    }
+// Guest data is hydrated once. Re-reading it in every useSaved consumer
+// produced fresh arrays on mount and recursively remounted feed headers.
+function readGuestSaved(): SavedItem[] {
+  try {
+    const items: unknown = JSON.parse(storageGetString(STORAGE_KEY) ?? "[]");
+    if (!Array.isArray(items)) return [];
+    return items.filter(
+      (item): item is SavedItem =>
+        item != null &&
+        typeof item.id === "string" &&
+        Number.isFinite(item.tmdbId) &&
+        (item.mediaType === "movie" || item.mediaType === "tv") &&
+        Array.isArray(item.listTypes),
+    );
+  } catch {
+    return [];
+  }
+}
 
-    const raw = storageGetString(STORAGE_KEY);
-    if (!raw) {
-      set({ saved: [] });
-      return;
-    }
-    try {
-      const items = JSON.parse(raw) as SavedItem[];
-      set({ saved: items });
-    } catch {
-      set({ saved: [] });
-    }
-  },
+// Account data belongs exclusively to React Query and the authenticated API.
+export const useSavedStore = create<SavedState>((set, get) => ({
+  saved: readGuestSaved(),
+  isLoading: false,
   addRelease: async (release, meta, listTypes = ["follow"]) => {
     const id = buildSavedId(meta.tmdbId, meta.mediaType);
     const normalized = normalizeListTypes(listTypes);
-    const { user, accessToken } = useAuthStore.getState();
-
-    if (user && accessToken) {
-      for (const listType of normalized) {
-        await fetch(`${getBackendURL()}/saved`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            tmdbId: meta.tmdbId,
-            mediaType: meta.mediaType,
-            title: release.title,
-            nextRelease: release.nextRelease,
-            status: release.status,
-            posterUrl: release.posterUrl,
-            backdropUrl: release.backdropUrl,
-            listType,
-          }),
-        }).catch(() => undefined);
-      }
-    }
-
     set((state) => {
       const existing = state.saved.find((item) => item.id === id);
       if (existing) {
@@ -161,9 +104,7 @@ export const useSavedStore = create<SavedState>((set, get) => ({
         const next = state.saved.map((item) =>
           item.id === id ? { ...item, listTypes: merged } : item,
         );
-        if (!user) {
-          storageSetString(STORAGE_KEY, JSON.stringify(next));
-        }
+        storageSetString(STORAGE_KEY, JSON.stringify(next));
         return { saved: next };
       }
       const next = [
@@ -178,9 +119,7 @@ export const useSavedStore = create<SavedState>((set, get) => ({
           listTypes: normalized,
         },
       ];
-      if (!user) {
-        storageSetString(STORAGE_KEY, JSON.stringify(next));
-      }
+      storageSetString(STORAGE_KEY, JSON.stringify(next));
       return { saved: next };
     });
   },
@@ -189,26 +128,10 @@ export const useSavedStore = create<SavedState>((set, get) => ({
     if (!existing) {
       return;
     }
-    const { user, accessToken } = useAuthStore.getState();
-    if (user && accessToken) {
-      const params = new URLSearchParams();
-      params.set("tmdbId", String(existing.tmdbId));
-      params.set("mediaType", existing.mediaType);
-      if (listType) {
-        params.set("listType", listType);
-      }
-      await fetch(`${getBackendURL()}/saved/items?${params.toString()}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }).catch(() => undefined);
-    }
-
     set((state) => {
       if (!listType) {
         const next = state.saved.filter((item) => item.id !== id);
-        if (!user) {
-          storageSetString(STORAGE_KEY, JSON.stringify(next));
-        }
+        storageSetString(STORAGE_KEY, JSON.stringify(next));
         return { saved: next };
       }
       const next = state.saved
@@ -221,9 +144,7 @@ export const useSavedStore = create<SavedState>((set, get) => ({
             : item,
         )
         .filter((item) => item.listTypes.length > 0);
-      if (!user) {
-        storageSetString(STORAGE_KEY, JSON.stringify(next));
-      }
+      storageSetString(STORAGE_KEY, JSON.stringify(next));
       return { saved: next };
     });
   },
@@ -242,24 +163,6 @@ export const useSavedStore = create<SavedState>((set, get) => ({
   },
   updateStats: async (item, listType, stats) => {
     const id = buildSavedId(item.id, item.mediaType);
-    const { user, accessToken } = useAuthStore.getState();
-    if (user && accessToken) {
-      await fetch(`${getBackendURL()}/saved/items`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          tmdbId: item.id,
-          mediaType: item.mediaType,
-          listType,
-          ...stats,
-        }),
-      }).catch(() => undefined);
-    }
-
     set((state) => {
       const next = state.saved.map((entry) =>
         entry.id === id
@@ -271,16 +174,14 @@ export const useSavedStore = create<SavedState>((set, get) => ({
             }
           : entry,
       );
-      if (!user) {
-        storageSetString(STORAGE_KEY, JSON.stringify(next));
-      }
+      storageSetString(STORAGE_KEY, JSON.stringify(next));
       return { saved: next };
     });
   },
   setListTypes: async (item, listTypes, meta) => {
     const existing = get().findByTmdbId(item.id, item.mediaType);
     const current = existing ? normalizeListTypes(existing.listTypes) : [];
-    const next = normalizeListTypes(listTypes);
+    const next = Array.from(new Set(listTypes));
     const toAdd = next.filter((t) => !current.includes(t));
     const toRemove = current.filter((t) => !next.includes(t));
 

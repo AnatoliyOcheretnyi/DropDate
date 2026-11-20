@@ -3,13 +3,14 @@ import { Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../src/shared/ui/FeatureScreen";
 import { ScreenState } from "../../src/shared/ui/ScreenState";
 import { MotionPressable } from "../../src/shared/ui/MotionPressable";
 import { apiRequest } from "../../src/shared/api/client";
 
 export default function VerifyEmailScreen() {
+  const s = useFeatureStyles();
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
   const [state, setState] = useState<"loading" | "success" | "error">(

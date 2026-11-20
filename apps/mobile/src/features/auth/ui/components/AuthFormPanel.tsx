@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,7 +8,8 @@ import {
   View,
 } from "react-native";
 
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 import { copy } from "../../../../shared/strings";
 
 type Props = {
@@ -41,6 +43,8 @@ export function AuthFormPanel({
   onSubmit,
   onToggleMode,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>
@@ -50,6 +54,9 @@ export function AuthFormPanel({
       <View style={styles.form}>
         <TextInput
           style={styles.input}
+          accessibilityLabel="Електронна пошта"
+          autoComplete="email"
+          autoCorrect={false}
           autoCapitalize="none"
           keyboardType="email-address"
           placeholder={copy.auth.emailPlaceholder}
@@ -60,6 +67,9 @@ export function AuthFormPanel({
         <TextInput
           style={styles.input}
           secureTextEntry
+          accessibilityLabel="Пароль"
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          autoCapitalize="none"
           placeholder={copy.auth.passwordPlaceholder}
           placeholderTextColor={colors.textMuted}
           value={password}
@@ -69,19 +79,28 @@ export function AuthFormPanel({
           <TextInput
             style={styles.input}
             secureTextEntry
+            accessibilityLabel="Повтори пароль"
+            autoComplete="new-password"
             placeholder={copy.auth.confirmPasswordPlaceholder}
             placeholderTextColor={colors.textMuted}
             value={confirm}
             onChangeText={onChangeConfirm}
           />
         ) : null}
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {message ? (
+          <Text accessibilityLiveRegion="polite" style={styles.message}>
+            {message}
+          </Text>
+        ) : null}
       </View>
       <Pressable
         style={[
           styles.primary,
           !canSubmit || busy ? styles.primaryDisabled : null,
         ]}
+        disabled={!canSubmit || busy || isLoading}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canSubmit || busy || isLoading, busy }}
         onPress={onSubmit}
       >
         {busy || isLoading ? (
@@ -105,63 +124,66 @@ export function AuthFormPanel({
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    width: "100%",
-    padding: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    gap: 10,
-  },
-  panelTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  panelLead: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  form: {
-    gap: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    color: colors.text,
-    fontSize: 15,
-  },
-  message: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  primaryDisabled: {
-    opacity: 0.6,
-  },
-  primaryText: {
-    color: "#04140f",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  switch: {
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  switchText: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    panel: {
+      width: "100%",
+      padding: 20,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      gap: 10,
+    },
+    panelTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+    },
+    panelLead: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    form: {
+      gap: 10,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      minHeight: 52,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      color: colors.text,
+      fontSize: 15,
+    },
+    message: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    primary: {
+      backgroundColor: colors.accent,
+      borderRadius: 16,
+      minHeight: 52,
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    primaryDisabled: {
+      opacity: 0.6,
+    },
+    primaryText: {
+      color: colors.isDark ? "#10281c" : "#ffffff",
+      fontWeight: "700",
+      fontSize: 16,
+    },
+    switch: {
+      alignItems: "center",
+      paddingVertical: 8,
+    },
+    switchText: {
+      color: colors.textMuted,
+      fontSize: 13,
+    },
+  });

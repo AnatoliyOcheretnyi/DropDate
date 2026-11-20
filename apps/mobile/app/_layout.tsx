@@ -6,16 +6,20 @@ import { focusManager, QueryClientProvider } from "@tanstack/react-query";
 
 import { useAuthStore } from "../src/features/auth/store/authStore";
 import { queryClient } from "../src/shared/api/queryClient";
-import { BackendWakeOverlay } from "../src/shared/ui/BackendWakeOverlay";
+import { NetworkStatus } from "../src/shared/ui/NetworkStatus";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useReducedMotion } from "react-native-reanimated";
 import { ToastProvider } from "../src/shared/ui/Toast";
 import { ThemeProvider, useTheme } from "../src/shared/theme/ThemeProvider";
 import { AchievementUnlockOverlay } from "../src/features/achievements/ui/AchievementUnlockOverlay";
+
+export { RouteError as ErrorBoundary } from "../src/shared/ui/RouteError";
 
 function AppBootstrap() {
   const initAuth = useAuthStore((state) => state.init);
 
   useEffect(() => {
-    void initAuth();
+    void initAuth().catch(() => undefined);
   }, [initAuth]);
 
   useEffect(() => {
@@ -29,11 +33,19 @@ function AppBootstrap() {
 }
 
 function RootNavigator() {
-  const { scheme } = useTheme();
+  const { scheme, colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   return (
     <>
       <AppBootstrap />
-      <Stack screenOptions={{ headerShown: false }} initialRouteName="welcome">
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: reducedMotion ? "none" : "fade",
+          animationDuration: 200,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="auth/verify" options={{ headerShown: false }} />
@@ -44,7 +56,6 @@ function RootNavigator() {
         />
         <Stack.Screen name="mood" options={{ headerShown: false }} />
         <Stack.Screen name="match" options={{ headerShown: false }} />
-        <Stack.Screen name="games" options={{ headerShown: false }} />
         <Stack.Screen name="games/wheel" options={{ headerShown: false }} />
         <Stack.Screen
           name="games/friend-taste"
@@ -76,7 +87,7 @@ function RootNavigator() {
         <Stack.Screen name="shared/[token]" options={{ headerShown: false }} />
         <Stack.Screen name="profile-dev" options={{ headerShown: false }} />
       </Stack>
-      <BackendWakeOverlay />
+      <NetworkStatus />
       <AchievementUnlockOverlay />
       <StatusBar style={scheme === "light" ? "dark" : "light"} />
     </>
@@ -85,12 +96,14 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ToastProvider>
-          <RootNavigator />
-        </ToastProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <ToastProvider>
+            <RootNavigator />
+          </ToastProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

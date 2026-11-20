@@ -61,7 +61,7 @@ func (l *rateLimiter) allow(key string, limit int, now time.Time) bool {
 
 func (l *rateLimiter) policy(path string) (string, int) {
 	switch {
-	case strings.HasPrefix(path, "/auth/"):
+	case strings.HasPrefix(path, "/auth/"), path == "/me":
 		return "auth", l.config.AuthPerMinute
 	case strings.HasPrefix(path, "/jobs/"),
 		strings.HasPrefix(path, "/recommendations/"),

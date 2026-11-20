@@ -5,15 +5,17 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   FeatureScreen,
-  featureStyles as s,
+  useFeatureStyles,
 } from "../../../shared/ui/FeatureScreen";
 import { MotionPressable } from "../../../shared/ui/MotionPressable";
+import { CountdownPill } from "../../../shared/ui/CountdownPill";
 import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
 import { useSaved } from "../../saved/hooks/useSaved";
 import { useAuthStore } from "../../auth/store/authStore";
 import { getNotifications } from "../../notifications/api/notifications";
 import { queryKeys } from "../../../shared/api/queryKeys";
-import { colors } from "../../../shared/theme/colors";
+import { useTheme } from "../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../shared/theme/palette";
 type Event = {
   id: string;
   tmdbId: number;
@@ -32,6 +34,9 @@ const add = (d: Date, n: number) => {
 const key = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export function CalendarScreen() {
+  const s = useFeatureStyles();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("week");
   const [anchor, setAnchor] = useState(() => day(new Date()));
@@ -166,9 +171,9 @@ export function CalendarScreen() {
                     }
                   >
                     <Text style={s.optionText}>{event.title}</Text>
-                    <Text style={s.text}>
-                      {event.source === "history" ? "Вийшло" : "Очікується"}
-                    </Text>
+                    {/* "Очікується" said nothing a date could not: the pill
+                        answers how long the wait actually is. */}
+                    <CountdownPill date={event.date} size="sm" />
                   </MotionPressable>
                 ))
               ) : (
@@ -181,23 +186,24 @@ export function CalendarScreen() {
     </FeatureScreen>
   );
 }
-const styles = StyleSheet.create({
-  toolbar: { flexDirection: "row", alignItems: "center", gap: 12 },
-  nav: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 15,
-    backgroundColor: colors.card,
-  },
-  period: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "900",
-    textAlign: "center",
-    textTransform: "capitalize",
-  },
-  modes: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    toolbar: { flexDirection: "row", alignItems: "center", gap: 12 },
+    nav: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 15,
+      backgroundColor: colors.card,
+    },
+    period: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "900",
+      textAlign: "center",
+      textTransform: "capitalize",
+    },
+    modes: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  });

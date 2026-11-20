@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
 import type { CastMember, CrewMember } from "../../../../shared/types/release";
 import { MotionPressable } from "../../../../shared/ui/MotionPressable";
-import { colors } from "../../../../shared/theme/colors";
+import { useTheme } from "../../../../shared/theme/ThemeProvider";
+import type { Palette } from "../../../../shared/theme/palette";
 export function DetailsCast({
   cast = [],
   directors = [],
@@ -11,6 +13,8 @@ export function DetailsCast({
   cast?: CastMember[];
   directors?: CrewMember[];
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
   const people = [
     ...directors.map((x) => ({ ...x, character: x.job ?? "Режисер" })),
@@ -49,22 +53,23 @@ export function DetailsCast({
     </View>
   );
 }
-const styles = StyleSheet.create({
-  root: { marginTop: 24, gap: 14 },
-  title: {
-    color: colors.text,
-    fontSize: 21,
-    fontWeight: "800",
-    paddingHorizontal: 20,
-  },
-  row: { paddingHorizontal: 20, gap: 12 },
-  person: { width: 108, gap: 7 },
-  image: {
-    width: 108,
-    height: 138,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-  },
-  name: { color: colors.text, fontWeight: "800", lineHeight: 18 },
-  role: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    root: { marginTop: 24, gap: 14 },
+    title: {
+      color: colors.text,
+      fontSize: 21,
+      fontWeight: "800",
+      paddingHorizontal: 20,
+    },
+    row: { paddingHorizontal: 20, gap: 12 },
+    person: { width: 108, gap: 7 },
+    image: {
+      width: 108,
+      height: 138,
+      borderRadius: 20,
+      backgroundColor: colors.card,
+    },
+    name: { color: colors.text, fontWeight: "800", lineHeight: 18 },
+    role: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
+  });

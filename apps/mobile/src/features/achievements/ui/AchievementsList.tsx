@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "../../../shared/api/queryKeys";
 import { useTheme } from "../../../shared/theme/ThemeProvider";
 import type { Palette } from "../../../shared/theme/palette";
+import { AnimatedCounter } from "../../../shared/ui/AnimatedCounter";
+import { AnimatedProgress } from "../../../shared/ui/AnimatedProgress";
 import { AnimatedSection } from "../../../shared/ui/AnimatedScreen";
 import { ScreenState } from "../../../shared/ui/ScreenState";
 import { getAchievements, getFriendAchievements } from "../api/achievements";
@@ -57,21 +59,15 @@ export function AchievementsList({ friendId }: { friendId?: string }) {
               <View style={styles.body}>
                 <View style={styles.head}>
                   <Text style={styles.title}>{meta.label}</Text>
-                  <Text style={styles.count}>{item.count}</Text>
+                  <AnimatedCounter value={item.count} style={styles.count} />
                 </View>
-                <View
-                  accessibilityRole="progressbar"
-                  accessibilityValue={{
-                    min: 0,
-                    max: target,
-                    now: Math.min(item.count, target),
-                  }}
-                  style={styles.track}
-                >
-                  <View
-                    style={[styles.fill, { width: `${fraction * 100}%` }]}
-                  />
-                </View>
+                <AnimatedProgress
+                  value={fraction}
+                  height={7}
+                  // Staggered with the card's own entrance so the bars fill in
+                  // sequence instead of all at once.
+                  delay={Math.min(index, 6) * 55 + 160}
+                />
                 <Text style={styles.hint}>
                   {item.nextTier
                     ? `Ще ${Math.max(item.nextTier - item.count, 0)} до наступного рівня`
@@ -111,12 +107,5 @@ const makeStyles = (colors: Palette) =>
     head: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
     title: { color: colors.text, fontWeight: "800", fontSize: 16, flex: 1 },
     count: { color: colors.accent, fontWeight: "900" },
-    track: {
-      height: 7,
-      borderRadius: 99,
-      overflow: "hidden",
-      backgroundColor: colors.border,
-    },
-    fill: { height: "100%", borderRadius: 99, backgroundColor: colors.accent },
     hint: { color: colors.textMuted, fontSize: 12 },
   });
