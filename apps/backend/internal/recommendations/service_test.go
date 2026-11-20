@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ type stubCandidates struct {
 	bySeed map[int][]release.Suggestion
 	// failSeeds is the set of seed tmdbIDs whose fetch errors.
 	failSeeds     map[int]bool
-	calls         int
+	calls         atomic.Int64
 	discoverItems []release.DiscoverItem
 	discoverErr   error
 }
@@ -45,7 +46,7 @@ func (s *stubCandidates) Discover(_ context.Context, _ release.DiscoverParams) (
 }
 
 func (s *stubCandidates) Recommendations(_ context.Context, id int, _ string, _ int) ([]release.Suggestion, error) {
-	s.calls++
+	s.calls.Add(1)
 	if s.failSeeds[id] {
 		return nil, errors.New("tmdb down")
 	}
@@ -269,8 +270,8 @@ func TestGenerateNoSeedsReturnsEmpty(t *testing.T) {
 	if len(result.Items) != 0 {
 		t.Fatalf("expected no items, got %d", len(result.Items))
 	}
-	if candidates.calls != 0 {
-		t.Fatalf("expected no TMDB calls without seeds, got %d", candidates.calls)
+	if candidates.calls.Load() != 0 {
+		t.Fatalf("expected no TMDB calls without seeds, got %d", candidates.calls.Load())
 	}
 }
 
@@ -287,12 +288,12 @@ func TestGenerateCachesResult(t *testing.T) {
 	if _, err := svc.Generate(context.Background(), "user-5", 18); err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	firstCalls := candidates.calls
+	firstCalls := candidates.calls.Load()
 	if _, err := svc.Generate(context.Background(), "user-5", 18); err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if candidates.calls != firstCalls {
-		t.Fatalf("expected cached second call (no extra TMDB calls), got %d then %d", firstCalls, candidates.calls)
+	if candidates.calls.Load() != firstCalls {
+		t.Fatalf("expected cached second call (no extra TMDB calls), got %d then %d", firstCalls, candidates.calls.Load())
 	}
 }
 
