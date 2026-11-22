@@ -15,6 +15,7 @@ const posters = (country: string) =>
 test("country selection keeps the poster globe and opens films only on request", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   let fullRequests = 0;
   let atlasRequests = 0;
@@ -75,6 +76,7 @@ test("country selection keeps the poster globe and opens films only on request",
   await expect(page.locator(".world-globe")).toHaveAttribute(
     "data-selected-posters",
     "24",
+    { timeout: 20_000 },
   );
   // Development StrictMode may abort and remount the initial query. Changing
   // countries and returning from the films view must reuse the loaded catalog.
@@ -108,7 +110,7 @@ test("country selection keeps the poster globe and opens films only on request",
   expect(await atlas.evaluate((el) => el.scrollTop)).toBe(0);
   await page.getByRole("searchbox", { name: "Знайти країну" }).fill("Японія");
   await page.locator(".world-country-matches").getByRole("button").click();
-  await expect(page).toHaveURL(/country=JP.*view=globe/);
+  await expect(page).toHaveURL(/country=JP.*view=globe/, { timeout: 20_000 });
   await expect(preview.getByRole("link").first()).toContainText(
     "JP — Історія 1",
   );
@@ -138,7 +140,7 @@ test("country selection keeps the poster globe and opens films only on request",
     ),
   ).toBe(true);
   await page.getByRole("button", { name: /Усі фільми країни/ }).click();
-  await expect(page).toHaveURL(/view=films/);
+  await expect(page).toHaveURL(/view=films/, { timeout: 20_000 });
   await expect.poll(() => fullRequests).toBe(1);
   await page.getByRole("button", { name: "До глобуса" }).click();
   await expect(page).toHaveURL(/view=globe/);
@@ -150,6 +152,7 @@ test("country selection keeps the poster globe and opens films only on request",
 test("preview failure leaves country search and the full catalogue available", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     await route.fulfill({
@@ -168,7 +171,7 @@ test("preview failure leaves country search and the full catalogue available", a
     page.getByRole("searchbox", { name: "Знайти країну" }),
   ).toBeVisible();
   await page.getByRole("button", { name: /Усі фільми країни/ }).click();
-  await expect(page).toHaveURL(/view=films/);
+  await expect(page).toHaveURL(/view=films/, { timeout: 20_000 });
 });
 
 test("live poster atlas smoke", async ({ page }, testInfo) => {

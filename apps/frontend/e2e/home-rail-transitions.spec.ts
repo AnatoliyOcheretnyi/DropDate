@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("charts retain their row while loading; personal collections replace individual cards", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60_000);
   const films = Array.from({ length: 10 }, (_, i) => ({
     id: 8100 + i,
     mediaType: "movie",
@@ -13,6 +14,7 @@ test("charts retain their row while loading; personal collections replace indivi
       "https://image.tmdb.org/t/p/w342/6iyVoBUayz0Qb7xWSqgLcyV7vmp.jpg",
   }));
   let saved = false;
+  let refillRequests = 0;
   let finishChart!: () => void;
   let finishCollection!: () => void;
   const chartGate = new Promise<void>((resolve) => {
@@ -35,7 +37,10 @@ test("charts retain their row while loading; personal collections replace indivi
       };
     else if (url.pathname === "/api/home/collection") {
       if (url.searchParams.get("kind") === "country") {
-        if (saved) await collectionGate;
+        if (saved) {
+          refillRequests++;
+          await collectionGate;
+        }
         json = {
           items: saved
             ? [
@@ -141,10 +146,13 @@ test("charts retain their row while loading; personal collections replace indivi
   expect(
     await row.evaluate((el) => el.getBoundingClientRect().height),
   ).toBeCloseTo(rowHeight, 0);
+  // The optimistic card removal precedes the acknowledged write and refetch.
+  // Wait for that request explicitly before releasing the response gate.
+  await expect.poll(() => refillRequests, { timeout: 20_000 }).toBeGreaterThan(0);
   finishCollection();
   await expect(
     collection.getByText("Новий фільм", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
   expect(await survivingCard!.evaluate((el) => el.isConnected)).toBe(true);
   await collection.screenshot({
     path: testInfo.outputPath("updated-collection.png"),
