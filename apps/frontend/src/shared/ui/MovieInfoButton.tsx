@@ -120,6 +120,9 @@ export function MovieInfoButton({
   }, [tmdbId, mediaType]);
 
   const scheduleClose = useCallback(() => {
+    // A click/focus opens an interactive preview. Moving the pointer while its
+    // entrance animates must not close it while the trigger still has focus.
+    if (buttonRef.current === document.activeElement) return;
     clearOpenTimer();
     clearCloseTimer();
     closeTimerRef.current = window.setTimeout(() => {

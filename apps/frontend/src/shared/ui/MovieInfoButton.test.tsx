@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MovieInfoButton } from "./MovieInfoButton";
 import { MovieCardSurface } from "./MovieCardSurface";
@@ -11,6 +11,21 @@ beforeEach(() => {
   request.mockReset().mockImplementation(async ({ params }) => ({ ok: true, payload: { details: { id: params.tmdbId, mediaType: params.mediaType, title: `${params.mediaType} detail`, overview: "An overview" } } }));
 });
 describe("shared movie previews", () => {
+  it("keeps a focused trigger's preview open when the pointer leaves", async () => {
+    render(<><MovieInfoButton tmdbId={81005} mediaType="movie" title="Focused" /><button>Outside</button></>);
+    const info = screen.getByRole("button", { name: "Опис: Focused" });
+    act(() => info.focus());
+    await screen.findByRole("dialog");
+    vi.useFakeTimers();
+    try {
+      fireEvent.mouseLeave(info);
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      act(() => screen.getByRole("button", { name: "Outside" }).focus());
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } finally { vi.useRealTimers(); }
+  });
   it("opens a portal outside the clipped card on hover and keeps film/TV caches distinct", async () => {
     const { container, unmount } = render(<div style={{ overflow: "hidden" }}><MovieInfoButton tmdbId={81001} mediaType="movie" title="Movie" /></div>);
     fireEvent.mouseEnter(screen.getByRole("button", { name: "Опис: Movie" }));

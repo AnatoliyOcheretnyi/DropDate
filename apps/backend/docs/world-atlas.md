@@ -56,7 +56,8 @@ Poster count is based on spherical country area from the map geometry:
 Available unique artwork caps the count. The layout splits posters between land
 polygons proportionally, crops them to fill tiles, compensates for latitude, and
 wraps the date line. All countries share one canvas texture, 4096×2048 on desktop
-and 2048×1024 on mobile, with six image workers and incremental updates. There is
+and 2048×1024 on mobile, with three country workers loading four images each
+(at most 12 image requests concurrently) and incremental updates. There is
 no GPU material per poster. Failed images leave the base map visible.
 
 The API supports ETags and a five-minute public HTTP cache. The frontend proxy

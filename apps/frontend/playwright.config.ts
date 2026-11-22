@@ -12,7 +12,9 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: `yarn dev --hostname 127.0.0.1 --port ${port}`,
+    // Release workflows build first: exercise that artifact instead of spending
+    // the interaction timeout compiling heavy routes on the shared CI runner.
+    command: `yarn ${process.env.CI ? "start" : "dev"} --hostname 127.0.0.1 --port ${port}`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

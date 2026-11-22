@@ -164,34 +164,43 @@ export function useAtlasTexture(
           ),
         ].slice(0, countryPosterCount(feature.geometry));
         const images: HTMLImageElement[] = [];
-        for (const src of urls) {
+        // Four images at a time avoids a 24-request waterfall for large
+        // countries. Three country workers bound total image requests to 12.
+        for (let start = 0; start < urls.length; start += 4) {
           if (stopped) break;
-          const image = await new Promise<HTMLImageElement | null>(
-            (resolve) => {
-              const img = new Image();
-              img.crossOrigin = "anonymous";
-              const finish = (value: HTMLImageElement | null) => {
-                clearTimeout(timeout);
-                controller.signal.removeEventListener("abort", abort);
-                img.onload = img.onerror = null;
-                resolve(value);
-              };
-              const abort = () => {
-                img.src = "";
-                finish(null);
-              };
-              const timeout = window.setTimeout(abort, 12_000);
-              controller.signal.addEventListener("abort", abort, {
-                once: true,
-              });
-              img.onload = () => finish(img);
-              img.onerror = () => finish(null);
-              const url = new URL(tmdbImageLoader({ src, width: 185 }));
-              url.searchParams.set("atlas", "1");
-              img.src = url.toString();
-            },
+          const batch = await Promise.all(
+            urls.slice(start, start + 4).map(
+              (src) =>
+                new Promise<HTMLImageElement | null>((resolve) => {
+                  const img = new Image();
+                  img.crossOrigin = "anonymous";
+                  const finish = (value: HTMLImageElement | null) => {
+                    clearTimeout(timeout);
+                    controller.signal.removeEventListener("abort", abort);
+                    img.onload = img.onerror = null;
+                    resolve(value);
+                  };
+                  const abort = () => {
+                    img.src = "";
+                    finish(null);
+                  };
+                  const timeout = window.setTimeout(abort, 12_000);
+                  controller.signal.addEventListener("abort", abort, {
+                    once: true,
+                  });
+                  img.onload = () => finish(img);
+                  img.onerror = () => finish(null);
+                  const url = new URL(tmdbImageLoader({ src, width: 185 }));
+                  url.searchParams.set("atlas", "1");
+                  img.src = url.toString();
+                }),
+            ),
           );
-          if (image) images.push(image);
+          images.push(
+            ...batch.filter(
+              (image): image is HTMLImageElement => image !== null,
+            ),
+          );
         }
         if (stopped) {
           images.forEach((image) => {
@@ -213,7 +222,7 @@ export function useAtlasTexture(
         }
       }
     }
-    void Promise.all(Array.from({ length: 6 }, worker)).then(() => {
+    void Promise.all(Array.from({ length: 3 }, worker)).then(() => {
       if (pending) clearTimeout(pending);
       publish();
     });
