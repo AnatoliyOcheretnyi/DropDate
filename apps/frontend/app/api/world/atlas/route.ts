@@ -1,0 +1,9 @@
+import { NextRequest } from "next/server";
+import { proxyBackend } from "../../../../src/shared/api/backendProxy";
+
+export function GET(request: NextRequest) {
+  return proxyBackend(request, "/world/atlas", {
+    forwardAuth: false,
+    forwardQuery: false,
+  });
+}

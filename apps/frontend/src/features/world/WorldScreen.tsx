@@ -24,6 +24,7 @@ import { GENRES, itemKey, type WorldItem, type WorldResult } from "./types";
 import { makeFilmRoute } from "./discovery";
 import { WorldPanels } from "./WorldPanels";
 import { isPassportMovie, loadWorldPassport } from "./passport";
+import { useAtlasPreviews } from "./useAtlasPreviews";
 
 const Globe = dynamic(() => import("./WorldGlobe"), {
   ssr: false,
@@ -92,6 +93,7 @@ export function WorldScreen() {
   const showFilms =
     params.get("view") === "films" ||
     (!params.has("view") && params.has("seed"));
+  const { posters, preview } = useAtlasPreviews(country.code, !showFilms);
   const page = Math.max(1, Math.min(10, Number(params.get("page")) || 1));
   const update = useCallback(
     (values: Record<string, string>) => {
@@ -101,14 +103,14 @@ export function WorldScreen() {
         if (value) next.set(key, value);
         else next.delete(key);
       }
-      if (values.country) next.set("view", "films");
+      if (values.country && !values.view) next.set("view", "films");
       router.replace("/world?" + next, { scroll: false });
     },
     [params, router],
   );
   const selectCountry = useCallback(
     (code: string) => {
-      update({ country: code });
+      update({ country: code, view: "globe", seed: "", intent: "" });
       setCountrySearch("");
       setPassportOpen(false);
       track("world_country_selected", { country: code });
@@ -325,6 +327,7 @@ export function WorldScreen() {
           if (pick) {
             update({
               country: pick.countryCode,
+              view: seedItem ? "films" : "globe",
               mode: "personal",
               ...(seedItem
                 ? {
@@ -352,6 +355,7 @@ export function WorldScreen() {
       const code = options[Math.floor(Math.random() * options.length)] || "JP";
       update({
         country: code,
+        view: seedItem ? "films" : "globe",
         ...(seedItem && user
           ? {
               seed: String(seedItem.tmdbId),
@@ -386,7 +390,9 @@ export function WorldScreen() {
         <div>
           <p className="eyebrow">ТВОЯ КІНОПОДОРОЖ</p>
           <h2>Куди далі?</h2>
-          <p>Обертай світ і торкнися країни, щоб відкрити її кіно.</p>
+          <p>
+            У кожної країни — свої історії. Обери зупинку й зазирни в її кіно.
+          </p>
         </div>
         <div className="world-destinations">
           <span>Ідеї для першої зупинки</span>
@@ -414,6 +420,7 @@ export function WorldScreen() {
               active={!showFilms}
               country={country}
               visited={visited}
+              posters={posters}
               onSelect={selectCountry}
               onUnavailable={unavailable}
             />
@@ -426,18 +433,73 @@ export function WorldScreen() {
         <span className="world-country-flag" aria-hidden="true">
           {FLAG(country.code)}
         </span>
-        <p className="eyebrow">НАСТУПНА ЗУПИНКА</p>
-        <h2>{country.name}</h2>
-        <p>
-          Від культових історій до маленьких відкриттів. Знайди свій наступний
-          фільм.
-        </p>
+        <p className="eyebrow">ТВОЯ НАСТУПНА ЗУПИНКА</p>
+        <h2 aria-live="polite">{country.name}</h2>
+        <div
+          className="world-preview"
+          aria-label={`Кіно країни: ${country.name}`}
+          aria-busy={preview.isFetching}
+        >
+          <div className="world-preview__heading">
+            <span>Почни з цих історій</span>
+            {visited[country.code] > 0 && (
+              <span>{visited[country.code]} у кінопаспорті</span>
+            )}
+          </div>
+          <div className="world-preview__films" key={country.code}>
+            {preview.data?.length ? (
+              preview.data.map((item) => (
+                <Link
+                  className="world-preview__film"
+                  key={itemKey(item)}
+                  href={`/title/${item.mediaType}/${item.tmdbId}`}
+                  title={item.title}
+                >
+                  <span className="world-preview__cover">
+                    <CoverImage
+                      src={item.posterUrl!}
+                      alt=""
+                      sizes="(max-width: 800px) 28vw, 100px"
+                    />
+                    {Boolean(item.rating) && (
+                      <span className="world-preview__rating">
+                        ★ {item.rating!.toFixed(1)}
+                      </span>
+                    )}
+                  </span>
+                  <strong>{item.title}</strong>
+                  <span>{item.year}</span>
+                </Link>
+              ))
+            ) : preview.isPending ? (
+              Array.from({ length: 3 }, (_, index) => (
+                <div
+                  className="world-preview__skeleton"
+                  key={index}
+                  aria-hidden="true"
+                />
+              ))
+            ) : (
+              <div className="world-preview__empty" role="status">
+                <span>
+                  {preview.isError
+                    ? "Прев’ю поки недоступне"
+                    : "Для цієї країни поки немає постерів"}
+                </span>
+                {preview.isError && (
+                  <button onClick={() => void preview.refetch()}>
+                    Спробувати ще
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         <button
           className="world-open-country"
           onClick={() => update({ view: "films", page: String(page) })}
         >
-          {params.has("country") ? "До фільмів країни" : "Відкрити фільми"}{" "}
-          <span aria-hidden="true">↗</span>
+          Усі фільми країни <span aria-hidden="true">↗</span>
         </button>
         <label className="world-country-search">
           Знайти країну
@@ -485,7 +547,8 @@ export function WorldScreen() {
               : "Здивуй країною ↗"}
         </button>
         <p className="world-atlas__note">
-          Колір на карті показує країни у твоєму кінопаспорті.
+          Постери відкривають кіно країни. Бірюзові контури позначають твій
+          кінопаспорт.
         </p>
       </aside>
     </section>
@@ -801,23 +864,27 @@ export function WorldScreen() {
                 <p className="eyebrow">ТРИ ВЕЧОРИ — ОДНА КІНОПОДОРОЖ</p>
                 {route.map((item, i) => (
                   <div className="world-route-card" key={item.tmdbId}>
-                  <MovieInfoButton tmdbId={item.tmdbId} mediaType="movie" title={item.title} />
-                  <Link href={`/title/movie/${item.tmdbId}`}>
-                    <span>0{i + 1}</span>
-                    <div>
-                      <small>
-                        {
-                          [
-                            "Знайомство: найбільше відгуків",
-                            "Продовження: висока оцінка",
-                            "Відкриття: менше відоме",
-                          ][i]
-                        }
-                      </small>
-                      <strong>{item.title}</strong>
-                    </div>
-                    <span>↗</span>
-                  </Link>
+                    <MovieInfoButton
+                      tmdbId={item.tmdbId}
+                      mediaType="movie"
+                      title={item.title}
+                    />
+                    <Link href={`/title/movie/${item.tmdbId}`}>
+                      <span>0{i + 1}</span>
+                      <div>
+                        <small>
+                          {
+                            [
+                              "Знайомство: найбільше відгуків",
+                              "Продовження: висока оцінка",
+                              "Відкриття: менше відоме",
+                            ][i]
+                          }
+                        </small>
+                        <strong>{item.title}</strong>
+                      </div>
+                      <span>↗</span>
+                    </Link>
                   </div>
                 ))}
               </div>
@@ -831,7 +898,12 @@ export function WorldScreen() {
                 });
                 return (
                   <article className="world-card" key={itemKey(item)}>
-                    <MovieInfoButton tmdbId={item.tmdbId} mediaType={item.mediaType} title={item.title} activeLists={active} />
+                    <MovieInfoButton
+                      tmdbId={item.tmdbId}
+                      mediaType={item.mediaType}
+                      title={item.title}
+                      activeLists={active}
+                    />
                     <Link
                       className="world-card__poster"
                       href={`/title/${item.mediaType}/${item.tmdbId}`}

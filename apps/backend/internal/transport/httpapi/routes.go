@@ -39,6 +39,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/taste/onboarding", s.tasteOnboardingHandler)
 	mux.HandleFunc("/bridge", s.bridgeHandler)
 	mux.HandleFunc("/world", s.worldHandler)
+	mux.HandleFunc("/world/atlas", s.worldAtlasHandler)
+	mux.HandleFunc("/jobs/world-atlas", s.worldAtlasJobHandler)
 	mux.HandleFunc("/new-releases", s.newReleasesHandler)
 	mux.HandleFunc("/home/collection", s.homeCollectionHandler)
 	mux.HandleFunc("/world/passport", s.passportHandler)

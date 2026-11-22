@@ -51,6 +51,9 @@ export function WorldPanels({
 
   useEffect(() => {
     if (filmsRef.current) filmsRef.current.scrollTop = 0;
+    // Country search sits below the globe on phones. Reveal the new location
+    // after selection instead of leaving the camera above the scroll viewport.
+    if (atlasRef.current) atlasRef.current.scrollTop = 0;
   }, [country]);
 
   return (

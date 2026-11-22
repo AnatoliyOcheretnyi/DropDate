@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/atlas"
 	"log"
 	"net/http"
 	"strings"
@@ -48,6 +49,7 @@ type ReadinessChecker interface {
 }
 
 type ServerOptions struct {
+	Atlas            *atlas.Service
 	Readiness        ReadinessChecker
 	ReadinessTimeout time.Duration
 	RequestTimeout   time.Duration
@@ -70,6 +72,7 @@ type ServerOptions struct {
 }
 
 type Server struct {
+	atlas            *atlas.Service
 	releases         *release.Service
 	auth             AuthService
 	saved            *saved.Service
@@ -126,6 +129,7 @@ func NewServer(
 		}
 	}
 	return &Server{
+		atlas:            options.Atlas,
 		releases:         releases,
 		auth:             authSvc,
 		saved:            savedSvc,

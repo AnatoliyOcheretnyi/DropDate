@@ -11,6 +11,7 @@ import (
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/airecs"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/akinator"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/atlas"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/capabilities"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/cinematch"
@@ -35,6 +36,7 @@ import (
 )
 
 type App struct {
+	atlas                 *atlas.Service
 	server                *http.Server
 	notifier              *notifications.ReleaseNotifier
 	akinatorBuilder       *akinator.Builder
@@ -205,6 +207,10 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		}
 	}
 
+	var atlasService *atlas.Service
+	if db != nil && tmdbClient != nil {
+		atlasService = atlas.New(atlas.NewStore(db), tmdbClient, logger)
+	}
 	apiServer := httpapi.NewServer(
 		releaseService,
 		authService,
@@ -216,6 +222,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		matchService,
 		logger,
 		httpapi.ServerOptions{
+			Atlas:            atlasService,
 			Readiness:        readiness,
 			ReadinessTimeout: cfg.Readiness.Timeout,
 			RequestTimeout:   cfg.HTTP.RequestTimeout,
@@ -257,6 +264,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 	}
 
 	return &App{
+		atlas:                 atlasService,
 		server:                server,
 		notifier:              notifier,
 		akinatorBuilder:       akinatorBuilder,
@@ -273,6 +281,9 @@ func (a *App) Run(ctx context.Context) error {
 	defer a.closeResources()
 
 	group, ctx := errgroup.WithContext(ctx)
+	if a.atlas != nil {
+		group.Go(func() error { a.atlas.Run(ctx); return nil })
+	}
 	if a.tmdbClient != nil {
 		group.Go(func() error {
 			ticker := time.NewTicker(30 * time.Second)

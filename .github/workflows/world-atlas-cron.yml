@@ -1,0 +1,24 @@
+name: Refresh world poster atlas
+on:
+  schedule:
+    - cron: "20 5 1 * *"
+  workflow_dispatch: {}
+permissions: {}
+concurrency:
+  group: world-atlas-refresh
+  cancel-in-progress: false
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Queue due country refreshes
+        env:
+          JOBS_ACCESS_TOKEN: ${{ secrets.JOBS_ACCESS_TOKEN }}
+          JOBS_ENDPOINT: ${{ secrets.JOBS_ENDPOINT }}
+        run: |
+          test -n "$JOBS_ACCESS_TOKEN" && test -n "$JOBS_ENDPOINT"
+          BASE_URL="${JOBS_ENDPOINT%/jobs/notifications}"
+          curl --fail --silent --show-error --max-time 90 \
+            --retry 2 --retry-delay 5 -X POST "$BASE_URL/jobs/world-atlas" \
+            -H "Authorization: Bearer $JOBS_ACCESS_TOKEN"

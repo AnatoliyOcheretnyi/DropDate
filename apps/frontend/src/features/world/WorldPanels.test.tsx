@@ -80,4 +80,19 @@ describe("atlas and film navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /До глобуса/ }));
     expect(back).toHaveBeenCalledOnce();
   });
+  it("reveals the globe after selecting a country from below it on mobile", () => {
+    const props = {
+      showFilms: false,
+      onBack: vi.fn(),
+      atlas: <div>Map</div>,
+      children: <div>Films</div>,
+    };
+    const { container, rerender } = render(
+      <WorldPanels {...props} country="UA" />,
+    );
+    const atlas = container.querySelector<HTMLElement>(".world-pane--atlas")!;
+    atlas.scrollTop = 250;
+    rerender(<WorldPanels {...props} country="JP" />);
+    expect(atlas.scrollTop).toBe(0);
+  });
 });

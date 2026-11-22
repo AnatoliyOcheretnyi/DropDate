@@ -2,16 +2,18 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
-import { MeshPhongMaterial, type PerspectiveCamera } from "three";
+import { MeshBasicMaterial, type PerspectiveCamera } from "three";
 import type { Feature, Geometry } from "geojson";
-import type { Country } from "./types";
+import type { Country, WorldItem } from "./types";
 import catalog from "./countries.json";
+import { useAtlasTexture } from "./useAtlasTexture";
 
 type Shape = Feature<Geometry, { code: string; name: string }>;
 type Props = {
   active: boolean;
   country: Country;
   visited: Record<string, number>;
+  posters: Record<string, WorldItem[]>;
   onSelect: (code: string) => void;
   onUnavailable: () => void;
 };
@@ -23,6 +25,7 @@ function WorldGlobe({
   active,
   country,
   visited,
+  posters,
   onSelect,
   onUnavailable,
 }: Props) {
@@ -47,6 +50,46 @@ function WorldGlobe({
     [features],
   );
   const [hover, setHover] = useState<string | null>(null);
+  const [canHover, setCanHover] = useState(false);
+  const atlas = useAtlasTexture(features, posters);
+  const countryMaterials = useMemo(
+    () => ({
+      selected: new MeshBasicMaterial({
+        color: "#071d2b",
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }),
+      hover: new MeshBasicMaterial({
+        color: "#ffffff",
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }),
+      visited: new MeshBasicMaterial({
+        color: "#092a30",
+        transparent: true,
+        opacity: 0.46,
+        depthWrite: false,
+      }),
+      neutral: new MeshBasicMaterial({
+        color: "#071d2b",
+        transparent: true,
+        opacity: 0.56,
+        depthWrite: false,
+      }),
+    }),
+    [],
+  );
+  useEffect(() => {
+    // A pointer reveals artwork on hover; touch devices reveal the selection.
+    countryMaterials.selected.opacity = canHover ? 0.32 : 0;
+  }, [canHover, countryMaterials]);
+  useEffect(
+    () => () =>
+      Object.values(countryMaterials).forEach((entry) => entry.dispose()),
+    [countryMaterials],
+  );
   const [ready, setReady] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const lastCountry = useRef<string | null>(null);
@@ -55,10 +98,15 @@ function WorldGlobe({
     null,
   );
   const material = useMemo(
-    () => new MeshPhongMaterial({ color: "#091f32", shininess: 8 }),
+    () => new MeshBasicMaterial({ color: "#091f32" }),
     [],
   );
   useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => {
+    material.map = atlas.texture ?? null;
+    material.color.set(atlas.texture ? "#ffffff" : "#091f32");
+    material.needsUpdate = true;
+  }, [atlas.texture, material]);
   useEffect(() => {
     const controller = new AbortController();
     fetch("/data/world-countries.json", { signal: controller.signal })
@@ -74,9 +122,13 @@ function WorldGlobe({
   }, [onUnavailable]);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const pointer = window.matchMedia("(hover: hover) and (pointer: fine)");
     const update = () => setReduceMotion(mq.matches);
+    const updatePointer = () => setCanHover(pointer.matches);
     update();
+    updatePointer();
     mq.addEventListener("change", update);
+    pointer.addEventListener("change", updatePointer);
     const node = host.current;
     if (!node) return;
     const observer = new ResizeObserver(([entry]) =>
@@ -89,6 +141,7 @@ function WorldGlobe({
     return () => {
       observer.disconnect();
       mq.removeEventListener("change", update);
+      pointer.removeEventListener("change", updatePointer);
     };
   }, []);
   const setup = useCallback(() => {
@@ -123,6 +176,7 @@ function WorldGlobe({
       } catch {}
     }
     if (lastCountry.current === country.code) return;
+    const changingCountry = lastCountry.current !== null;
     lastCountry.current = country.code;
     const camera = globe.current.camera() as PerspectiveCamera;
     const width = host.current?.clientWidth || 700;
@@ -133,7 +187,11 @@ function WorldGlobe({
     const halfFov = (camera.fov * Math.PI) / 360;
     const altitude = Math.sqrt(1 + (1 / (fill * Math.tan(halfFov))) ** 2) - 1;
     globe.current.pointOfView(
-      { lat: country.lat, lng: country.lng, altitude },
+      {
+        lat: country.lat,
+        lng: country.lng,
+        altitude: changingCountry ? Math.max(0.8, altitude * 0.88) : altitude,
+      },
       reduceMotion ? 0 : 850,
     );
   }, [country, ready, reduceMotion]);
@@ -187,7 +245,13 @@ function WorldGlobe({
   return (
     <div
       className="world-globe"
+      data-ready={ready}
+      data-selected-poster={atlas.ready.has(country.code)}
+      data-selected-posters={atlas.counts[country.code] ?? 0}
+      data-painted-countries={atlas.ready.size}
+      data-hover-country={hover ?? ""}
       ref={host}
+      onPointerLeave={() => setHover(null)}
       role="group"
       aria-label="Інтерактивний глобус. Обери країну на карті або в списку поруч."
     >
@@ -201,8 +265,16 @@ function WorldGlobe({
         atmosphereColor="#5bdcbd"
         atmosphereAltitude={0.12}
         globeCurvatureResolution={6}
-        showGraticules
         polygonsData={features}
+        polygonCapMaterial={(obj) =>
+          code(obj) === hover
+            ? countryMaterials.hover
+            : code(obj) === country.code
+              ? countryMaterials.selected
+              : visited[code(obj)]
+                ? countryMaterials.visited
+                : countryMaterials.neutral
+        }
         polygonCapColor={(obj) =>
           code(obj) === country.code
             ? "#73f0c1"
@@ -214,7 +286,7 @@ function WorldGlobe({
         }
         polygonSideColor={() => "#102a38"}
         polygonAltitude={0.005}
-        polygonCapCurvatureResolution={6}
+        polygonCapCurvatureResolution={3}
         polygonsTransitionDuration={0}
         polygonLabel={(obj) => (obj as Shape).properties.name}
         onPolygonHover={(obj) => setHover(obj ? code(obj) : null)}
@@ -227,11 +299,19 @@ function WorldGlobe({
         // passport colours cannot obscure the country boundaries.
         pathPointAlt={0.007}
         pathColor={(border: object) =>
-          (border as { code: string }).code === country.code
-            ? "#194b50"
-            : "#83a9b5"
+          (border as { code: string }).code === hover
+            ? "#e3fff5"
+            : (border as { code: string }).code === country.code
+              ? "#96f7cf"
+              : visited[(border as { code: string }).code]
+                ? "#7bcfbd"
+                : "#91b1bf"
         }
-        pathStroke={1.2}
+        pathStroke={(border: object) =>
+          [hover, country.code].includes((border as { code: string }).code)
+            ? 2
+            : 1.5
+        }
         pathResolution={1}
         pathTransitionDuration={0}
         onPathClick={(border) => onSelect((border as { code: string }).code)}

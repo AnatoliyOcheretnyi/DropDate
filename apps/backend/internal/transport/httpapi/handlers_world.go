@@ -292,6 +292,37 @@ func (s *Server) worldHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, e.Error())
 		return
 	}
+	// The atlas needs only a few posters, not a personalized pool or AI
+	// enrichment. Reuse one cached TMDB discovery page per country.
+	if r.URL.Query().Get("preview") == "1" {
+		if f.country == "" {
+			writeError(w, 400, "country is required for preview")
+			return
+		}
+		pool, err := s.cachedDiscover(r.Context(), release.DiscoverParams{
+			MediaType: "movie", WithOriginCountry: []string{f.country},
+			SortBy: "popularity.desc", VoteCountGTE: 10, Page: 1,
+			ReleaseDateLTE: time.Now().UTC().Format("2006-01-02"),
+		})
+		if err != nil {
+			writeError(w, 502, "Не вдалося завантажити прев’ю країни")
+			return
+		}
+		result := worldResult{Items: []worldItem{}}
+		seen := map[int]bool{}
+		for _, item := range pool {
+			if item.TMDBID <= 0 || item.PosterURL == "" || seen[item.TMDBID] {
+				continue
+			}
+			seen[item.TMDBID] = true
+			result.Items = append(result.Items, worldItem{DiscoverItem: item, Country: f.country})
+			if len(result.Items) == 3 {
+				break
+			}
+		}
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
 	seedID, validSeed := boundedInt(r.URL.Query().Get("seed"), 1, 100000000)
 	if !validSeed || len([]rune(r.URL.Query().Get("intent"))) > 240 {
 		writeError(w, 400, "invalid refinement")

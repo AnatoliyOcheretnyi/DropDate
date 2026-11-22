@@ -4,6 +4,14 @@
   "sourceRoot": "apps/backend",
   "projectType": "application",
   "targets": {
+    "atlas-refresh": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run ./cmd/atlas-refresh",
+        "cwd": "apps/backend"
+      },
+      "cache": false
+    },
     "serve": {
       "executor": "nx:run-commands",
       "options": {
@@ -13,9 +21,7 @@
     },
     "build": {
       "executor": "nx:run-commands",
-      "outputs": [
-        "{projectRoot}/bin"
-      ],
+      "outputs": ["{projectRoot}/bin"],
       "options": {
         "command": "go build -o ./bin/dropdate ./cmd/api",
         "cwd": "apps/backend"
