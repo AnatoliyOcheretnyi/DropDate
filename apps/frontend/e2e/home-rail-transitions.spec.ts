@@ -127,6 +127,9 @@ test("charts retain their row while loading; personal collections replace indivi
   await collection
     .getByRole("button", { name: "Опис: Добірка 1", exact: true })
     .click();
+  // Enter the stable preview before moving to its footer, keeping the hover
+  // grace timer from closing it while Playwright waits for the entrance motion.
+  if (!testInfo.project.use.isMobile) await page.getByRole("dialog").hover();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Хочу подивитись", exact: true })

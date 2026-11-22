@@ -36,12 +36,18 @@ for (const layout of ["default", "tablet"] as const) {
     await slider.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
     await slider.focus();
     // Finish the page's scroll-reveal before measuring the slider update.
-    await row.evaluate(async (el) => {
-      await document.fonts.ready;
+    await page.evaluate(() => document.fonts.ready.then(() => {}));
+    // IntersectionObserver may start the reveal after the first animation
+    // snapshot. Wait for its final transform, not only currently active frames.
+    await expect.poll(() => row.evaluate((el) => {
       for (let ancestor: Element | null = el; ancestor; ancestor = ancestor.parentElement) {
-        await Promise.all(ancestor.getAnimations().map((animation) => animation.finished.catch(() => {})));
+        if (!ancestor.classList.contains("reveal--armed")) continue;
+        if (!ancestor.classList.contains("reveal--in")) return false;
+        const transform = getComputedStyle(ancestor).transform;
+        if (transform !== "none" && transform !== "matrix(1, 0, 0, 1, 0, 0)") return false;
       }
-    });
+      return true;
+    })).toBe(true);
     const bounds = () => row.evaluate((el) => ({ height: el.getBoundingClientRect().height, top: el.getBoundingClientRect().top + window.scrollY, scroll: window.scrollY }));
     const initial = await bounds();
     await slider.press("End");
