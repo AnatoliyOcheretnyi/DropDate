@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
 import type { Suggestion } from "../../../shared/lib/release";
 import { fetchWithAuth, useAuth } from "../../../shared/state/auth";
+import { useRetainedData } from "./useRetainedData";
 
 /**
  * One recommendation as the backend sends it, explanation included. The
@@ -86,6 +87,11 @@ export function useRecommendations() {
     },
     staleTime: 1000 * 60 * 5,
   });
+  // Preserve the row through loading and failed refreshes, scoped to its owner.
+  const recommendationData = useRetainedData(
+    recommendationsQuery.data,
+    user?.id ?? "guest",
+  );
 
   const feedbackQueryKey = webQueryKeys.recommendationFeedback(
     user?.id ?? "guest",
@@ -119,7 +125,7 @@ export function useRecommendations() {
   }, [feedbackQuery.data, optimisticFeedback]);
 
   const items = enabled
-    ? (recommendationsQuery.data ?? []).map(toSuggestion)
+    ? (recommendationData ?? []).map(toSuggestion)
     : [];
 
   const sendFeedback = useCallback(
@@ -167,7 +173,7 @@ export function useRecommendations() {
   );
 
   // Same gating as `items`, but keeping the explanation attached.
-  const itemsWithReasons = enabled ? (recommendationsQuery.data ?? []) : [];
+  const itemsWithReasons = enabled ? (recommendationData ?? []) : [];
 
   return {
     items,
@@ -193,14 +199,14 @@ export function useRecommendations() {
       if (excluded.length) setExcluded([]);
       else void recommendationsQuery.refetch();
     },
-    isLoading: enabled && recommendationsQuery.isLoading,
+    isLoading: enabled && recommendationsQuery.isLoading && !recommendationData,
     isRefreshing: recommendationsQuery.isFetching,
     refresh: () => {
       setExcluded((current) =>
         Array.from(
           new Set([
             ...current,
-            ...(recommendationsQuery.data ?? []).map(
+            ...(recommendationData ?? []).map(
               (item) => `${item.mediaType}:${item.tmdbId}`,
             ),
           ]),

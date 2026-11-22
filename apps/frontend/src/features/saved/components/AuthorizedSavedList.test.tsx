@@ -38,6 +38,17 @@ const items: SavedRelease[] = [
 ];
 
 describe("AuthorizedSavedList", () => {
+  it("labels machine-translated titles separately from native Ukrainian titles in both views", () => {
+    const translated: SavedRelease = {
+      ...items[0],
+      translation: { fields: ["title"], originalTitle: "Original title", titleIsMachineTranslated: true, overviewIsMachineTranslated: false },
+    };
+    const { rerender } = render(<AuthorizedSavedList items={[translated, items[1]]} onRemove={vi.fn()} />);
+    expect(screen.getAllByText("Автопереклад назви")).toHaveLength(1);
+    expect(screen.getByTitle("Original title")).toHaveTextContent("Автопереклад назви");
+    rerender(<AuthorizedSavedList items={[translated, items[1]]} onRemove={vi.fn()} view="compact" />);
+    expect(screen.getAllByText("Автопереклад назви")).toHaveLength(1);
+  });
   it("renders poster cards with the type and genres in one meta line", () => {
     render(<AuthorizedSavedList items={items} onRemove={vi.fn()} />);
     expect(screen.getByText("Дюна")).toBeInTheDocument();

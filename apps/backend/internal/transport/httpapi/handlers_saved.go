@@ -11,28 +11,30 @@ import (
 
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/achievements"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/auth"
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
 
 type savedItem struct {
-	TMDBID         int      `json:"tmdbId"`
-	MediaType      string   `json:"mediaType"`
-	Title          string   `json:"title"`
-	NextRelease    string   `json:"nextRelease,omitempty"`
-	Status         string   `json:"status"`
-	PosterURL      string   `json:"posterUrl,omitempty"`
-	BackdropURL    string   `json:"backdropUrl,omitempty"`
-	ListTypes      []string `json:"listTypes,omitempty"`
-	UserRating     *int     `json:"userRating,omitempty"`
-	WatchCount     int      `json:"watchCount,omitempty"`
-	LastWatchedAt  string   `json:"lastWatchedAt,omitempty"`
-	RuntimeMinutes *int     `json:"runtimeMinutes,omitempty"`
-	EpisodeCount   *int     `json:"episodeCount,omitempty"`
-	TMDBRating     *float64 `json:"tmdbRating,omitempty"`
-	Genres         []string `json:"genres,omitempty"`
-	CreatedAt      string   `json:"createdAt,omitempty"`
-	Source         string   `json:"source"`
-	Type           string   `json:"type"`
+	Translation    *release.TranslationInfo `json:"translation,omitempty"`
+	TMDBID         int                      `json:"tmdbId"`
+	MediaType      string                   `json:"mediaType"`
+	Title          string                   `json:"title"`
+	NextRelease    string                   `json:"nextRelease,omitempty"`
+	Status         string                   `json:"status"`
+	PosterURL      string                   `json:"posterUrl,omitempty"`
+	BackdropURL    string                   `json:"backdropUrl,omitempty"`
+	ListTypes      []string                 `json:"listTypes,omitempty"`
+	UserRating     *int                     `json:"userRating,omitempty"`
+	WatchCount     int                      `json:"watchCount,omitempty"`
+	LastWatchedAt  string                   `json:"lastWatchedAt,omitempty"`
+	RuntimeMinutes *int                     `json:"runtimeMinutes,omitempty"`
+	EpisodeCount   *int                     `json:"episodeCount,omitempty"`
+	TMDBRating     *float64                 `json:"tmdbRating,omitempty"`
+	Genres         []string                 `json:"genres,omitempty"`
+	CreatedAt      string                   `json:"createdAt,omitempty"`
+	Source         string                   `json:"source"`
+	Type           string                   `json:"type"`
 }
 
 type saveRequest struct {
@@ -205,8 +207,24 @@ func (s *Server) handleSavedList(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		payload = append(payload, mapSavedItem(item))
 	}
+	s.localizeSavedItems(r.Context(), payload)
 
 	writeJSON(w, http.StatusOK, map[string]any{"items": payload})
+}
+
+func (s *Server) localizeSavedItems(ctx context.Context, items []savedItem) {
+	if s.releases == nil {
+		return
+	}
+	titles := make([]release.Suggestion, len(items))
+	for i, item := range items {
+		titles[i] = release.Suggestion{ID: item.TMDBID, MediaType: item.MediaType, Title: item.Title}
+	}
+	localized := s.releases.LocalizeTitles(ctx, titles)
+	for i := range items {
+		items[i].Title = localized[i].Title
+		items[i].Translation = localized[i].Translation
+	}
 }
 
 func (s *Server) handleSavedUpsert(w http.ResponseWriter, r *http.Request) {

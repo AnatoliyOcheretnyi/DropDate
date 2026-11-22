@@ -67,6 +67,9 @@ export function SavedCompactRow({
         </span>
         <span className="saved-row-body">
           <span className="saved-row-title">{item.title}</span>
+          {item.translation?.titleIsMachineTranslated ? (
+            <small title={item.translation.originalTitle}>Автопереклад назви</small>
+          ) : null}
           <span className="saved-row-meta">{savedMetaLine(item, 3)}</span>
         </span>
       </button>

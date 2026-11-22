@@ -36,8 +36,9 @@ type JobsConfig struct {
 }
 
 type AIConfig struct {
-	GeminiAPIKey string
-	GeminiModel  string
+	GeminiAPIKey        string
+	GeminiModel         string
+	TranslationsEnabled bool
 	// Per-feature toggles. Effective only when a Gemini key is present; they let
 	// you turn individual AI features off without removing the key.
 	RecommendationsEnabled bool
@@ -75,7 +76,9 @@ type ReadinessConfig struct {
 }
 
 type TMDBConfig struct {
-	Token string
+	Token              string
+	TitleCatalogPath   string
+	TitleOverridesPath string
 }
 
 type DatabaseConfig struct {
@@ -129,7 +132,9 @@ func LoadConfig() (Config, error) {
 			Timeout: config.Duration("HTTP_READINESS_TIMEOUT", 2*time.Second),
 		},
 		TMDB: TMDBConfig{
-			Token: config.String("TMDB_ACCESS_TOKEN", ""),
+			Token:              config.String("TMDB_ACCESS_TOKEN", ""),
+			TitleCatalogPath:   config.String("TMDB_TITLE_CATALOG_PATH", ".cache/title-catalog.json"),
+			TitleOverridesPath: config.String("TMDB_TITLE_OVERRIDES_PATH", ""),
 		},
 		Database: DatabaseConfig{
 			DSN:             config.String("SUPABASE_CONNECTION_STRING", ""),
@@ -150,6 +155,7 @@ func LoadConfig() (Config, error) {
 		AI: AIConfig{
 			GeminiAPIKey:           config.String("GEMINI_API_KEY", ""),
 			GeminiModel:            config.String("GEMINI_MODEL", ""),
+			TranslationsEnabled:    config.Bool("AI_TRANSLATIONS_ENABLED", true),
 			RecommendationsEnabled: config.Bool("AI_RECOMMENDATIONS_ENABLED", true),
 			MoodEnabled:            config.Bool("AI_MOOD_ENABLED", true),
 			MatchEnabled:           config.Bool("AI_MATCH_ENABLED", true),

@@ -85,6 +85,9 @@ export function FeaturedBanner({
           <p className="featured-description">
             {details.overview || copy.hints.noOverview}
           </p>
+          {Boolean(details.translation?.fields.length) && (
+            <small className="featured-metric">Автоматичний переклад</small>
+          )}
           <div className="featured-actions">
             <button type="button" className="primary" onClick={onOpen}>
               {copy.actions.details}

@@ -86,7 +86,9 @@ export function useTitleDetails() {
       }
       return payload;
     },
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
   });
 
   const details = detailsQuery.data?.details ?? null;
@@ -106,7 +108,7 @@ export function useTitleDetails() {
   const isLoading = detailsQuery.isLoading;
   const error = !isValidRequest
     ? copy.errors.invalidRequest
-    : detailsQuery.isError
+    : detailsQuery.isError && !details
     ? copy.errors.detailsLoad
     : null;
 

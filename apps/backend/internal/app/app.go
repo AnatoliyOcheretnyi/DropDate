@@ -43,6 +43,7 @@ type App struct {
 	shutdownTimeout       time.Duration
 	closeDB               func() error
 	logger                *log.Logger
+	tmdbClient            *tmdb.Client
 }
 
 func New(cfg Config, logger *log.Logger) (*App, error) {
@@ -59,6 +60,14 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 			return nil, err
 		}
 		tmdbClient = client
+		if err := client.ConfigureTitleCatalog(cfg.TMDB.TitleCatalogPath, cfg.TMDB.TitleOverridesPath); err != nil {
+			logger.Printf("title catalog configuration: %v", err)
+		}
+		if cfg.AI.TranslationsEnabled && cfg.AI.GeminiAPIKey != "" {
+			if err := client.EnableUkrainianTranslation(cfg.AI.GeminiAPIKey, cfg.AI.GeminiModel, logger); err != nil {
+				logger.Printf("Ukrainian translation disabled: %v", err)
+			}
+		}
 	} else {
 		logger.Printf("TMDB_ACCESS_TOKEN not set, continuing without TMDB integration")
 	}
@@ -92,6 +101,12 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		}
 		db = openedDB
 		closeDB = openedDB.Close
+		if tmdbClient != nil {
+			if err := tmdbClient.ConfigureTranslationDatabase(context.Background(), openedDB); err != nil {
+				_ = openedDB.Close()
+				return nil, err
+			}
+		}
 
 		emailSender := buildEmailSender(cfg.Email, httpClient)
 		service, err := buildAuthService(openedDB, cfg.Auth, emailSender, cfg.Email)
@@ -250,6 +265,7 @@ func New(cfg Config, logger *log.Logger) (*App, error) {
 		shutdownTimeout:       cfg.Shutdown.Timeout,
 		closeDB:               closeDB,
 		logger:                logger,
+		tmdbClient:            tmdbClient,
 	}, nil
 }
 
@@ -257,6 +273,20 @@ func (a *App) Run(ctx context.Context) error {
 	defer a.closeResources()
 
 	group, ctx := errgroup.WithContext(ctx)
+	if a.tmdbClient != nil {
+		group.Go(func() error {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					a.flushTitleCatalog()
+				}
+			}
+		})
+	}
 	group.Go(func() error {
 		a.logger.Printf("DropDate API listening on %s", a.server.Addr)
 		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -315,11 +345,20 @@ func (a *App) refreshAkinator(ctx context.Context) {
 }
 
 func (a *App) closeResources() {
+	a.flushTitleCatalog()
 	if a.closeDB == nil {
 		return
 	}
 	if err := a.closeDB(); err != nil {
 		a.logger.Printf("db close error: %v", err)
+	}
+}
+
+func (a *App) flushTitleCatalog() {
+	if a.tmdbClient != nil {
+		if err := a.tmdbClient.FlushTitleCatalog(); err != nil {
+			a.logger.Printf("title catalog persistence: %v", err)
+		}
 	}
 }
 

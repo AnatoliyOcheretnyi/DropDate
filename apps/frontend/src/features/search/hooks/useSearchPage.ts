@@ -47,6 +47,8 @@ export function useSearchPage() {
   const searchQuery = useInfiniteQuery({
     queryKey: webQueryKeys.search(currentQuery),
     enabled: Boolean(currentQuery),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
     initialPageParam: 1,
     queryFn: async ({ pageParam, signal }) => {
       const { ok, payload } = await fetchSearchResults(

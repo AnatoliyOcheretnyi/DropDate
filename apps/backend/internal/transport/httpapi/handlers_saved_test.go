@@ -1,12 +1,43 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
 )
+
+type savedTitleLocalizer struct{}
+
+func (savedTitleLocalizer) Name() string { return "test" }
+func (savedTitleLocalizer) Suggestions(context.Context, string, int) ([]release.Suggestion, error) {
+	return nil, nil
+}
+func (savedTitleLocalizer) LocalizeTitles(_ context.Context, items []release.Suggestion) []release.Suggestion {
+	out := append([]release.Suggestion(nil), items...)
+	for i := range out {
+		if out[i].ID == 442269 && out[i].MediaType == "movie" {
+			out[i].Title = "Жан-Марк або Подружнє життя"
+		}
+	}
+	return out
+}
+
+func TestSavedListRefreshesDisplayTitleWithoutChangingUserData(t *testing.T) {
+	rating := 8
+	items := []savedItem{{TMDBID: 442269, MediaType: "movie", Title: "Jean-Marc ou La Vie conjugale", UserRating: &rating, WatchCount: 2, ListTypes: []string{"watchlist"}, Genres: []string{"Драма"}, PosterURL: "poster", CreatedAt: "2026-01-01"}, {TMDBID: 442269, MediaType: "tv", Title: "Інший серіал"}}
+	want := append([]savedItem(nil), items...)
+	want[0].Title = "Жан-Марк або Подружнє життя"
+	server := &Server{releases: release.NewService(nil, savedTitleLocalizer{}, nil)}
+	server.localizeSavedItems(context.Background(), items)
+	if !reflect.DeepEqual(items, want) {
+		t.Fatalf("saved metadata changed: %+v", items)
+	}
+}
 
 // The genre filter and the "recently added" sort on the saved page read these
 // two fields straight off the list response; both were missing from the payload

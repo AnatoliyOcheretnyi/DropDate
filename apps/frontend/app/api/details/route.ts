@@ -10,7 +10,8 @@ export function GET(request: NextRequest) {
     );
   }
   return proxyBackend(request, "/details", {
-    revalidate: 600,
+    // Details already have a client query cache. A second stale response here
+    // can keep a missing translation visible after the backend has resolved it.
     forwardAuth: false,
   });
 }

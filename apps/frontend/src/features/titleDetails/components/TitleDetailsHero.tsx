@@ -72,6 +72,10 @@ export function TitleDetailsHero({
 
               <h1>{details.title}</h1>
 
+              {details.translation?.fields.includes("title") && details.translation.originalTitle && (
+                <p className="details-facts" lang="und">{details.translation.originalTitle}</p>
+              )}
+
               <div className="details-facts">
                 {details.runtime ? (
                   <span>
@@ -99,6 +103,15 @@ export function TitleDetailsHero({
               <p className="details-overview">
                 {details.overview || copy.hints.noOverview}
               </p>
+              {Boolean(details.translation?.fields.length) && (
+                <p className="details-facts">
+                  {details.translation?.fields.includes("title")
+                    ? details.translation.fields.includes("overview")
+                      ? "Назву й опис перекладено автоматично"
+                      : "Назву перекладено автоматично"
+                    : "Опис перекладено автоматично"}
+                </p>
+              )}
 
               {details.genres?.length ? (
                 <div className="details-tags">

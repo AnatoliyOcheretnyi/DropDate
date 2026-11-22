@@ -137,6 +137,9 @@ export function MoviePreviewPortal({
                     Опис недоступний.
                   </p>
                 )}
+                {Boolean(details.translation?.fields.length) && (
+                  <small className="movie-preview-meta">Автоматичний переклад</small>
+                )}
               </>
             ) : loading ? (
               <div className="movie-preview-skeleton" aria-hidden="true">

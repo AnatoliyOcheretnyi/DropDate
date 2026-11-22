@@ -66,6 +66,7 @@ export function useSavedReleases() {
       return remote.map((item) => normalizeSavedRelease(item));
     },
     staleTime: 1000 * 60,
+    refetchOnWindowFocus: "always",
   });
 
   // Remote is the single source of truth. Whenever the server list changes we

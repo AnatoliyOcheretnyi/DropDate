@@ -51,10 +51,10 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
     status,
     isLoading,
     error,
-    refetch,
+    saveError,
+    isSaving,
     snooze,
     complete,
-    isSaving,
   } = useTasteOnboardingStatus();
   const previousStageRef = useRef<string | null>(null);
   const trackedStartRef = useRef(false);
@@ -117,17 +117,8 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
     return null;
   }
 
-  if (error) {
-    return (
-      <section className="taste-onboarding taste-onboarding--error" role="alert">
-        <p className="eyebrow">Калібрування недоступне</p>
-        <h2>Не вдалося завантажити налаштування смаку</h2>
-        <button type="button" className="secondary" onClick={() => void refetch()}>
-          Спробувати ще раз
-        </button>
-      </section>
-    );
-  }
+  // Optional discovery UI must never replace the home feed with an error panel.
+  if (error || current.loadError) return null;
 
   if (!status || (status.completed && !celebration) || isSnoozed) return null;
 
@@ -212,9 +203,13 @@ export function TasteOnboarding({ forceOpen = false, emphasis = "inline" }: Prop
         </div>
       ) : null}
 
+      {(saveError || current.saveError) && (
+        <p role="status">Не вдалося зберегти зміни. Спробуй ще раз.</p>
+      )}
       <div className="taste-onboarding__footer">
         <button
           className="taste-onboarding__later"
+          disabled={isSaving}
           onClick={() => snooze(1)}
           aria-label="Нагадати завтра"
         >

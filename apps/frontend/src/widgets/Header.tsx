@@ -153,17 +153,15 @@ export function Header({
               <span className="brand-subtitle">{copy.tagline}</span>
             </div>
           </Link>
-          {/* The designed pill is a fixed five. Друзі / Мій список stay reachable
-              from the profile popover and the mobile bar rather than growing
-              this row to seven items for signed-in users. */}
+          {/* The brand links home; keep the five navigation slots for destinations. */}
           <nav className="header-nav" aria-label="Основна навігація">
-            <button
-              type="button"
-              className={`header-nav-link${active === "home" ? " active" : ""}`}
-              onClick={() => onChange("home")}
+            <Link
+              href="/saved"
+              className={`header-nav-link${active === "saved" ? " active" : ""}`}
+              aria-current={active === "saved" ? "page" : undefined}
             >
-              Головна
-            </button>
+              Мій список
+            </Link>
             <Link
               href="/calendar"
               className={`header-nav-link${active === "calendar" ? " active" : ""}`}

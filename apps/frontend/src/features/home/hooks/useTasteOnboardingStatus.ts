@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
-import { useAuth } from "../../../shared/state/auth";
+import { fetchWithAuth, useAuth } from "../../../shared/state/auth";
 
 export type TasteOnboardingTitle = {
   tmdbId: number;
@@ -47,25 +47,24 @@ export function useTasteOnboardingStatus() {
   const status = useQuery({
     queryKey,
     enabled,
+    refetchOnWindowFocus: true,
     queryFn: async ({ signal }) => {
-      const response = await fetch("/api/taste/onboarding", {
-        headers: { authorization: `Bearer ${accessToken}` },
+      const response = await fetchWithAuth("/api/taste/onboarding", {
         signal,
-      });
+      }, user?.id);
       return parseResponse<TasteOnboardingStatus>(response);
     },
   });
 
   const mutate = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const response = await fetch("/api/taste/onboarding", {
+      const response = await fetchWithAuth("/api/taste/onboarding", {
         method: "POST",
         headers: {
-          authorization: `Bearer ${accessToken}`,
           "content-type": "application/json",
         },
         body: JSON.stringify(payload),
-      });
+      }, user?.id);
       return parseResponse<TasteOnboardingStatus>(response);
     },
     onSuccess: (next) => {
@@ -84,6 +83,7 @@ export function useTasteOnboardingStatus() {
     status: status.data,
     isLoading: status.isLoading,
     error: status.error?.message,
+    saveError: mutate.error?.message,
     refetch: status.refetch,
     snooze: (days = 1) => mutate.mutate({ action: "snooze", days }),
     sendFeedback: (payload: Omit<TasteOnboardingTitle, "sentiment"> & { sentiment: "liked" | "disliked" | "watchlist" }) =>

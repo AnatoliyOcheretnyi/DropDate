@@ -22,3 +22,20 @@
 
 
 <!-- nx configuration end-->
+
+# Gemini token and request efficiency
+
+When changing any Gemini integration, follow [the efficiency guide](apps/backend/docs/gemini-efficiency.md).
+
+- Reuse verified TMDB text and persisted translations before generating. Send only missing or changed fields; never regenerate a cached title just to translate its description.
+- Build task-specific payloads. Exclude image URLs, UI metadata, duplicate records, empty optional fields and unrelated history. Preserve facts needed for the task.
+- Use compact JSON and small response schemas. Return IDs for selection tasks, with short explanations only where the product needs them. Validate all returned IDs and text locally.
+- Bound input and output separately. Size output limits for the actual task and batch; detect truncation instead of blindly retrying. Do not shorten source synopses when the task is faithful translation.
+- Minimize thinking only on models that explicitly support the setting, and verify quality before changing model or reasoning settings.
+- Distinguish token cost from request quotas. Batching several items in one generation reduces requests; shorter prompts and context caching do not remove daily request limits.
+- Keep completed translations durable and deduplicate in-flight work. A process-local singleflight is not a cross-server lock.
+- Respect provider retry timing. Do not repeatedly retry a daily-quota error, rotate keys to evade quotas, or silently increase budgets or enable billing.
+- Measure input, output, thinking and cached tokens per operation/model without logging credentials, full prompts or personal taste profiles. Report measured savings, not guessed percentages.
+- Default tests to mocked model calls. Live Gemini calls must be explicit, bounded smoke checks; ordinary test runs must not spend model quota.
+
+These rules guide new changes; the guide distinguishes existing protections from pending implementation work.

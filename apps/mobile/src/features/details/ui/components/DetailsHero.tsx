@@ -59,6 +59,12 @@ export function DetailsHero({ details, onAdd, isSaved }: Props) {
         >
           {details.title}
         </Text>
+        {details.translation?.fields.includes("title") &&
+        details.translation.originalTitle ? (
+          <Text style={[s.tagline, { color: colors.textMuted }]}>
+            {details.translation.originalTitle}
+          </Text>
+        ) : null}
         {details.tagline ? (
           <Text style={[s.tagline, { color: colors.textMuted }]}>
             {details.tagline}
@@ -86,6 +92,11 @@ export function DetailsHero({ details, onAdd, isSaved }: Props) {
         <Text style={[s.overview, { color: colors.lead }]}>
           {details.overview || "Опис цієї історії ще готується."}
         </Text>
+        {details.translation?.fields.length ? (
+          <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+            Автоматичний переклад
+          </Text>
+        ) : null}
       </View>
     </>
   );

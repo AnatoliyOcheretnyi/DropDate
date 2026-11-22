@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRecommendations } from "./useRecommendations";
 
 const requestApi = vi.fn();
+let userId = "u1";
 vi.mock("../../../shared/state/auth", () => ({
-  useAuth: () => ({ user: { id: "u1" }, accessToken: "token" }),
+  useAuth: () => ({ user: { id: userId }, accessToken: "token" }),
   fetchWithAuth: (url: string) => {
     const parsed = new URL(url, "http://localhost");
     return requestApi({
@@ -18,6 +19,7 @@ vi.mock("../../../shared/state/auth", () => ({
 
 describe("personal discovery feed", () => {
   beforeEach(() => {
+    userId = "u1";
     requestApi.mockReset().mockImplementation(async ({ url, params }) => ({
       ok: true,
       json: async () => ({
@@ -32,6 +34,28 @@ describe("personal discovery feed", () => {
               })),
       }),
     }));
+  });
+  it("retains cards during a slow or failed slider update without leaking them to another account", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(() => useRecommendations(), { wrapper });
+    await waitFor(() => expect(result.current.items).toHaveLength(4));
+    const original = result.current.itemsWithReasons;
+    let finish!: (response: { ok: boolean }) => void;
+    requestApi.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    act(() => result.current.setNovelty(80));
+    await waitFor(() => expect(result.current.isRefreshing).toBe(true));
+    expect(result.current.itemsWithReasons).toBe(original);
+    expect(result.current.isLoading).toBe(false);
+    await act(async () => finish({ ok: false }));
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    expect(result.current.itemsWithReasons).toBe(original);
+    userId = "u2";
+    rerender();
+    expect(result.current.itemsWithReasons).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
   });
   it("shows a four-item feed, requests AI, and excludes previous picks on refresh", async () => {
     const client = new QueryClient({

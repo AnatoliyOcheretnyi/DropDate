@@ -2114,9 +2114,51 @@
 }
 
 .discovery__reasons {
+  --discovery-card-height: 280px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: var(--discovery-card-height);
+  min-height: var(--discovery-card-height);
   gap: 16px;
+}
+
+.discovery__reasons > .discovery-pick {
+  box-sizing: border-box;
+  height: var(--discovery-card-height);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 54px 42px;
+  animation: discovery-pick-enter 360ms ease both;
+}
+
+.discovery__reasons > .discovery-pick:nth-child(2) { animation-delay: 45ms; }
+.discovery__reasons > .discovery-pick:nth-child(3) { animation-delay: 90ms; }
+.discovery__reasons > .discovery-pick:nth-child(4) { animation-delay: 135ms; }
+
+.discovery__reasons .discovery-pick__actions,
+.discovery__reasons .discovery-pick__feedback {
+  align-items: center;
+  align-content: center;
+  flex-wrap: nowrap;
+}
+
+.discovery__reasons .discovery-pick > .discovery-reason {
+  min-height: 0;
+  transition: opacity 180ms ease, transform 160ms ease;
+}
+
+.discovery__reasons[aria-busy="true"] .discovery-reason {
+  opacity: 0.65;
+}
+
+@keyframes discovery-pick-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discovery__reasons > .discovery-pick { animation: none; }
+  .discovery__reasons .discovery-pick > .discovery-reason { transition: none; }
+  .discovery__reasons .discovery-reason:hover { transform: none; }
 }
 
 .discovery-reason {
@@ -2165,24 +2207,37 @@
   align-items: flex-start;
   gap: 7px;
   min-width: 0;
+  flex: 1;
 }
 
-/* The reason is the point of the card, so it leads and never truncates to
-   nothing -- it wraps instead. */
+/* Reserve three lines for the reason and two for the title so each new
+   selection occupies exactly the same space. Full text stays accessible. */
 .discovery-reason__chip {
+  box-sizing: border-box;
+  width: 100%;
+  height: 57px;
+  overflow: hidden;
   padding: 5px 10px;
   border-radius: 8px;
   background: var(--dd-accent-soft);
   color: var(--dd-accent);
   font-size: 11.5px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 15.5px;
+}
+
+.discovery-reason__chip > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .discovery-reason__title {
   font-size: 15px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 18px;
+  height: 36px;
   /* Two lines max keeps the four cards the same height whatever the title. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2194,6 +2249,7 @@
   color: var(--dd-faint);
   font-size: 12px;
   font-weight: 700;
+  line-height: 18px;
 }
 
 @media (max-width: 1180px) {
@@ -2207,6 +2263,7 @@
 
   .discovery__reasons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: calc(2 * var(--discovery-card-height) + 16px);
   }
 }
 
@@ -2219,6 +2276,7 @@
      tall column on phones. */
   .discovery__reasons {
     display: flex;
+    min-height: var(--discovery-card-height);
     overflow-x: auto;
     scrollbar-width: none;
     scroll-snap-type: x mandatory;
@@ -2228,8 +2286,8 @@
     display: none;
   }
 
-  .discovery-reason {
-    flex: 0 0 78%;
+  .discovery__reasons > .discovery-pick {
+    flex: 0 0 min(100%, max(280px, 82%));
     scroll-snap-align: start;
   }
 }

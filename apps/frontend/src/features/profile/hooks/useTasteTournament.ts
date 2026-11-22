@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { webQueryKeys } from "../../../shared/api/queryKeys";
-import { useAuth } from "../../../shared/state/auth";
+import { fetchWithAuth, useAuth } from "../../../shared/state/auth";
 import type { TasteKind } from "../store/tasteStore";
 
 export type TasteItem = {
@@ -38,11 +38,11 @@ export function useTasteTournament(kind: TasteKind) {
   const rankings = useQuery({
     queryKey: key,
     enabled,
+    refetchOnWindowFocus: true,
     queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/taste?kind=${kind}`, {
-        headers: { authorization: `Bearer ${accessToken}` },
+      const response = await fetchWithAuth(`/api/taste?kind=${kind}`, {
         signal,
-      });
+      }, user?.id);
       return parseResponse<{ items: TasteItem[] }>(response);
     },
   });
@@ -50,11 +50,11 @@ export function useTasteTournament(kind: TasteKind) {
   const pair = useQuery({
     queryKey: [...key, "next"],
     enabled,
+    refetchOnWindowFocus: true,
     queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/taste/next?kind=${kind}`, {
-        headers: { authorization: `Bearer ${accessToken}` },
+      const response = await fetchWithAuth(`/api/taste/next?kind=${kind}`, {
         signal,
-      });
+      }, user?.id);
       return parseResponse<TastePair>(response);
     },
   });
@@ -64,10 +64,9 @@ export function useTasteTournament(kind: TasteKind) {
       if (!pair.data) {
         throw new Error("Пара для порівняння ще не готова");
       }
-      const response = await fetch(`/api/taste?kind=${kind}`, {
+      const response = await fetchWithAuth(`/api/taste?kind=${kind}`, {
         method: "POST",
         headers: {
-          authorization: `Bearer ${accessToken}`,
           "content-type": "application/json",
         },
         body: JSON.stringify({
@@ -75,7 +74,7 @@ export function useTasteTournament(kind: TasteKind) {
           right: pair.data.right,
           winner,
         }),
-      });
+      }, user?.id);
       return parseResponse<TastePair>(response);
     },
     onSuccess: (nextPair) => {
@@ -104,6 +103,8 @@ export function useTasteTournament(kind: TasteKind) {
     isLoading: rankings.isLoading || pair.isLoading,
     isSaving: comparison.isPending,
     error: comparison.error?.message || rankings.error?.message || pair.error?.message,
+    loadError: rankings.error?.message || pair.error?.message,
+    saveError: comparison.error?.message,
     compare: comparison.mutate,
   };
 }

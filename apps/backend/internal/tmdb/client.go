@@ -32,9 +32,12 @@ const maxCast = 15
 
 // Client represents a TMDB HTTP client.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	token      string
+	baseURL      string
+	httpClient   *http.Client
+	token        string
+	localization textLocalization
+	catalog      titleCatalog
+	machine      *machineLocalization
 }
 
 // ReleaseInfo mirrors the data we expose through DropDate.
@@ -53,6 +56,7 @@ type DetailInfo struct {
 	Title             string
 	MediaType         string
 	Overview          string
+	Translation       *TranslationInfo
 	Tagline           string
 	PosterURL         string
 	BackdropURL       string
@@ -167,11 +171,12 @@ type CrewMember struct {
 
 // Suggestion is a lightweight search result.
 type Suggestion struct {
-	ID        int
-	Title     string
-	MediaType string
-	Year      string
-	PosterURL string
+	ID          int
+	Title       string
+	MediaType   string
+	Year        string
+	PosterURL   string
+	Translation *TranslationInfo
 }
 
 // ErrNotFound is returned when TMDB has no relevant item.
@@ -258,13 +263,12 @@ func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Su
 		return nil, err
 	}
 
-	english := c.lazyEnglishSearch(ctx, query, 1)
 	suggestions := make([]Suggestion, 0, len(results))
 	for _, result := range results {
 		if result.MediaType != "tv" && result.MediaType != "movie" {
 			continue
 		}
-		name := localizedTitle(result, english)
+		name := searchTitle(result)
 		if name == "" {
 			continue
 		}
@@ -280,11 +284,12 @@ func (c *Client) Suggestions(ctx context.Context, query string, limit int) ([]Su
 		}
 
 		suggestions = append(suggestions, Suggestion{
-			ID:        result.ID,
-			Title:     name,
-			MediaType: result.MediaType,
-			Year:      yearFromDate(year),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       name,
+			MediaType:   result.MediaType,
+			Year:        yearFromDate(year),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 
 		if limit > 0 && len(suggestions) >= limit {
@@ -333,11 +338,12 @@ func (c *Client) Trending(ctx context.Context, window string, limit int) ([]Sugg
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     name,
-			MediaType: result.MediaType,
-			Year:      yearFromDate(year),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       name,
+			MediaType:   result.MediaType,
+			Year:        yearFromDate(year),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -396,11 +402,12 @@ func (c *Client) TrendingByType(
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     name,
-			MediaType: mediaType,
-			Year:      yearFromDate(year),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       name,
+			MediaType:   mediaType,
+			Year:        yearFromDate(year),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -506,11 +513,12 @@ func (c *Client) listMovies(ctx context.Context, path string, limit int) ([]Sugg
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     result.Title,
-			MediaType: "movie",
-			Year:      yearFromDate(result.ReleaseDate),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       result.Title,
+			MediaType:   "movie",
+			Year:        yearFromDate(result.ReleaseDate),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -543,11 +551,12 @@ func (c *Client) listSeries(ctx context.Context, path string, limit int) ([]Sugg
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     result.Name,
-			MediaType: "tv",
-			Year:      yearFromDate(result.FirstAirDate),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       result.Name,
+			MediaType:   "tv",
+			Year:        yearFromDate(result.FirstAirDate),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -566,7 +575,7 @@ func (c *Client) search(ctx context.Context, title string) ([]searchResult, erro
 }
 
 func (c *Client) searchPage(ctx context.Context, title string, page int) (multiSearchResponse, error) {
-	return c.searchPageLanguage(ctx, title, page, "uk-UA")
+	return c.searchWithAliases(ctx, title, page)
 }
 
 func (c *Client) searchPageLanguage(
@@ -620,12 +629,11 @@ func (c *Client) SearchAll(ctx context.Context, query string, page int) (SearchR
 	}
 
 	out := make([]Suggestion, 0, len(payload.Results))
-	english := c.lazyEnglishSearch(ctx, query, page)
 	for _, result := range payload.Results {
 		if result.MediaType != "tv" && result.MediaType != "movie" {
 			continue
 		}
-		name := localizedTitle(result, english)
+		name := searchTitle(result)
 		if name == "" {
 			continue
 		}
@@ -638,11 +646,12 @@ func (c *Client) SearchAll(ctx context.Context, query string, page int) (SearchR
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     name,
-			MediaType: result.MediaType,
-			Year:      yearFromDate(year),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       name,
+			MediaType:   result.MediaType,
+			Year:        yearFromDate(year),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 	}
 
@@ -713,11 +722,12 @@ func (c *Client) Recommendations(
 			poster = buildPosterURL(result.PosterPath)
 		}
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     name,
-			MediaType: mediaType,
-			Year:      yearFromDate(year),
-			PosterURL: poster,
+			ID:          result.ID,
+			Title:       name,
+			MediaType:   mediaType,
+			Year:        yearFromDate(year),
+			PosterURL:   poster,
+			Translation: result.Translation,
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -797,7 +807,7 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
-	q.Set("append_to_response", "credits,watch/providers")
+	q.Set("append_to_response", "credits,watch/providers,translations,alternative_titles")
 	req.URL.RawQuery = q.Encode()
 
 	var payload movieDetailsResponse
@@ -830,6 +840,7 @@ func (c *Client) fetchMovieDetails(ctx context.Context, id int) (DetailInfo, err
 		Title:            payload.Title,
 		MediaType:        "movie",
 		Overview:         payload.Overview,
+		Translation:      payload.Translation,
 		Tagline:          payload.Tagline,
 		PosterURL:        poster,
 		BackdropURL:      backdrop,
@@ -857,7 +868,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 
 	q := req.URL.Query()
 	q.Set("language", "uk-UA")
-	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air,credits,watch/providers")
+	q.Set("append_to_response", "next_episode_to_air,last_episode_to_air,credits,watch/providers,translations,alternative_titles")
 	req.URL.RawQuery = q.Encode()
 
 	var payload tvDetailsResponse
@@ -922,6 +933,7 @@ func (c *Client) fetchTVDetails(ctx context.Context, id int) (DetailInfo, error)
 		Title:             payload.Name,
 		MediaType:         "tv",
 		Overview:          payload.Overview,
+		Translation:       payload.Translation,
 		Tagline:           payload.Tagline,
 		PosterURL:         poster,
 		BackdropURL:       backdrop,
@@ -1014,6 +1026,22 @@ func movieStatus(releaseDate time.Time) string {
 }
 
 func (c *Client) do(req *http.Request, dst any) error {
+	if dst == nil || req.URL.Query().Get("language") != "uk-UA" {
+		return c.doRaw(req, dst)
+	}
+	var payload map[string]any
+	if err := c.doRaw(req, &payload); err != nil {
+		return err
+	}
+	c.localizeResponse(req, payload)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, dst)
+}
+
+func (c *Client) doRaw(req *http.Request, dst any) error {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 
@@ -1039,13 +1067,14 @@ func (c *Client) do(req *http.Request, dst any) error {
 }
 
 type searchResult struct {
-	ID           int    `json:"id"`
-	MediaType    string `json:"media_type"`
-	Title        string `json:"title"`
-	Name         string `json:"name"`
-	ReleaseDate  string `json:"release_date"`
-	FirstAirDate string `json:"first_air_date"`
-	PosterPath   string `json:"poster_path"`
+	Translation  *TranslationInfo `json:"dropdate_translation,omitempty"`
+	ID           int              `json:"id"`
+	MediaType    string           `json:"media_type"`
+	Title        string           `json:"title"`
+	Name         string           `json:"name"`
+	ReleaseDate  string           `json:"release_date"`
+	FirstAirDate string           `json:"first_air_date"`
+	PosterPath   string           `json:"poster_path"`
 	// Original values are what the Ukrainian/English fallback compares against.
 	OriginalTitle    string `json:"original_title"`
 	OriginalName     string `json:"original_name"`
@@ -1071,13 +1100,14 @@ type trendingResponse struct {
 }
 
 type trendingResult struct {
-	ID           int    `json:"id"`
-	MediaType    string `json:"media_type"`
-	Title        string `json:"title"`
-	Name         string `json:"name"`
-	ReleaseDate  string `json:"release_date"`
-	FirstAirDate string `json:"first_air_date"`
-	PosterPath   string `json:"poster_path"`
+	Translation  *TranslationInfo `json:"dropdate_translation,omitempty"`
+	ID           int              `json:"id"`
+	MediaType    string           `json:"media_type"`
+	Title        string           `json:"title"`
+	Name         string           `json:"name"`
+	ReleaseDate  string           `json:"release_date"`
+	FirstAirDate string           `json:"first_air_date"`
+	PosterPath   string           `json:"poster_path"`
 }
 
 type recommendationResponse struct {
@@ -1085,12 +1115,13 @@ type recommendationResponse struct {
 }
 
 type recommendationResult struct {
-	ID           int    `json:"id"`
-	Title        string `json:"title"`
-	Name         string `json:"name"`
-	ReleaseDate  string `json:"release_date"`
-	FirstAirDate string `json:"first_air_date"`
-	PosterPath   string `json:"poster_path"`
+	Translation  *TranslationInfo `json:"dropdate_translation,omitempty"`
+	ID           int              `json:"id"`
+	Title        string           `json:"title"`
+	Name         string           `json:"name"`
+	ReleaseDate  string           `json:"release_date"`
+	FirstAirDate string           `json:"first_air_date"`
+	PosterPath   string           `json:"poster_path"`
 }
 
 type movieListResponse struct {
@@ -1098,10 +1129,11 @@ type movieListResponse struct {
 }
 
 type movieListEntry struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	ReleaseDate string `json:"release_date"`
-	PosterPath  string `json:"poster_path"`
+	Translation *TranslationInfo `json:"dropdate_translation,omitempty"`
+	ID          int              `json:"id"`
+	Title       string           `json:"title"`
+	ReleaseDate string           `json:"release_date"`
+	PosterPath  string           `json:"poster_path"`
 }
 
 type tvListResponse struct {
@@ -1109,13 +1141,15 @@ type tvListResponse struct {
 }
 
 type tvListEntry struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	FirstAirDate string `json:"first_air_date"`
-	PosterPath   string `json:"poster_path"`
+	Translation  *TranslationInfo `json:"dropdate_translation,omitempty"`
+	ID           int              `json:"id"`
+	Name         string           `json:"name"`
+	FirstAirDate string           `json:"first_air_date"`
+	PosterPath   string           `json:"poster_path"`
 }
 
 type movieDetailsResponse struct {
+	Translation    *TranslationInfo       `json:"dropdate_translation"`
 	Title          string                 `json:"title"`
 	Overview       string                 `json:"overview"`
 	Tagline        string                 `json:"tagline"`
@@ -1135,6 +1169,7 @@ type movieDetailsResponse struct {
 }
 
 type tvDetailsResponse struct {
+	Translation    *TranslationInfo       `json:"dropdate_translation"`
 	Name           string                 `json:"name"`
 	Overview       string                 `json:"overview"`
 	Tagline        string                 `json:"tagline"`

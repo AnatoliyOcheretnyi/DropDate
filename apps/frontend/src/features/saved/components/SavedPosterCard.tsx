@@ -149,6 +149,9 @@ export function SavedPosterCard({
       <div className="saved-card-caption">
         <h4>{item.title}</h4>
         <span>{savedMetaLine(item)}</span>
+        {item.translation?.titleIsMachineTranslated ? (
+          <span title={item.translation.originalTitle}>Автопереклад назви</span>
+        ) : null}
       </div>
 
       {readOnly && onAdd && item.tmdbId ? (

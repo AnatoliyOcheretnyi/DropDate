@@ -1,7 +1,15 @@
 export type ReleaseStatus = "upcoming" | "released" | "ended";
 export type ReleaseType = "movie" | "series";
 
+export type TranslationInfo = {
+  fields: ("title" | "overview")[];
+  originalTitle?: string;
+  titleIsMachineTranslated?: boolean;
+  overviewIsMachineTranslated?: boolean;
+};
+
 export type ReleaseInfo = {
+  translation?: TranslationInfo;
   title: string;
   type: ReleaseType;
   nextRelease: string;
@@ -12,6 +20,7 @@ export type ReleaseInfo = {
 };
 
 export type Suggestion = {
+  translation?: TranslationInfo;
   id: number;
   title: string;
   mediaType: "movie" | "tv";
@@ -24,6 +33,7 @@ export type Details = {
   title: string;
   mediaType: "movie" | "tv";
   overview?: string;
+  translation?: TranslationInfo;
   tagline?: string;
   posterUrl?: string;
   backdropUrl?: string;

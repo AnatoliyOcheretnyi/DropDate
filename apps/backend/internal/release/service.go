@@ -28,11 +28,12 @@ type Info struct {
 
 // Suggestion describes minimal search result.
 type Suggestion struct {
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	MediaType string `json:"mediaType"`
-	Year      string `json:"year,omitempty"`
-	PosterURL string `json:"posterUrl,omitempty"`
+	ID          int              `json:"id"`
+	Title       string           `json:"title"`
+	MediaType   string           `json:"mediaType"`
+	Year        string           `json:"year,omitempty"`
+	PosterURL   string           `json:"posterUrl,omitempty"`
+	Translation *TranslationInfo `json:"translation,omitempty"`
 }
 
 type SearchResults struct {
@@ -43,13 +44,14 @@ type SearchResults struct {
 }
 
 type Details struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	MediaType   string `json:"mediaType"`
-	Overview    string `json:"overview,omitempty"`
-	Tagline     string `json:"tagline,omitempty"`
-	PosterURL   string `json:"posterUrl,omitempty"`
-	BackdropURL string `json:"backdropUrl,omitempty"`
+	ID          int              `json:"id"`
+	Title       string           `json:"title"`
+	MediaType   string           `json:"mediaType"`
+	Overview    string           `json:"overview,omitempty"`
+	Translation *TranslationInfo `json:"translation,omitempty"`
+	Tagline     string           `json:"tagline,omitempty"`
+	PosterURL   string           `json:"posterUrl,omitempty"`
+	BackdropURL string           `json:"backdropUrl,omitempty"`
 	// BackdropLargeURL is the untouched TMDB upload, for full-bleed surfaces
 	// like the home hero where the w780 variant visibly falls apart.
 	BackdropLargeURL  string                       `json:"backdropLargeUrl,omitempty"`
@@ -78,6 +80,12 @@ type Details struct {
 	Cast              []CastMember                 `json:"cast,omitempty"`
 	Directors         []CrewMember                 `json:"directors,omitempty"`
 	WatchProviders    map[string]WatchAvailability `json:"watchProviders,omitempty"`
+}
+type TranslationInfo struct {
+	Fields                      []string `json:"fields"`
+	OriginalTitle               string   `json:"originalTitle,omitempty"`
+	TitleIsMachineTranslated    bool     `json:"titleIsMachineTranslated"`
+	OverviewIsMachineTranslated bool     `json:"overviewIsMachineTranslated"`
 }
 type Season struct {
 	SeasonNumber int    `json:"seasonNumber"`
@@ -140,6 +148,16 @@ type Service struct {
 	cache    map[string]cacheEntry
 	cacheMu  sync.RWMutex
 	cacheTTL time.Duration
+}
+
+// LocalizeTitles resolves current display names for persisted list snapshots.
+func (s *Service) LocalizeTitles(ctx context.Context, items []Suggestion) []Suggestion {
+	if provider, ok := s.suggester.(interface {
+		LocalizeTitles(context.Context, []Suggestion) []Suggestion
+	}); ok {
+		return provider.LocalizeTitles(ctx, items)
+	}
+	return items
 }
 
 // LookupHint описує додаткові підказки для пошуку.

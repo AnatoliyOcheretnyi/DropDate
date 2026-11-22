@@ -87,6 +87,20 @@ type tmdbSuggestionProvider struct {
 	client *tmdb.Client
 }
 
+func (p *tmdbSuggestionProvider) LocalizeTitles(ctx context.Context, items []Suggestion) []Suggestion {
+	input := make([]tmdb.Suggestion, len(items))
+	for i, item := range items {
+		input[i] = tmdb.Suggestion{ID: item.ID, MediaType: item.MediaType, Title: item.Title}
+	}
+	localized := p.client.LocalizeTitles(ctx, input)
+	out := append([]Suggestion(nil), items...)
+	for i := range out {
+		out[i].Title = localized[i].Title
+		out[i].Translation = mapTranslationInfo(localized[i].Translation)
+	}
+	return out
+}
+
 func (p *tmdbSuggestionProvider) Name() string {
 	return "tmdb"
 }
@@ -100,11 +114,12 @@ func (p *tmdbSuggestionProvider) Suggestions(ctx context.Context, query string, 
 	out := make([]Suggestion, 0, len(results))
 	for _, res := range results {
 		out = append(out, Suggestion{
-			ID:        res.ID,
-			Title:     res.Title,
-			MediaType: res.MediaType,
-			Year:      res.Year,
-			PosterURL: res.PosterURL,
+			ID:          res.ID,
+			Title:       res.Title,
+			MediaType:   res.MediaType,
+			Year:        res.Year,
+			PosterURL:   res.PosterURL,
+			Translation: mapTranslationInfo(res.Translation),
 		})
 	}
 
@@ -120,11 +135,12 @@ func (p *tmdbSuggestionProvider) Trending(ctx context.Context, window string, li
 	out := make([]Suggestion, 0, len(results))
 	for _, res := range results {
 		out = append(out, Suggestion{
-			ID:        res.ID,
-			Title:     res.Title,
-			MediaType: res.MediaType,
-			Year:      res.Year,
-			PosterURL: res.PosterURL,
+			ID:          res.ID,
+			Title:       res.Title,
+			MediaType:   res.MediaType,
+			Year:        res.Year,
+			PosterURL:   res.PosterURL,
+			Translation: mapTranslationInfo(res.Translation),
 		})
 	}
 
@@ -145,11 +161,12 @@ func (p *tmdbSuggestionProvider) TrendingByType(
 	out := make([]Suggestion, 0, len(results))
 	for _, res := range results {
 		out = append(out, Suggestion{
-			ID:        res.ID,
-			Title:     res.Title,
-			MediaType: res.MediaType,
-			Year:      res.Year,
-			PosterURL: res.PosterURL,
+			ID:          res.ID,
+			Title:       res.Title,
+			MediaType:   res.MediaType,
+			Year:        res.Year,
+			PosterURL:   res.PosterURL,
+			Translation: mapTranslationInfo(res.Translation),
 		})
 	}
 
@@ -168,11 +185,12 @@ func (p *tmdbSuggestionProvider) Popular(
 	out := make([]Suggestion, 0, len(results))
 	for _, result := range results {
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     result.Title,
-			MediaType: result.MediaType,
-			Year:      result.Year,
-			PosterURL: result.PosterURL,
+			ID:          result.ID,
+			Title:       result.Title,
+			MediaType:   result.MediaType,
+			Year:        result.Year,
+			PosterURL:   result.PosterURL,
+			Translation: mapTranslationInfo(result.Translation),
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -193,11 +211,12 @@ func (p *tmdbSuggestionProvider) TopRated(
 	out := make([]Suggestion, 0, len(results))
 	for _, result := range results {
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     result.Title,
-			MediaType: result.MediaType,
-			Year:      result.Year,
-			PosterURL: result.PosterURL,
+			ID:          result.ID,
+			Title:       result.Title,
+			MediaType:   result.MediaType,
+			Year:        result.Year,
+			PosterURL:   result.PosterURL,
+			Translation: mapTranslationInfo(result.Translation),
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -273,11 +292,12 @@ func (p *tmdbSuggestionProvider) Upcoming(
 	out := make([]Suggestion, 0, len(results))
 	for _, result := range results {
 		out = append(out, Suggestion{
-			ID:        result.ID,
-			Title:     result.Title,
-			MediaType: result.MediaType,
-			Year:      result.Year,
-			PosterURL: result.PosterURL,
+			ID:          result.ID,
+			Title:       result.Title,
+			MediaType:   result.MediaType,
+			Year:        result.Year,
+			PosterURL:   result.PosterURL,
+			Translation: mapTranslationInfo(result.Translation),
 		})
 		if limit > 0 && len(out) >= limit {
 			break
@@ -295,11 +315,12 @@ func (p *tmdbSuggestionProvider) Search(ctx context.Context, query string, page 
 	out := make([]Suggestion, 0, len(results.Results))
 	for _, res := range results.Results {
 		out = append(out, Suggestion{
-			ID:        res.ID,
-			Title:     res.Title,
-			MediaType: res.MediaType,
-			Year:      res.Year,
-			PosterURL: res.PosterURL,
+			ID:          res.ID,
+			Title:       res.Title,
+			MediaType:   res.MediaType,
+			Year:        res.Year,
+			PosterURL:   res.PosterURL,
+			Translation: mapTranslationInfo(res.Translation),
 		})
 	}
 
@@ -325,6 +346,7 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		Title:             info.Title,
 		MediaType:         info.MediaType,
 		Overview:          info.Overview,
+		Translation:       mapTranslationInfo(info.Translation),
 		Tagline:           info.Tagline,
 		PosterURL:         info.PosterURL,
 		BackdropURL:       info.BackdropURL,
@@ -355,6 +377,12 @@ func (p *tmdbSuggestionProvider) Details(ctx context.Context, id int, mediaType 
 		Directors:         mapDirectors(info.Directors),
 		WatchProviders:    mapWatchAvailability(info.WatchProviders),
 	}, nil
+}
+func mapTranslationInfo(info *tmdb.TranslationInfo) *TranslationInfo {
+	if info == nil {
+		return nil
+	}
+	return &TranslationInfo{Fields: append([]string(nil), info.Fields...), OriginalTitle: info.OriginalTitle, TitleIsMachineTranslated: info.TitleIsMachineTranslated, OverviewIsMachineTranslated: info.OverviewIsMachineTranslated}
 }
 func mapSeasons(items []tmdb.SeasonInfo) []Season {
 	out := make([]Season, 0, len(items))
@@ -447,11 +475,12 @@ func (p *tmdbSuggestionProvider) Recommendations(
 	out := make([]Suggestion, 0, len(results))
 	for _, res := range results {
 		out = append(out, Suggestion{
-			ID:        res.ID,
-			Title:     res.Title,
-			MediaType: res.MediaType,
-			Year:      res.Year,
-			PosterURL: res.PosterURL,
+			ID:          res.ID,
+			Title:       res.Title,
+			MediaType:   res.MediaType,
+			Year:        res.Year,
+			PosterURL:   res.PosterURL,
+			Translation: mapTranslationInfo(res.Translation),
 		})
 	}
 

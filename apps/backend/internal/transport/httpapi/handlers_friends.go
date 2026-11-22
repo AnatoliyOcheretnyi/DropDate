@@ -381,6 +381,7 @@ func (s *Server) friendSavedHandler(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		payload = append(payload, mapSavedItem(item))
 	}
+	s.localizeSavedItems(r.Context(), payload)
 	writeJSON(w, http.StatusOK, map[string]any{"items": payload})
 }
 

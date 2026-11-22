@@ -63,6 +63,8 @@ export function useSuggestions(
       };
     },
     staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const isActive = debouncedTitle.length >= 2 && !selectedMatchesInput;

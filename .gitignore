@@ -29,6 +29,7 @@ apps/mobile/.env
 apps/mobile/.env.local
 
 # Logs/temp
+.cache/
 npm-debug.log*
 yarn-error.log*
 

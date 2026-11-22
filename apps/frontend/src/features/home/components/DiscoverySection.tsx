@@ -68,8 +68,12 @@ function ReasonCard({
         ) : null}
       </span>
       <span className="discovery-reason__body">
-        <span className="discovery-reason__chip">{reason}</span>
-        <strong className="discovery-reason__title">{item.title}</strong>
+        <span className="discovery-reason__chip" title={reason}>
+          <span>{reason}</span>
+        </span>
+        <strong className="discovery-reason__title" title={item.title}>
+          {item.title}
+        </strong>
         <span className="discovery-reason__meta">
           {item.mediaType === "movie"
             ? copy.mediaType.movie
@@ -348,18 +352,18 @@ export function DiscoverySection({
             <button onClick={onRestart}>Повернутися до початку</button>
           </p>
         )}
-        <div className="discovery__reasons">
+        <div className="discovery__reasons" aria-busy={isRefreshing}>
           {isLoading && cards.length === 0
             ? Array.from({ length: 4 }).map((_, index) => (
                 <span
                   key={index}
-                  className="discovery-reason discovery-reason--skeleton"
+                  className="discovery-pick discovery-reason--skeleton"
                 />
               ))
-            : cards.map(({ item, reason }) => (
+            : cards.map(({ item, reason }, index) => (
                 <article
                   className="discovery-pick"
-                  key={`${item.mediaType}-${item.id}`}
+                  key={`${index}-${item.mediaType}-${item.id}`}
                 >
                   <MovieInfoButton tmdbId={item.id} mediaType={item.mediaType} title={item.title} activeLists={getListTypes(item)} onActivate={() => onSelect(item)} />
                   <ReasonCard

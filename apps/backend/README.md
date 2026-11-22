@@ -25,6 +25,81 @@ export TMDB_ACCESS_TOKEN="eyJhbGciOiJIUzI1..."  # your token from TMDB settings
 
 Alternatively copy `.env.example` to `.env` (or `.env.local`) inside `apps/backend` and fill in the token — the server auto-loads it on startup. The token is required; without it the API refuses to start because TMDB is the only provider.
 
+## Localized titles, descriptions and search
+
+Engineering rules for all Gemini integrations: [token and request efficiency](docs/gemini-efficiency.md).
+
+TMDB responses use Ukrainian text first and English text for missing descriptions
+or untranslated titles. Each field is resolved independently; a missing synopsis
+never replaces an existing Ukrainian title. Episode text follows the same policy.
+If neither translation exists, the original title remains and the description
+stays empty unless another source synopsis can be translated. English lookups
+are cached and time bounded; their failure does not fail the primary request.
+
+With `GEMINI_API_KEY` configured, `AI_TRANSLATIONS_ENABLED=true` (default) fills
+missing Ukrainian titles and descriptions using the configured `GEMINI_MODEL`.
+List/search responses translate missing titles in batches (up to 50 per response),
+and saved lists resolve current names by TMDB identity instead of returning the
+old title stored when the item was saved. Descriptions are translated on detail
+requests. An English synopsis is preferred as the source, or
+an existing original-language synopsis when English is absent. An empty source
+is never sent for plot generation. Verified Ukrainian text and editorial
+overrides take priority. Model output is validated for language and empty fields,
+but automatic translation can still contain mistakes.
+
+The optional `translation` response field identifies machine-translated fields
+(`title`, `overview`) and preserves `originalTitle`. It also exposes separate
+`titleIsMachineTranslated` and `overviewIsMachineTranslated` booleans. Details,
+search suggestions and saved-list names retain this provenance; saved cards and
+detail pages display a notice. These names are not official release names.
+
+With a database configured, successful translations are written immediately to
+PostgreSQL `title_translations` (migration `024_title_translations.sql`). Rows are
+keyed by TMDB ID, media type and language; they retain the source text, translated
+text, model/provider and update time. Generated boolean columns
+`title_is_machine_translated` and `overview_is_machine_translated` identify each
+nonempty machine-translated field. Original TMDB records and user-owned saved
+rows are not rewritten. There is no TTL or 10,000-row eviction in the database.
+
+Run `npx nx run backend:migrate` before starting the updated backend. On startup,
+the legacy file is imported without overwriting existing database rows. Requests
+check the shared database by identity, including translations written by another
+replica after startup. The local file is now optional for durable translations;
+it still stores learned search aliases. Failed database writes stay pending and
+are retried by the periodic flush; the optional file provides a local fallback.
+An unavailable database cannot guarantee durability until a write succeeds.
+
+Stored translations are reused while their source text matches. New model
+requests are bounded to five seconds, two
+concurrent calls and twenty calls per minute per process. Failures have a
+five-minute cooldown and retain the original/English response without failing
+the detail page. Set `AI_TRANSLATIONS_ENABLED=false` to disable new model calls;
+already saved translations remain readable without a Gemini key.
+
+The search/autocomplete catalog learns original, localized and alternative names
+from fetched TMDB records. It normalizes punctuation, accents and whitespace and
+supports one-edit typos in titles of at least five characters. It supplements
+empty or single-page TMDB results, deduplicating by media type and ID; broad,
+multi-page searches retain TMDB pagination. This is an incremental catalog, not
+a complete Ukrainian index of every TMDB title.
+
+`TMDB_TITLE_CATALOG_PATH` defaults to `.cache/title-catalog.json`, relative to the
+backend working directory. Up to 10,000 learned titles are persisted every 30
+seconds and on graceful shutdown. PostgreSQL stores translations independently
+of this file. Without a database, use a persistent volume for file durability.
+Replicas share PostgreSQL translations but must not share the same catalog file.
+
+Editorial search aliases ship in `internal/tmdb/title_aliases.json`. To add private
+corrections without rebuilding, set `TMDB_TITLE_OVERRIDES_PATH` to a JSON file with
+the same array format and restart the backend. Entries require `id`, `mediaType`
+(`movie` or `tv`) and `aliases`. Optional `title` and `overview` override display
+text; `searchTitle` and `year` seed a search-only entry until TMDB metadata is
+loaded. Leave `title` unset for unofficial Ukrainian search variants. Record the
+source in `source`; verify the TMDB ID rather than matching by translated name.
+
+The bundled Jean-Marc entry (movie 442269) includes Ukrainian search aids; they
+are not presented as an official Ukrainian release title.
+
 ## Local development
 
 From repo root (recommended):

@@ -206,6 +206,23 @@ paths:
                         type: string
                       overview:
                         type: string
+                      translation:
+                        type: object
+                        description: Позначення автоматично перекладених українською полів; назва не є офіційною прокатною назвою.
+                        properties:
+                          fields:
+                            type: array
+                            items:
+                              type: string
+                              enum: [title, overview]
+                          originalTitle:
+                            type: string
+                          titleIsMachineTranslated:
+                            type: boolean
+                            description: The displayed title is a machine translation, not an official TMDB localization.
+                          overviewIsMachineTranslated:
+                            type: boolean
+                            description: The displayed overview is a machine translation of an existing source synopsis.
                       tagline:
                         type: string
                       posterUrl:
