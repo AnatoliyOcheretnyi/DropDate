@@ -84,6 +84,15 @@ jobs:
       - name: Backend race detector
         if: needs.plan.outputs.backend_bump != ''
         run: yarn nx run backend:race --skipNxCache
+      - name: Upload browser failure traces
+        if: failure() && needs.plan.outputs.front_bump != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-browser-failure
+          path: |
+            apps/frontend/test-results
+            apps/frontend/playwright-report
+          retention-days: 3
       - name: Install mobile dependencies
         if: needs.plan.outputs.mobile_bump != ''
         working-directory: apps/mobile

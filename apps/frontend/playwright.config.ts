@@ -5,6 +5,8 @@ const port = process.env.PLAYWRIGHT_PORT || "3000";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // Software WebGL shares the runner CPU with the browser and app server.
+  workers: process.env.CI ? 1 : undefined,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "html",
   use: {

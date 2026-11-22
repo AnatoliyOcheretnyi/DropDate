@@ -81,7 +81,7 @@ test("country selection keeps the poster globe and opens films only on request",
   // Development StrictMode may abort and remount the initial query. Changing
   // countries and returning from the films view must reuse the loaded catalog.
   const initialAtlasRequests = atlasRequests;
-  await page.screenshot({
+  if (!process.env.CI) await page.screenshot({
     path: testInfo.outputPath("large-country-mosaic.png"),
     fullPage: true,
   });
@@ -95,7 +95,7 @@ test("country selection keeps the poster globe and opens films only on request",
       "data-hover-country",
       "RU",
     );
-    await page.screenshot({
+    if (!process.env.CI) await page.screenshot({
       path: testInfo.outputPath("large-country-hover.png"),
       fullPage: true,
     });
@@ -130,7 +130,7 @@ test("country selection keeps the poster globe and opens films only on request",
     "animation-name",
     "none",
   );
-  await page.screenshot({
+  if (!process.env.CI) await page.screenshot({
     path: testInfo.outputPath("poster-atlas.png"),
     fullPage: true,
   });

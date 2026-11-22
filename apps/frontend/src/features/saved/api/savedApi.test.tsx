@@ -1,4 +1,4 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useSavedReleases } from "../hooks/useSavedReleases";
 import { useSavedStore } from "../store/savedStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -73,6 +73,29 @@ afterEach(async () => {
 });
 
 describe("saved writes after a long search session", () => {
+  it("restarts an in-flight first collection request after a successful save", async () => {
+    await login();
+    fetchMock.mockResolvedValue(response());
+    let finishOld!: (value: string[]) => void;
+    let oldSignal: AbortSignal | undefined;
+    let calls = 0;
+    const { result } = renderHook(() => useQuery({
+      queryKey: ["home-collection", user.id, "country"],
+      queryFn: ({ signal }) => {
+        calls++;
+        if (calls > 1) return Promise.resolve(["replacement"]);
+        oldSignal = signal;
+        return new Promise<string[]>((resolve) => { finishOld = resolve; });
+      },
+    }), { wrapper: ({ children }) => <QueryClientProvider client={webQueryClient}>{children}</QueryClientProvider> });
+    await waitFor(() => expect(calls).toBe(1));
+    await act(async () => { await createSavedRemote(user.id, film); });
+    await waitFor(() => expect(result.current.data).toEqual(["replacement"]));
+    expect(oldSignal?.aborted).toBe(true);
+    expect(calls).toBe(2);
+    await act(async () => { finishOld(["stale"]); });
+    expect(result.current.data).toEqual(["replacement"]);
+  });
   it("refreshes once for concurrent expired saves and reads, preserving each payload", async () => {
     await login();
     vi.mocked(webApi.post).mockResolvedValue({

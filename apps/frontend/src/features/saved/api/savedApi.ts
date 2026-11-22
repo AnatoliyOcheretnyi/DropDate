@@ -109,7 +109,13 @@ function refreshSavedQueries(userId: string) {
     ["home-collection", userId],
     ["daily-pick-state", userId],
   ]) {
-    void webQueryClient.invalidateQueries({ queryKey });
+    // Even a first-load query (without cached data) may have started before the
+    // write. invalidateQueries alone can reuse that stale in-flight response.
+    void webQueryClient.cancelQueries({ queryKey }).then(() => {
+      if (!hasPendingSavedWrites(userId)) {
+        return webQueryClient.invalidateQueries({ queryKey });
+      }
+    });
   }
 }
 
