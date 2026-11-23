@@ -67,7 +67,11 @@ export function polygonBounds(ring: Position[]) {
   };
 }
 export function unwrapLongitude(lng: number, west: number) {
-  return west + wrap(lng - west);
+  const offset = wrap(lng - west);
+  // Bounds normalization can move the western edge a few floating-point bits
+  // east. Do not turn that tiny negative delta into a full trip around Earth:
+  // it would make the texture clipping path cut across land and spill into sea.
+  return west + (360 - offset < 1e-9 ? 0 : offset);
 }
 export function posterGrid(count: number, aspect: number) {
   let best = { columns: 1, rows: count },

@@ -831,7 +831,7 @@ export function WorldScreen() {
             ) : null}
             {query.isLoading && (
               <div className="world-grid" aria-label="Завантаження фільмів">
-                {Array.from({ length: 6 }, (_, i) => (
+                {Array.from({ length: 18 }, (_, i) => (
                   <div key={i} className="world-card-skeleton" />
                 ))}
               </div>
@@ -919,98 +919,112 @@ export function WorldScreen() {
                         <CoverImage
                           src={item.posterUrl}
                           alt={item.title}
-                          sizes="(max-width:550px) 45vw, (max-width:800px) 30vw, (max-width:1200px) 23vw, 19vw"
+                          sizes="(max-width:550px) 45vw, (max-width:800px) 22vw, (max-width:1200px) 16vw, 11vw"
                         />
                       )}
                       <span className="world-card__rating">
                         ★ {item.rating?.toFixed(1) ?? "—"}{" "}
-                        <small>{item.voteCount ?? 0} голосів</small>
                       </span>
                     </Link>
                     <div className="world-card__body">
                       <Link href={`/title/${item.mediaType}/${item.tmdbId}`}>
-                        <h3>{item.title}</h3>
+                        <h3 title={item.title}>{item.title}</h3>
                       </Link>
                       <p className="world-card__meta">
                         {item.year}
                         {item.runtime ? ` · ${item.runtime} хв` : ""}
                         {item.genres?.[0] ? ` · ${item.genres[0]}` : ""}
                       </p>
-                      <p className="world-card__reason">{item.reason}</p>
                       <div className="world-card__actions">
                         <button
                           aria-pressed={active.includes("watchlist")}
+                          aria-label={
+                            active.includes("watchlist")
+                              ? "Прибрати зі списку"
+                              : "Зберегти у список"
+                          }
                           onClick={() => void mark(item, "watchlist")}
                         >
                           {active.includes("watchlist")
-                            ? "Збережено ✓"
-                            : "+ Зберегти"}
+                            ? "У списку ✓"
+                            : "+ Список"}
                         </button>
-                        <button onClick={() => void mark(item, "watched")}>
-                          Вже бачив
+                        <button
+                          aria-label="Вже бачив"
+                          aria-pressed={active.includes("watched")}
+                          onClick={() => void mark(item, "watched")}
+                        >
+                          {active.includes("watched") ? "Бачив ✓" : "Бачив"}
                         </button>
                       </div>
-                      <details className="world-refine">
-                        <summary>Цей, але…</summary>
-                        <div>
+                      <details className="world-card__details">
+                        <summary>Детальніше</summary>
+                        <p className="world-card__reason">{item.reason}</p>
+                        <p className="world-card__meta">
+                          {item.voteCount ?? 0} голосів
+                        </p>
+                        <details className="world-refine">
+                          <summary>Цей, але…</summary>
+                          <div>
+                            <button
+                              onClick={() =>
+                                update({
+                                  runtime: String(
+                                    Math.max(60, (item.runtime || 120) - 15),
+                                  ),
+                                })
+                              }
+                            >
+                              Коротший
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!user) {
+                                  setAuthOpen(true);
+                                  return;
+                                }
+                                update({
+                                  seed: String(item.tmdbId),
+                                  intent:
+                                    "Схоже за темами, але легше та менш похмуре",
+                                  mode: "personal",
+                                });
+                              }}
+                            >
+                              Менш похмурий
+                            </button>
+                            <button onClick={() => void pickCountry(item)}>
+                              З іншої країни
+                            </button>
+                          </div>
+                        </details>
+                        <div className="world-card__feedback">
                           <button
-                            onClick={() =>
-                              update({
-                                runtime: String(
-                                  Math.max(60, (item.runtime || 120) - 15),
-                                ),
-                              })
-                            }
+                            disabled={busy === itemKey(item)}
+                            onClick={() => void feedback(item, "liked")}
                           >
-                            Коротший
+                            Цікаво
+                          </button>
+                          <button
+                            disabled={busy === itemKey(item)}
+                            onClick={() => void feedback(item, "disliked")}
+                          >
+                            Не моє
                           </button>
                           <button
                             onClick={() => {
-                              if (!user) {
-                                setAuthOpen(true);
-                                return;
-                              }
-                              update({
-                                seed: String(item.tmdbId),
-                                intent:
-                                  "Схоже за темами, але легше та менш похмуре",
-                                mode: "personal",
+                              setHidden((v) => [...v, itemKey(item)]);
+                              track("recommendation_feedback", {
+                                surface: "world",
+                                action: "not_today",
+                                tmdbId: item.tmdbId,
                               });
                             }}
                           >
-                            Менш похмурий
-                          </button>
-                          <button onClick={() => void pickCountry(item)}>
-                            З іншої країни
+                            Не сьогодні
                           </button>
                         </div>
                       </details>
-                      <div className="world-card__feedback">
-                        <button
-                          disabled={busy === itemKey(item)}
-                          onClick={() => void feedback(item, "liked")}
-                        >
-                          Цікаво
-                        </button>
-                        <button
-                          disabled={busy === itemKey(item)}
-                          onClick={() => void feedback(item, "disliked")}
-                        >
-                          Не моє
-                        </button>
-                        <button
-                          onClick={() => {
-                            setHidden((v) => [...v, itemKey(item)]);
-                            track("recommendation_feedback", {
-                              surface: "world",
-                              action: "not_today",
-                              tmdbId: item.tmdbId,
-                            });
-                          }}
-                        >
-                          Не сьогодні
-                        </button>
-                      </div>
                     </div>
                   </article>
                 );

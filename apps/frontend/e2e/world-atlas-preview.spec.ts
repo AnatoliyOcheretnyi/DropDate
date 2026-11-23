@@ -86,6 +86,13 @@ test("country selection keeps the poster globe and opens films only on request",
     fullPage: true,
   });
   if (testInfo.project.name === "chromium") {
+    // Painting the canvas texture can finish before the WebGL scene and
+    // initial camera are ready to receive pointer interaction.
+    await expect(page.locator(".world-globe")).toHaveAttribute(
+      "data-ready",
+      "true",
+      { timeout: 20_000 },
+    );
     const canvas = await atlas.locator("canvas").boundingBox();
     await page.mouse.move(
       canvas!.x + canvas!.width / 2,

@@ -240,15 +240,16 @@
 }
 .world-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-items: start;
+  gap: 12px;
 }
 .world-card {
   position: relative;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   background: #0e1a26;
   transition:
     border-color 0.2s,
@@ -293,36 +294,46 @@
   margin-top: 3px;
 }
 .world-card__body {
-  padding: 12px;
+  padding: 8px;
 }
 .world-card h3 {
-  font-size: 0.9rem;
+  font-size: 0.76rem;
   line-height: 1.35;
-  margin: 0 0 8px;
+  margin: 0 0 4px;
+  min-height: 2.7em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .world-card__meta {
   font-size: 0.65rem;
   color: var(--text-muted);
   line-height: 1.5;
   min-height: 20px;
+  margin: 4px 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .world-card__reason {
   font-size: 0.72rem;
   line-height: 1.55;
   color: #c4d9da;
-  min-height: 54px;
+  margin: 8px 0;
 }
 .world-card__actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
   gap: 5px;
-  flex-wrap: wrap;
 }
 .world-card__actions button {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: #192e3a;
   color: var(--text);
-  padding: 8px;
+  padding: 6px 2px;
+  min-height: 32px;
   font-size: 0.65rem;
 }
 .world-card__actions button:first-child {
@@ -338,6 +349,15 @@
   border-top: 1px solid var(--border);
   margin-top: 12px;
   padding-top: 10px;
+}
+.world-card__details > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  padding: 8px 0 2px;
+}
+.world-card__details[open] > summary {
+  color: var(--accent);
 }
 .world-card__feedback button {
   background: none;
@@ -370,8 +390,8 @@
   text-align: left;
 }
 .world-card-skeleton {
-  aspect-ratio: 2/4;
-  border-radius: 16px;
+  aspect-ratio: 2/4.5;
+  border-radius: 10px;
   background: linear-gradient(110deg, #10202e 30%, #1e3444 50%, #10202e 70%);
   background-size: 200% 100%;
   animation: world-shimmer 1.6s linear infinite;
@@ -560,7 +580,7 @@
 }
 @media (max-width: 1200px) {
   .world-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
   }
   .world-atlas__panel {
     padding: 28px;
@@ -593,7 +613,7 @@
     display: none;
   }
   .world-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
   }
   .world-modes button {
     font-size: 0.75rem;
@@ -628,6 +648,10 @@
   }
   .world-card__feedback button {
     min-height: 36px;
+  }
+  .world-card__actions button,
+  .world-card__details > summary {
+    min-height: 44px;
   }
   .world-card__reason {
     min-height: unset;

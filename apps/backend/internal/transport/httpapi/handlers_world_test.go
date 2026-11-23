@@ -1,12 +1,68 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/recommendations"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/release"
 	"github.com/AnatoliyOcheretnyi/dropdate/internal/saved"
+	"io"
+	"log"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 )
+
+type worldCatalogueProvider struct {
+	stubDiscoverSuggester
+	calls atomic.Int32
+}
+
+func (p *worldCatalogueProvider) Discover(_ context.Context, params release.DiscoverParams) ([]release.DiscoverItem, error) {
+	p.calls.Add(1)
+	items := make([]release.DiscoverItem, 20)
+	for i := range items {
+		id := (params.Page-1)*20 + i + 1
+		items[i] = release.DiscoverItem{TMDBID: id, MediaType: "movie", Title: fmt.Sprint(id), PosterURL: "poster.jpg", Rating: 8, VoteCount: 100}
+	}
+	return items, nil
+}
+
+func (*worldCatalogueProvider) Details(_ context.Context, id int, _ string) (release.Details, error) {
+	return release.Details{Runtime: 90, Genres: []string{"Драма"}}, nil
+}
+
+func TestWorldCatalogueKeepsAllSixtyFilmsAndPaginates(t *testing.T) {
+	for _, mode := range []string{"top", "popular", "gems"} {
+		t.Run(mode, func(t *testing.T) {
+			provider := &worldCatalogueProvider{}
+			logger := log.New(io.Discard, "", 0)
+			server := NewServer(release.NewService(nil, provider, logger), nil, nil, nil, nil, nil, nil, nil, logger, ServerOptions{})
+			seen := map[int]bool{}
+			for page := 1; page <= 2; page++ {
+				recorder := httptest.NewRecorder()
+				server.worldHandler(recorder, httptest.NewRequest("GET", fmt.Sprintf("/world?country=IN&mode=%s&page=%d", mode, page), nil))
+				var result worldResult
+				if recorder.Code != 200 || json.Unmarshal(recorder.Body.Bytes(), &result) != nil {
+					t.Fatalf("invalid response: %d %s", recorder.Code, recorder.Body.String())
+				}
+				if len(result.Items) != 60 || result.AIUsed || result.Partial {
+					t.Fatalf("expected full catalogue page without AI: %d items, %+v", len(result.Items), result)
+				}
+				for _, item := range result.Items {
+					if seen[item.TMDBID] {
+						t.Fatalf("duplicate movie across catalogue pages: %d", item.TMDBID)
+					}
+					seen[item.TMDBID] = true
+				}
+			}
+			if provider.calls.Load() != 6 {
+				t.Fatalf("expected only three discovery requests per page, got %d", provider.calls.Load())
+			}
+		})
+	}
+}
 
 func TestWorldFiltersRejectInvalidInputs(t *testing.T) {
 	for _, query := range []string{"country=ZZ", "mode=unknown", "runtime=-2", "runtime=abc", "decade=2011", "page=0", "page=11", "providers=8", "providers=8,x&region=UA", "region=ZZ"} {

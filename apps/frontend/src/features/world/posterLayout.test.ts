@@ -4,6 +4,7 @@ import world from "../../../public/data/world-countries.json";
 import {
   countryPosterCount,
   polygonBounds,
+  polygonRings,
   posterGrid,
   coverCrop,
   unwrapLongitude,
@@ -37,6 +38,24 @@ describe("geographic poster mosaic", () => {
     ]);
     expect(bounds.width).toBe(2);
     expect(unwrapLongitude(-179, bounds.west)).toBe(181);
+  });
+  it("keeps rounded western boundary coordinates inside every country's texture bounds", () => {
+    for (const feature of world.features) {
+      for (const rings of polygonRings(feature.geometry as Geometry)) {
+        const bounds = polygonBounds(rings[0]);
+        for (const ring of rings) {
+          for (const [lng] of ring) {
+            const x = unwrapLongitude(lng, bounds.west);
+            expect(x, feature.properties.code).toBeGreaterThanOrEqual(
+              bounds.west - 1e-9,
+            );
+            expect(x, feature.properties.code).toBeLessThanOrEqual(
+              bounds.west + bounds.width + 1e-9,
+            );
+          }
+        }
+      }
+    }
   });
   it("uses several columns for wide countries and rows for long narrow ones", () => {
     expect(posterGrid(24, 4).columns).toBeGreaterThanOrEqual(8);

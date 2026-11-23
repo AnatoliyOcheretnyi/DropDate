@@ -394,8 +394,14 @@ func (s *Server) worldHandler(w http.ResponseWriter, r *http.Request) {
 
 		sort.SliceStable(result.Items, func(i, j int) bool { return scores[result.Items[i].TMDBID] > scores[result.Items[j].TMDBID] })
 	}
-	if len(result.Items) > 30 {
-		result.Items = result.Items[:30]
+	// The country catalogue can show the full three-page discovery pool.
+	// Keep the personalized shortlist bounded before enrichment and AI reranking.
+	limit := 60
+	if f.mode == "personal" {
+		limit = 30
+	}
+	if len(result.Items) > limit {
+		result.Items = result.Items[:limit]
 	}
 	enrichCtx, cancel := context.WithTimeout(r.Context(), 2500*time.Millisecond)
 	s.enrichWorld(enrichCtx, result.Items)
@@ -461,7 +467,7 @@ func (s *Server) worldHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		result.Items, result.AIUsed = s.rerankWorld(r.Context(), userID, profile, result.Items)
 	}
-	if len(result.Items) > 18 {
+	if f.mode == "personal" && len(result.Items) > 18 {
 		result.Items = result.Items[:18]
 	}
 	result.Exhausted = len(result.Items) == 0
